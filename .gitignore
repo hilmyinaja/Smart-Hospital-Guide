@@ -1,0 +1,60 @@
+# ==========================================
+# GABUNGAN .GITIGNORE (FRONTEND & BACKEND)
+# Proyek: Smart Hospital Guide
+# ==========================================
+
+# ------------------------------------------
+# 1. WILAYAH BACKEND (PYTHON / FASTAPI)
+# ------------------------------------------
+# Mengabaikan virtual environment (ukurannya sangat besar dan spesifik per laptop)
+backend/env/
+backend/venv/
+backend/.venv/
+
+# Mengabaikan file cache Python (ter-generate otomatis, tidak perlu di-push)
+backend/__pycache__/
+*.py[cod]
+*$py.class
+
+# Mengabaikan database lokal SQLite (jika nantinya kalian pakai untuk testing)
+*.sqlite3
+
+# ------------------------------------------
+# 2. WILAYAH FRONTEND (REACT / VITE)
+# ------------------------------------------
+# Mengabaikan folder library Node.js (ukurannya bisa bergiga-giga)
+frontend/node_modules/
+
+# Mengabaikan hasil build production (selalu bisa di-generate ulang oleh Faw'waz)
+frontend/dist/
+frontend/build/
+
+# Mengabaikan file log error npm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ------------------------------------------
+# 3. KEAMANAN & RAHASIA (SANGAT PENTING!)
+# ------------------------------------------
+# Mengabaikan file .env yang berisi password, kredensial Firebase Hilmy, atau Secret Key
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+
+# Mengabaikan file kunci rahasia Firebase Admin SDK (wajib dijaga ketat)
+backend/*firebase-adminsdk*.json
+
+# ------------------------------------------
+# 4. SISTEM OPERASI & EDITOR
+# ------------------------------------------
+# File sampah dari sistem operasi (Mac & Windows)
+.DS_Store
+Thumbs.db
+
+# Konfigurasi workspace dari Code Editor (VS Code, IntelliJ, dll)
+.vscode/
+.idea/
