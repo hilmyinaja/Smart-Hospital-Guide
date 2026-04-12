@@ -1,11 +1,12 @@
-import React from 'react'
+import Login from "./LoginPage/LoginPage";
+import Main from "./MainPage/Mapping";
 
 function App() {
   return (
-    <div>
-      testing
-    </div>
-  )
+    <>
+      <Main />
+    </>
+  );
 }
 
-export default App
+export default App;
