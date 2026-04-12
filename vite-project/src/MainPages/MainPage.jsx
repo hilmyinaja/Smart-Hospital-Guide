@@ -1,7 +1,7 @@
 import { useState } from "react";
-import "./Map.css";
+import "./Main.css";
 
-
+// ── Icon components (inline SVG, no extra deps needed) ──
 const SearchIcon = () => (
   <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="11" cy="11" r="8" />

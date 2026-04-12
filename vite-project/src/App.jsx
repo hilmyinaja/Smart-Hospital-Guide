@@ -1,10 +1,9 @@
-import Login from "./LoginPage/LoginPage";
-import Main from "./MainPage/Mapping";
+import Login from "./MainPages/MainPage";
 
 function App() {
   return (
     <>
-      <Main />
+      <Login />
     </>
   );
 }

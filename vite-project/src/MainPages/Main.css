@@ -28,7 +28,7 @@ body {
   min-height: 100vh;
 }
 
-/*HEADER*/
+/* ── HEADER ──────────────────────────────────────────── */
 .header {
   background: var(--blue-primary);
   height: 64px;
@@ -210,8 +210,6 @@ body {
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   letter-spacing: 0.01em;
   box-shadow: 0 3px 10px rgba(26,115,200,0.22);
-  -webkit-user-select: none;
-  user-select: none;
 }
 
 /* ── MAP PANEL ───────────────────────────────────────── */
@@ -234,8 +232,6 @@ body {
   font-size: 0.85rem;
   font-family: 'DM Sans', sans-serif;
   opacity: 0.45;
-  -webkit-user-select: none;
-  user-select: none; 
 }
 
 /* ── RESPONSIVE ──────────────────────────────────────── */
