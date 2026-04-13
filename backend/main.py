@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from nlp_engine import cari_target_ruangan
 from a_star import cari_rute_grid 
 
-app = FastAPI(title="Smart Hospital Guide API (Grid Edition)")
+app = FastAPI(title="Smart Hospital Guide API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -22,7 +22,7 @@ class RequestRute(BaseModel):
 
 @app.get("/")
 def home():
-    return {"message": "Server Smart Hospital Backend (Grid Mode) Aktif!"}
+    return {"message": "Server Smart Hospital Backend Aktif!"}
 
 @app.post("/api/route")
 def dapatkan_rute(request: RequestRute):
