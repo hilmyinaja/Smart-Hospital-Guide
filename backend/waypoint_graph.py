@@ -6,11 +6,11 @@ import math
 # Contoh matriks sederhana (misal 10 kolom x 7 baris)
 GRID_MAP = [
     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1], # Baris 1: Lorong atas
-    [1, 0, 1, 1, 1, 1, 1, 1, 0, 1], # Ada blok bangunan di tengah
-    [1, 0, 1, 1, 1, 1, 1, 1, 0, 1],
-    [1, 0, 1, 1, 1, 1, 1, 1, 0, 1],
-    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1], # Baris 5: Lorong bawah
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1], # Baris 1: Lorong utama (atas)
+    [1, 0, 1, 1, 1, 1, 1, 1, 0, 1], # Blok bangunan di tengah
+    [1, 0, 1, 1, 1, 1, 1, 1, 0, 1], 
+    [1, 0, 1, 1, 1, 1, 1, 1, 0, 1], 
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1], # Baris 5: Lorong utama (bawah)
     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 ]
 
@@ -20,16 +20,25 @@ GRID_WIDTH = len(GRID_MAP[0])
 
 # Mapping ID Ruangan ke letak Grid (X = Kolom, Y = Baris)
 RUANGAN_GRID = {
-    "kiosk_lobi": {"x": 5, "y": 1},
-    "customer_service": {"x": 1, "y": 0},
-    "radiologi": {"x": 0, "y": 2},
-    "operasi": {"x": 0, "y": 4},
-    "ugd": {"x": 1, "y": 6},
-    "lift": {"x": 5, "y": 6},
-    "icu": {"x": 8, "y": 6},
-    "kasir": {"x": 5, "y": 0},
-    "apotek": {"x": 8, "y": 0},
-    "poli_gigi": {"x": 9, "y": 5}
+    # Fasilitas Umum & Lobi
+    "kiosk_lobi": {"x": 5, "y": 1},   
+    "informasi": {"x": 6, "y": 0},    
+    "kasir": {"x": 4, "y": 0},        
+    "toilet": {"x": 9, "y": 1},       
+    "lift": {"x": 1, "y": 0},         
+    "tangga": {"x": 8, "y": 6},       
+    "mushola": {"x": 0, "y": 5},      
+    "kantin": {"x": 9, "y": 5},       
+
+    # Fasilitas Medis 
+    "igd": {"x": 1, "y": 6},          
+    "radiologi": {"x": 0, "y": 2},    
+    "laboratorium": {"x": 0, "y": 4}, 
+    "farmasi": {"x": 8, "y": 0},      
+    "rawat_jalan": {"x": 9, "y": 2},  
+    "rehab_medik": {"x": 9, "y": 4},  
+    "rawat_inap": {"x": 5, "y": 6},   
+    "mcu": {"x": 3, "y": 6}           
 }
 
 # Fungsi Jarak Manhattan (Jauh lebih ringan dari Euclidean untuk sistem Grid)

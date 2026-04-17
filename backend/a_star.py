@@ -68,7 +68,7 @@ def cari_rute_grid(start_id, target_id):
 # --- TESTING LOKAL ---
 if __name__ == "__main__":
     print("\n=== MENGUJI A* GRID MODE ===")
-    hasil = cari_rute_grid("kiosk_lobi", "ugd")
+    hasil = cari_rute_grid("kiosk_lobi", "igd")
     if hasil["status"] == "success":
         print(f"Rute ditemukan! Melewati {len(hasil['jalur_grid'])} petak:")
         for petak in hasil['jalur_grid']:
