@@ -1,7 +1,8 @@
 import { useState } from "react";
-import "./Login.css";
+import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import "./Admin.css";
 
-// ── Icon components (inline SVG, no extra deps needed) ──
+// ── Icon components ──
 const SearchIcon = () => (
   <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="11" cy="11" r="8" />
@@ -12,6 +13,13 @@ const SearchIcon = () => (
 const ChevronIcon = () => (
   <svg className="dropdown-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="6 9 12 15 18 9" />
+  </svg>
+);
+
+const EditIcon = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
   </svg>
 );
 
@@ -27,14 +35,12 @@ const LoginIcon = () => (
 const LOCATIONS = ["", "Building A", "Building B", "Building C", "Lobby"];
 const FLOORS    = ["", "Lantai 1", "Lantai 2", "Lantai 3", "Lantai 4"];
 
-// ── Main component ───────────────────────────────────────
 export default function App() {
   const [search,      setSearch]      = useState("");
   const [outputText,  setOutputText]  = useState("");
   const [location,    setLocation]    = useState("");
   const [floor,       setFloor]       = useState("Lantai 1");
 
-  // When user submits a search, fill the output textarea
   const handleSearchKey = (e) => {
     if (e.key === "Enter" && search.trim()) {
       setOutputText(`Destination: ${search.trim()}\nLocation: ${location || "—"}\nFloor: ${floor || "—"}`);
@@ -43,22 +49,22 @@ export default function App() {
 
   return (
     <div>
-      {/* ── Header ── */}
       <header className="header">
         <span className="header-logo">Wayfinder</span>
-        <button className="header-login-btn">
-          <LoginIcon />
-          Logout
-        </button>
+        <div className="header-actions">
+          <button className="header-edit-btn">
+            <EditIcon />
+            Edit
+          </button>
+          <button className="header-login-btn">
+            <LoginIcon />
+            Logout
+          </button>
+        </div>
       </header>
 
-      {/* ── Body ── */}
       <div className="main-layout">
-
-        {/* Left panel */}
         <aside className="left-panel">
-
-          {/* Search destination */}
           <div className="search-wrapper">
             <input
               className="search-input"
@@ -71,7 +77,6 @@ export default function App() {
             <SearchIcon />
           </div>
 
-          {/* Destination output */}
           <textarea
             className="destination-output"
             placeholder="Destination output text"
@@ -79,7 +84,6 @@ export default function App() {
             onChange={(e) => setOutputText(e.target.value)}
           />
 
-          {/* Location dropdown */}
           <div className="dropdown-wrapper">
             <select
               className="dropdown-select"
@@ -94,7 +98,6 @@ export default function App() {
             <ChevronIcon />
           </div>
 
-          {/* Floor dropdown + selected chip */}
           <div className="floor-group">
             <div className="dropdown-wrapper">
               <select
@@ -109,18 +112,27 @@ export default function App() {
               </select>
               <ChevronIcon />
             </div>
-            {floor && (
-              <div className="floor-selected-chip">{floor}</div>
-            )}
+            {floor && <div className="floor-selected-chip">{floor}</div>}
           </div>
-
         </aside>
-
-        {/* Map panel */}
+        
         <main className="map-panel">
-          <span className="map-placeholder-text">Map renders here</span>
+          <TransformWrapper
+            initialScale={1}
+            minScale={0.5}
+            maxScale={5}
+            centerOnInit={true}
+          >
+            <TransformComponent
+              wrapperStyle={{ width: "100%", height: "100%", cursor: "grab" }}
+              contentStyle={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}
+            >
+              <div className="map-content">
+                <span className="map-placeholder-text">Peta Aktif (Pinch & Pan)</span>
+              </div>
+            </TransformComponent>
+          </TransformWrapper>
         </main>
-
       </div>
     </div>
   );

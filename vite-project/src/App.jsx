@@ -1,5 +1,6 @@
 import Main from "./MainPages/MainPage";
-import Login from "./LoginPages/LoginPage";
+import Admin from "./AdminPages/AdminPage";
+import Edit from "./EditPages/EditPage";
 import { Route, Routes } from "react-router";
 
 function App() {
@@ -7,7 +8,8 @@ function App() {
     <>
       <Routes>
         <Route path="/mainpage" element={<Main />} />
-        <Route path="/login" element={<Login />} />
+        <Route path="/admin" element={<Admin />} />
+        <Route path="/edit" element={<Edit />} />
       </Routes>
     </>
   );

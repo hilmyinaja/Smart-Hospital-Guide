@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import "./Main.css";
 
 // ── Icon components (inline SVG, no extra deps needed) ──
@@ -116,11 +117,23 @@ export default function App() {
 
         </aside>
 
-        {/* Map panel */}
         <main className="map-panel">
-          <span className="map-placeholder-text">Map renders here</span>
+          <TransformWrapper
+            initialScale={1}
+            minScale={0.5}
+            maxScale={5}
+            centerOnInit={true}
+          >
+            <TransformComponent
+              wrapperStyle={{ width: "100%", height: "100%", cursor: "grab" }}
+              contentStyle={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}
+            >
+              <div className="map-content">
+                <span className="map-placeholder-text">Peta Aktif (Pinch & Pan)</span>
+              </div>
+            </TransformComponent>
+          </TransformWrapper>
         </main>
-
       </div>
     </div>
   );
