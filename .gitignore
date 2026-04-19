@@ -58,3 +58,10 @@ Thumbs.db
 # Konfigurasi workspace dari Code Editor (VS Code, IntelliJ, dll)
 .vscode/
 .idea/
+
+# Firebase Hilmy
+serviceAccountKey.json
+.env
+node_modules/
+__pycache__/
+venv/

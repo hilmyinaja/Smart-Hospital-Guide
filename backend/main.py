@@ -1,10 +1,19 @@
-# main.py
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-
+from database import listen_to_rooms
+import threading
 from nlp_engine import cari_target_ruangan
 from a_star import cari_rute_grid 
+
+# Fungsi callback untuk Theo
+def update_theos_graph(data):
+    print("Data Room Berubah! Memperbarui matriks grid Theo...")
+    # Di sini panggil fungsi pathfinding Theo untuk kalkulasi ulang
+    # Theo.update_grid(data)
+
+# Jalankan listener di thread terpisah agar tidak memblokir API
+threading.Thread(target=listen_to_rooms, args=(update_theos_graph,), daemon=True).start()
 
 app = FastAPI(title="Smart Hospital Guide API")
 
@@ -23,6 +32,10 @@ class RequestRute(BaseModel):
 @app.get("/")
 def home():
     return {"message": "Server Smart Hospital Backend Aktif!"}
+
+@app.get("/")
+def root():
+    return {"status": "Bridge Active & Listening to Firestore"}
 
 @app.post("/api/route")
 def dapatkan_rute(request: RequestRute):
