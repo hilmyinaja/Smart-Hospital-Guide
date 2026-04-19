@@ -1,9 +1,14 @@
-import Login from "./MainPages/MainPage";
+import Main from "./MainPages/MainPage";
+import Login from "./LoginPages/LoginPage";
+import { Route, Routes } from "react-router";
 
 function App() {
   return (
     <>
-      <Login />
+      <Routes>
+        <Route path="/mainpage" element={<Main />} />
+        <Route path="/login" element={<Login />} />
+      </Routes>
     </>
   );
 }
