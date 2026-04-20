@@ -1,23 +1,27 @@
+# database.py
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-cred = credentials.Certificate("serviceAccountKey.json")
-firebase_admin.initialize_app(cred)
+# Pastikan file serviceAccountKey.json sudah ada di folder backend/
+if not firebase_admin._apps:
+    cred = credentials.Certificate("serviceAccountKey.json")
+    firebase_admin.initialize_app(cred)
+
 db = firestore.client()
 
-def listen_to_rooms(callback):
-    """
-    Fungsi ini akan memantau koleksi 'Rooms'.
-    drag-and-drop di UI: fungsi akan langsung terpicu.
-    """
+def listen_to_firestore(callback):
+    """Memantau koleksi Rooms dan Kiosks secara real-time"""
     rooms_ref = db.collection('Rooms')
+    kiosks_ref = db.collection('Kiosks')
 
     def on_snapshot(col_snapshot, changes, read_time):
-        updated_rooms = []
+        updated_data = []
         for doc in col_snapshot:
-            updated_rooms.append(doc.to_dict())
-        # Kirim data terbaru ke fungsi update milik Theo
-        callback(updated_rooms)
+            data = doc.to_dict()
+            data['id_dokumen'] = doc.id 
+            updated_data.append(data)
+        callback(updated_data)
 
-    # Mulai mendengarkan perubahan secara real-time
+    # Mulai mendengarkan perubahan
     rooms_ref.on_snapshot(on_snapshot)
+    kiosks_ref.on_snapshot(on_snapshot)

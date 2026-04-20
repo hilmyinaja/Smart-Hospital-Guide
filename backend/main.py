@@ -1,20 +1,31 @@
+# main.py
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-from database import listen_to_rooms
+from database import listen_to_firestore 
 import threading
+import waypoint_graph
 from nlp_engine import cari_target_ruangan
-from a_star import cari_rute_grid 
+from a_star import cari_rute_grid
 
-# Fungsi callback untuk Theo
-def update_theos_graph(data):
-    print("Data Room Berubah! Memperbarui matriks grid Theo...")
-    # Di sini panggil fungsi pathfinding Theo untuk kalkulasi ulang
-    # Theo.update_grid(data)
+# Fungsi jembatan ke firestore
+def sinkronisasi_peta(data):
+    """Mengupdate koordinat di memori lokal saat database berubah"""
+    print("\n[FIREBASE] Pembaruan data terdeteksi...")
+    for item in data:
+        # AMBIL NAMA RUANGAN SEBAGAI KUNCI, BUKAN ID DOKUMEN
+        room_name = item.get("name") 
+        
+        if room_name and "grid_x" in item and "grid_y" in item:
+            # Simpan ke waypoint_graph berdasarkan namanya
+            waypoint_graph.RUANGAN_GRID[room_name] = {
+                "x": item["grid_x"],
+                "y": item["grid_y"]
+            }
+            print(f" -> '{room_name}' kini berada di posisi (X: {item['grid_x']}, Y: {item['grid_y']})")
 
-# Jalankan listener di thread terpisah agar tidak memblokir API
-threading.Thread(target=listen_to_rooms, args=(update_theos_graph,), daemon=True).start()
-
+# Jalankan listener di thread terpisah agar tidak mengganggu FastAPI
+threading.Thread(target=listen_to_firestore, args=(sinkronisasi_peta,), daemon=True).start()
 app = FastAPI(title="Smart Hospital Guide API")
 
 app.add_middleware(
@@ -29,13 +40,13 @@ class RequestRute(BaseModel):
     start_node_id: str
     teks_pencarian: str
 
+# Hapus salah satu @app.get("/"), sisakan satu saja yang rapi
 @app.get("/")
 def home():
-    return {"message": "Server Smart Hospital Backend Aktif!"}
-
-@app.get("/")
-def root():
-    return {"status": "Bridge Active & Listening to Firestore"}
+    return {
+        "message": "Server Smart Hospital Backend Aktif!",
+        "status": "Bridge Active & Listening to Firestore"
+    }
 
 @app.post("/api/route")
 def dapatkan_rute(request: RequestRute):

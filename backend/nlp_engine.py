@@ -13,67 +13,72 @@ stemmer = factory.create_stemmer()
 
 # 1. DATABASE RUANGAN 
 DATABASE_RUANGAN = {
-    "rawat_inap": [
-        "instalasi rawat inap", "rawat inap", "kamar inap", "opname", 
-        "kamar pasien", "besuk", "jenguk", "kamar perawatan"
-    ],
-    "laboratorium": [
-        "laboratorium", "lab", "cek darah", "ambil darah", "cek urine", 
-        "tes lab", "pengambilan sampel"
-    ],
-    "radiologi": [
-        "radiologi", "rontgen", "x-ray", "mri", "ct scan", "usg", 
-        "foto tulang", "sinar x"
-    ],
-    "rehab_medik": [
-        "rehabilitasi medik", "rehab medik", "fisioterapi", "terapi fisik", 
-        "pijat saraf", "terapi wicara", "pemulihan motorik"
-    ],
-    "rawat_jalan": [
-        "unit rawat jalan", "rawat jalan", "poli", "poliklinik", 
-        "konsultasi dokter", "periksa rutin", "kontrol dokter"
-    ],
-    "farmasi": [
-        "farmasi", "apotek", "ambil obat", "tebus obat", "beli obat", 
-        "resep dokter", "pengambilan resep"
-    ],
-    "mcu": [
-        "medical check up", "mcu", "cek kesehatan rutin", 
-        "pemeriksaan kesehatan lengkap", "cek body", "screening kesehatan"
-    ],
-    "igd": [
+    # --- Fasilitas Medis ---
+    "Unit Gawat Darurat (IGD)": [
         "igd", "instalasi gawat darurat", "ugd", "unit gawat darurat", 
         "kecelakaan", "darurat", "kritis", "pendarahan", "segera"
     ],
-    "toilet": [
-        "toilet", "wc", "kamar mandi", "kamar kecil", "buang air", 
-        "buang air kecil", "buang air besar", "restroom", "pipis", "berak"
+    "Instalasi Rawat Inap": [
+        "instalasi rawat inap", "rawat inap", "kamar inap", "opname", 
+        "kamar pasien", "besuk", "jenguk", "kamar perawatan"
     ],
-    "lift": [
-        "lift", "elevator", "naik lantai", "turun lantai", "akses lantai"
+    "Laboratorium Klinikal": [
+        "laboratorium", "lab", "cek darah", "ambil darah", "cek urine", 
+        "tes lab", "pengambilan sampel"
     ],
-    "tangga": [
-        "tangga", "tangga darurat", "naik tangga", "turun tangga"
+    "Instalasi Radiologi": [
+        "radiologi", "rontgen", "x-ray", "mri", "ct scan", "usg", 
+        "foto tulang", "sinar x"
     ],
-    "kasir": [
+    "Rehabilitasi Medik": [
+        "rehabilitasi medik", "rehab medik", "fisioterapi", "terapi fisik", 
+        "pijat saraf", "terapi wicara", "pemulihan motorik"
+    ],
+    "Unit Rawat Jalan (Poli)": [
+        "unit rawat jalan", "rawat jalan", "poli", "poliklinik", 
+        "konsultasi dokter", "periksa rutin", "kontrol dokter"
+    ],
+    "Instalasi Farmasi": [
+        "farmasi", "apotek", "ambil obat", "tebus obat", "beli obat", 
+        "resep dokter", "pengambilan resep"
+    ],
+    "Medical Check Up (MCU)": [
+        "medical check up", "mcu", "cek kesehatan rutin", 
+        "pemeriksaan kesehatan lengkap", "cek body", "screening kesehatan"
+    ],
+
+    # --- Fasilitas Umum ---
+    "Kasir & Administrasi": [
         "kasir", "bayar", "administrasi", "pembayaran", "tagihan", 
         "bpjs", "keuangan", "pelunasan"
     ],
-    "informasi": [
+    "Pusat Informasi": [
         "pusat informasi", "informasi", "resepsionis", "tanya", 
         "customer service", "cs", "satpam", "pendaftaran"
     ],
-    "mushola": [
+    "Mushola": [
         "mushola", "masjid", "tempat sholat", "sholat", "ibadah", 
         "prayer room", "ruang doa"
     ],
-    "kantin": [
+    "Kantin Utama": [
         "kantin", "kafetaria", "tempat makan", "makan", "minum", 
         "food court", "lapar", "haus", "beli makanan"
     ],
-    "kiosk_lobi": [
+    "Toilet Awam": [
+        "toilet", "wc", "kamar mandi", "kamar kecil", "buang air", 
+        "buang air kecil", "buang air besar", "restroom", "pipis"
+    ],
+    "Lift Penumpang": [
+        "lift", "elevator", "naik lantai", "turun lantai", "akses lantai"
+    ],
+    "Tangga Darurat": [
+        "tangga", "tangga darurat", "naik tangga", "turun tangga"
+    ],
+
+    # --- Titik Akses ---
+    "Kiosk Lobi Utama": [
         "kiosk lobi", "lobi utama", "pintu masuk", "pintu depan", 
-        "lobby", "ruang tunggu utama"
+        "lobby", "ruang tunggu utama", "tablet lobi"
     ]
 }
 
@@ -134,19 +139,3 @@ def cari_target_ruangan(input_pengunjung):
             "status": "error",
             "pesan": "Maaf, tujuan tidak dikenali. Silakan coba kata kunci lain."
         }
-
-# --- AREA TESTING LOKAL ---
-if __name__ == "__main__":
-    print("\n=== SYSTEM READY ===")
-    test_cases = [
-        "mas tolong arahin buat pembayaran tagihan rawat inap dong",
-        "dimana tempat pengobatan?", 
-        "mau periksa ke dokter gigi",
-        "sus saya mau rontgen dada",
-        "kantin dimana ya?" 
-    ]
-
-    for teks in test_cases:
-        print(f"Input Asli   : '{teks}'")
-        hasil = cari_target_ruangan(teks)
-        print(f"Output Sistem: {hasil}\n")

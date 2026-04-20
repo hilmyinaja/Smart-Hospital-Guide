@@ -1,0 +1,7 @@
+# Backend
+pip install fastapi uvicorn pydantic scikit-learn Sastrawi firebase-admin pytest
+
+# Frontend
+npm install react-konva
+npm install react-zoom-pan-pinch
+npm install -D vite
