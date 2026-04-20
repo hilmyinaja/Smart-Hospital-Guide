@@ -1,12 +1,16 @@
 import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { Stage, Layer, Rect, Text } from "react-konva";
 import "./Edit.css";
 
 export default function EditPage() {
+  const navigate = useNavigate();
   // State untuk elemen yang sudah diletakkan di peta
   const [placedElements, setPlacedElements] = useState([]);
   const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null); // "save" atau "cancel"
   const mapRef = useRef(null);
   const transformRef = useRef(null);
 
@@ -49,15 +53,48 @@ export default function EditPage() {
     }
   };
 
+  // Fungsi untuk membuka modal konfirmasi
+  const openConfirmDialog = (action) => {
+    setConfirmAction(action);
+    setIsConfirmOpen(true);
+  };
+
+  // Fungsi untuk handle "Iya" - kembali ke admin
+  const handleConfirmYes = () => {
+    setIsConfirmOpen(false);
+    setConfirmAction(null);
+    navigate("/admin");
+  };
+
+  // Fungsi untuk handle "Tidak" - tetap di halaman edit
+  const handleConfirmNo = () => {
+    setIsConfirmOpen(false);
+    setConfirmAction(null);
+  };
+
   return (
     <div className="edit-page-container">
       <header className="edit-page-header">
         <span className="edit-page-logo">Wayfinder</span>
         <div className="edit-page-actions">
-          <button className="edit-page-btn cancel">Cancel</button>
-          <button className="edit-page-btn save">Save</button>
+          <button className="edit-page-btn cancel" onClick={() => openConfirmDialog("cancel")}>Cancel</button>
+          <button className="edit-page-btn save" onClick={() => openConfirmDialog("save")}>Save</button>
         </div>
       </header>
+
+      {/* MODAL KONFIRMASI */}
+      {isConfirmOpen && (
+        <div className="modal-overlay" onClick={() => handleConfirmNo()}>
+          <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Verifikasi</h3>
+            <p>Apakah Anda yakin ingin {confirmAction === "save" ? "menyimpan" : "membatalkan"} edit?</p>
+            <div className="confirm-modal-actions">
+              <button className="confirm-btn no" onClick={handleConfirmNo}>Tidak</button>
+              <button className="confirm-btn yes" onClick={handleConfirmYes}>Iya</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="edit-page-layout">
         {/* AREA MAP */}
@@ -75,7 +112,7 @@ export default function EditPage() {
             centerOnInit={true}
           >
             <TransformComponent wrapperStyle={{ width: "100%", height: "100%", cursor: "grab" }}>
-              <div className="map-content" style={{ width: mapSize.width, height: mapSize.height, background: "#ffffff" }}>
+              <div className="map-content" style={{ width: mapSize.width, height: mapSize.height, background: "#726f6f" }}>
                 <Stage width={mapSize.width} height={mapSize.height}>
                   <Layer>
                     {placedElements.map((el) => (
@@ -85,7 +122,7 @@ export default function EditPage() {
                         y={el.y}
                         width={50}
                         height={50}
-                        fill="red"
+                        fill="green"
                         draggable
                       />
                     ))}

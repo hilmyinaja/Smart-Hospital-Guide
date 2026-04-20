@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import "./Admin.css";
 
@@ -36,10 +37,12 @@ const LOCATIONS = ["", "Building A", "Building B", "Building C", "Lobby"];
 const FLOORS    = ["", "Lantai 1", "Lantai 2", "Lantai 3", "Lantai 4"];
 
 export default function App() {
+  const navigate = useNavigate();
   const [search,      setSearch]      = useState("");
   const [outputText,  setOutputText]  = useState("");
   const [location,    setLocation]    = useState("");
   const [floor,       setFloor]       = useState("Lantai 1");
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   const handleSearchKey = (e) => {
     if (e.key === "Enter" && search.trim()) {
@@ -47,21 +50,51 @@ export default function App() {
     }
   };
 
+  // Fungsi untuk membuka modal konfirmasi logout
+  const openLogoutConfirm = () => {
+    setIsConfirmOpen(true);
+  };
+
+  // Fungsi untuk handle "Iya" - logout ke main page
+  const handleLogoutYes = () => {
+    setIsConfirmOpen(false);
+    navigate("/");
+  };
+
+  // Fungsi untuk handle "Tidak" - tetap di admin page
+  const handleLogoutNo = () => {
+    setIsConfirmOpen(false);
+  };
+
   return (
     <div>
       <header className="header">
         <span className="header-logo">Wayfinder</span>
         <div className="header-actions">
-          <button className="header-edit-btn">
+          <button className="header-edit-btn" onClick={() => navigate("/edit")}>
             <EditIcon />
             Edit
           </button>
-          <button className="header-login-btn">
+          <button className="header-login-btn" onClick={openLogoutConfirm}>
             <LoginIcon />
             Logout
           </button>
         </div>
       </header>
+
+      {/* MODAL KONFIRMASI LOGOUT */}
+      {isConfirmOpen && (
+        <div className="modal-overlay" onClick={handleLogoutNo}>
+          <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Konfirmasi Logout</h3>
+            <p>Apakah Anda yakin ingin logout?</p>
+            <div className="confirm-modal-actions">
+              <button className="confirm-btn no" onClick={handleLogoutNo}>Tidak</button>
+              <button className="confirm-btn yes" onClick={handleLogoutYes}>Iya</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="main-layout">
         <aside className="left-panel">

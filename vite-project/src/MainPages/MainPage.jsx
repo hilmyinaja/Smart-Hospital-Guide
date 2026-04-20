@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import "./Main.css";
 
@@ -30,10 +31,14 @@ const FLOORS    = ["", "Lantai 1", "Lantai 2", "Lantai 3", "Lantai 4"];
 
 // ── Main component ───────────────────────────────────────
 export default function App() {
+  const navigate = useNavigate();
   const [search,      setSearch]      = useState("");
   const [outputText,  setOutputText]  = useState("");
   const [location,    setLocation]    = useState("");
   const [floor,       setFloor]       = useState("Lantai 1");
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [username,    setUsername]    = useState("");
+  const [password,    setPassword]    = useState("");
 
   // When user submits a search, fill the output textarea
   const handleSearchKey = (e) => {
@@ -42,16 +47,55 @@ export default function App() {
     }
   };
 
+  // Handle login and navigate to admin page
+  const handleLogin = () => {
+    if (username.trim() && password.trim()) {
+      setIsLoginOpen(false);
+      setUsername("");
+      setPassword("");
+      navigate("/admin");
+    }
+  };
+
   return (
     <div>
       {/* ── Header ── */}
       <header className="header">
         <span className="header-logo">Wayfinder</span>
-        <button className="header-login-btn">
+        <button className="header-login-btn Onclick" onClick={() => setIsLoginOpen(true)}>
           <LoginIcon />
           Login
         </button>
       </header>
+
+      {/* MODAL LOGIN */}
+      {isLoginOpen && (
+        <div className="modal-overlay" onClick={() => setIsLoginOpen(false)}>
+          <div className="login-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="close-btn" onClick={() => setIsLoginOpen(false)}>×</button>
+            <h2>ADMIN LOGIN PAGE</h2>
+            <div className="input-group">
+              <label>Username</label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+              />
+            </div>
+            <div className="input-group">
+              <label>Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+              />
+            </div>
+            <button className="submit-login-btn" onClick={handleLogin}>LOGIN</button>
+          </div>
+        </div>
+      )}
 
       {/* ── Body ── */}
       <div className="main-layout">
