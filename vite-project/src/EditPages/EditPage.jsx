@@ -4,7 +4,7 @@ import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { Stage, Layer, Rect, Text, Line, Transformer } from "react-konva";
 import "./Edit.css";
 
-// Hilmy Add: Komponen khusus untuk menggabungkan Kotak, Nama Ruangan, dan Transformer
+// Komponen khusus Ruangan
 const RoomShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggingElement, GRID_SIZE }) => {
   const shapeRef = useRef();
   const trRef = useRef();
@@ -16,7 +16,6 @@ const RoomShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggingEl
     }
   }, [isSelected]);
 
-  // Hilmy Add: Fungsi untuk mengubah nama ruangan saat di-double click
   const handleRename = () => {
     const newName = window.prompt("Masukkan Nama Ruangan:", shapeProps.name || "");
     if (newName !== null) {
@@ -27,33 +26,27 @@ const RoomShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggingEl
     }
   };
 
-  // Hilmy Add: Kalkulasi ukuran font dinamis berdasarkan ukuran kotak
-  // Kita ambil nilai terkecil antara lebar/5 atau tinggi/2.5 agar teks tetap proporsional
   const dynamicFontSize = Math.max(10, Math.min(shapeProps.width / 5, shapeProps.height / 2.5));
-  
+
   return (
     <React.Fragment>
-      {/* 1. KOTAK RUANGAN */}
       <Rect
         onClick={onSelect}
         onTap={onSelect}
-        onDblClick={handleRename} // Hilmy Add: Double click untuk ganti nama
+        onDblClick={handleRename}
         ref={shapeRef}
         {...shapeProps}
         draggable
         stroke="#1b5e20"
         strokeWidth={2}
-        
         onDragStart={() => setIsDraggingElement(true)}
         onTransformStart={() => setIsDraggingElement(true)}
-        
         dragBoundFunc={(pos) => {
           return {
             x: Math.round(pos.x / GRID_SIZE) * GRID_SIZE,
             y: Math.round(pos.y / GRID_SIZE) * GRID_SIZE,
           };
         }}
-
         onDragEnd={(e) => {
           setIsDraggingElement(false);
           onChange({
@@ -62,16 +55,13 @@ const RoomShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggingEl
             y: Math.round(e.target.y() / GRID_SIZE) * GRID_SIZE,
           });
         }}
-
         onTransformEnd={(e) => {
           setIsDraggingElement(false);
           const node = shapeRef.current;
           const scaleX = node.scaleX();
           const scaleY = node.scaleY();
-
           node.scaleX(1);
           node.scaleY(1);
-
           onChange({
             ...shapeProps,
             x: Math.round(node.x() / GRID_SIZE) * GRID_SIZE,
@@ -81,36 +71,28 @@ const RoomShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggingEl
           });
         }}
       />
-
-      {/* 2. NAMA RUANGAN (CENTERED) */}
-      {/* Hilmy Add: Fitur teks agar selalu di tengah dan tidak keluar kotak */}
       <Text
         text={shapeProps.name || "Tanpa Nama"}
         x={shapeProps.x}
         y={shapeProps.y}
         width={shapeProps.width}
         height={shapeProps.height}
-        // Hilmy Add: fontSize menggunakan nilai dinamis hasil perhitungan di atas
         fontSize={dynamicFontSize}
         fontStyle="bold"
         fill="#1b5e20"
-        align="center"          // Hilmy Add: Centered horizontal
-        verticalAlign="middle"  // Hilmy Add: Centered vertical
+        align="center"
+        verticalAlign="middle"
         padding={5}
-        listening={false}       // Hilmy Add: Agar klik tembus ke Rect di bawahnya
-        wrap="char"             // Hilmy Add: Teks akan ganti baris jika kepanjangan
-        ellipsis={true}         // Hilmy Add: Teks akan jadi "..." jika benar-benar tidak muat
+        listening={false}
+        wrap="char"
+        ellipsis={true}
       />
-
-      {/* 3. TRANSFORMER */}
       {isSelected && (
         <Transformer
           ref={trRef}
-          rotateEnabled={false} 
+          rotateEnabled={false}
           boundBoxFunc={(oldBox, newBox) => {
-            if (newBox.width < GRID_SIZE || newBox.height < GRID_SIZE) {
-              return oldBox;
-            }
+            if (newBox.width < GRID_SIZE || newBox.height < GRID_SIZE) return oldBox;
             return newBox;
           }}
         />
@@ -119,21 +101,19 @@ const RoomShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggingEl
   );
 };
 
-
 export default function EditPage() {
   const navigate = useNavigate();
   const [placedElements, setPlacedElements] = useState([]);
   const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
-  const [isDraggingElement, setIsDraggingElement] = useState(false); 
-  const [selectedId, setSelectedId] = useState(null); 
+  const [isDraggingElement, setIsDraggingElement] = useState(false);
+  const [selectedId, setSelectedId] = useState(null);
 
   const mapRef = useRef(null);
   const transformRef = useRef(null);
-
   const GRID_SIZE = 25;
-  
+
   useEffect(() => {
     const updateMapSize = () => {
       if (mapRef.current) {
@@ -143,11 +123,31 @@ export default function EditPage() {
         });
       }
     };
-
     updateMapSize();
     window.addEventListener("resize", updateMapSize);
     return () => window.removeEventListener("resize", updateMapSize);
   }, []);
+
+  // Hilmy Add: Fungsi Utama untuk Menghapus Elemen Terpilih
+  const deleteSelectedElement = () => {
+    if (selectedId) {
+      setPlacedElements(placedElements.filter((el) => el.id !== selectedId));
+      setSelectedId(null);
+    }
+  };
+
+  // Hilmy Add: Listener Keyboard (Tombol Delete atau Backspace)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Jika menekan tombol Delete atau Backspace dan ada elemen yang sedang dipilih
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
+        deleteSelectedElement();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedId, placedElements]);
 
   const checkDeselect = (e) => {
     const clickedOnEmpty = e.target === e.target.getStage() || e.target.attrs.id === "bg-grid";
@@ -158,7 +158,6 @@ export default function EditPage() {
 
   const handleDrop = (e) => {
     e.preventDefault();
-    
     const mapRect = mapRef.current.getBoundingClientRect();
     const clientX = e.clientX - mapRect.left;
     const clientY = e.clientY - mapRect.top;
@@ -166,21 +165,18 @@ export default function EditPage() {
     if (transformRef.current) {
       const { state } = transformRef.current;
       const { scale, positionX, positionY } = state;
-      
       const x = (clientX - positionX) / scale;
       const y = (clientY - positionY) / scale;
-
       const snappedX = Math.round(x / GRID_SIZE) * GRID_SIZE;
       const snappedY = Math.round(y / GRID_SIZE) * GRID_SIZE;
 
       const newId = Date.now().toString();
-      // Hilmy Add: Default name saat ruangan baru dibuat
-      setPlacedElements([...placedElements, { 
-        id: newId, 
-        x: snappedX, 
-        y: snappedY, 
-        width: GRID_SIZE * 2, // Default lebar 2 grid
-        height: GRID_SIZE * 2, // Default tinggi 2 grid
+      setPlacedElements([...placedElements, {
+        id: newId,
+        x: snappedX,
+        y: snappedY,
+        width: GRID_SIZE * 4,
+        height: GRID_SIZE * 2,
         name: "Ruangan Baru"
       }]);
       setSelectedId(newId);
@@ -205,28 +201,12 @@ export default function EditPage() {
 
   const drawGrid = () => {
     const lines = [];
-    const width = mapSize.width;
-    const height = mapSize.height;
-
+    const { width, height } = mapSize;
     for (let i = 0; i < width / GRID_SIZE; i++) {
-      lines.push(
-        <Line 
-          key={`v${i}`} 
-          points={[Math.round(i * GRID_SIZE), 0, Math.round(i * GRID_SIZE), height]} 
-          stroke="#9e9e9e" 
-          strokeWidth={1} 
-        />
-      );
+      lines.push(<Line key={`v${i}`} points={[Math.round(i * GRID_SIZE), 0, Math.round(i * GRID_SIZE), height]} stroke="#9e9e9e" strokeWidth={1} />);
     }
     for (let j = 0; j < height / GRID_SIZE; j++) {
-      lines.push(
-        <Line 
-          key={`h${j}`} 
-          points={[0, Math.round(j * GRID_SIZE), width, Math.round(j * GRID_SIZE)]} 
-          stroke="#9e9e9e" 
-          strokeWidth={1} 
-        />
-      );
+      lines.push(<Line key={`h${j}`} points={[0, Math.round(j * GRID_SIZE), width, Math.round(j * GRID_SIZE)]} stroke="#9e9e9e" strokeWidth={1} />);
     }
     return lines;
   };
@@ -242,7 +222,7 @@ export default function EditPage() {
       </header>
 
       {isConfirmOpen && (
-        <div className="modal-overlay" onClick={() => handleConfirmNo()}>
+        <div className="modal-overlay" onClick={handleConfirmNo}>
           <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
             <h3>Verifikasi</h3>
             <p>Apakah Anda yakin ingin {confirmAction === "save" ? "menyimpan" : "membatalkan"} edit?</p>
@@ -255,43 +235,22 @@ export default function EditPage() {
       )}
 
       <div className="edit-page-layout">
-        <main 
-          className="edit-page-map" 
-          ref={mapRef}
-          onDrop={handleDrop} 
-          onDragOver={(e) => e.preventDefault()}
-        >
-          <TransformWrapper 
-            ref={transformRef}
-            initialScale={1} 
-            minScale={0.5} 
-            maxScale={5} 
-            centerOnInit={true}
-            panning={{disabled: isDraggingElement}} 
-          >
+        <main className="edit-page-map" ref={mapRef} onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}>
+          <TransformWrapper ref={transformRef} initialScale={1} minScale={0.5} maxScale={5} centerOnInit={true} panning={{ disabled: isDraggingElement }}>
             <TransformComponent wrapperStyle={{ width: "100%", height: "100%", cursor: isDraggingElement ? "grabbing" : "grab" }}>
               <div className="map-content" style={{ width: mapSize.width, height: mapSize.height, background: "#e0e0e0" }}>
-                <Stage 
-                  width={mapSize.width} 
-                  height={mapSize.height}
-                  onMouseDown={checkDeselect} 
-                  onTouchStart={checkDeselect}
-                >
+                <Stage width={mapSize.width} height={mapSize.height} onMouseDown={checkDeselect} onTouchStart={checkDeselect}>
                   <Layer>
                     <Rect id="bg-grid" x={0} y={0} width={mapSize.width} height={mapSize.height} fill="transparent" />
-
                     {drawGrid()}
-
                     {placedElements.map((rect, i) => (
                       <RoomShape
                         key={rect.id}
-                        shapeProps={{...rect, fill: "#4caf50"}}
+                        shapeProps={{ ...rect, fill: "#4caf50" }}
                         isSelected={rect.id === selectedId}
                         setIsDraggingElement={setIsDraggingElement}
                         GRID_SIZE={GRID_SIZE}
-                        onSelect={() => {
-                          setSelectedId(rect.id);
-                        }}
+                        onSelect={() => setSelectedId(rect.id)}
                         onChange={(newAttrs) => {
                           const rects = placedElements.slice();
                           rects[i] = newAttrs;
@@ -307,13 +266,40 @@ export default function EditPage() {
         </main>
 
         <aside className="edit-page-right-panel">
+          <h3>Edit Panel</h3>
+          
+          {/* Hilmy Add: UI untuk Hapus Elemen */}
+          <div className="edit-tools">
+            <p style={{fontSize: "12px", color: "#666"}}>
+              {selectedId ? "Elemen Terpilih" : "Tidak ada elemen terpilih"}
+            </p>
+            <button 
+              className="edit-page-btn delete" 
+              onClick={deleteSelectedElement}
+              disabled={!selectedId}
+              style={{
+                width: "100%",
+                padding: "10px",
+                backgroundColor: selectedId ? "#f44336" : "#ccc",
+                color: "white",
+                border: "none",
+                borderRadius: "5px",
+                cursor: selectedId ? "pointer" : "not-allowed",
+                marginTop: "10px"
+              }}
+            >
+              Hapus Ruangan
+            </button>
+            <p style={{fontSize: "10px", marginTop: "5px", color: "#888"}}>
+              Atau tekan tombol 'Delete' di keyboard.
+            </p>
+          </div>
+
+          <hr style={{margin: "20px 0", border: "0.5px solid #ddd"}} />
+
           <h3>Drag & Drop Elements</h3>
           <div className="dnd-zone">
-            <div 
-              draggable 
-              onDragStart={(e) => e.dataTransfer.setData("text/plain", "new-element")}
-              style={{ width: GRID_SIZE, height: GRID_SIZE, background: "#1a73c8", cursor: "grab", marginBottom: 20 }}
-            >
+            <div draggable onDragStart={(e) => e.dataTransfer.setData("text/plain", "new-element")} style={{ width: GRID_SIZE, height: GRID_SIZE, background: "#1a73c8", cursor: "grab", marginBottom: 20 }}>
               <p style={{ color: "white", padding: "5px", fontSize: "8px", textAlign: "center" }}>Drag</p>
             </div>
           </div>
