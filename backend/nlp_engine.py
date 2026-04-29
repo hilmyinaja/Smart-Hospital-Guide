@@ -16,7 +16,7 @@ daftar_nama_ruangan = []
 matrix_ruangan = None
 vectorizer = TfidfVectorizer(ngram_range=(1, 2))
 
-# 1. FUNGSI PEMBERSIH TEKS
+# Fungsi pembersihan teks untuk NLP
 def bersihkan_teks(teks_kotor):
     teks = teks_kotor.lower()
     teks = re.sub(r'[^\w\s]', '', teks)
@@ -25,7 +25,7 @@ def bersihkan_teks(teks_kotor):
     kata_akhir = [kata for kata in teks_dasar.split() if kata not in stopwords]
     return " ".join(kata_akhir)
 
-# 2. FUNGSI PELATIHAN OTOMATIS 
+# Fungsi untuk melatih ulang model NLP dengan data terbaru dari Firebase
 def latih_ulang_nlp(data_kamus_baru):
     global DATABASE_RUANGAN, daftar_nama_ruangan, matrix_ruangan, vectorizer
     
@@ -45,7 +45,7 @@ def latih_ulang_nlp(data_kamus_baru):
     matrix_ruangan = vectorizer.fit_transform(korpus_dokumen)
     print(f"[NLP] Model berhasil dilatih ulang! ({len(daftar_nama_ruangan)} Ruangan Aktif)")
 
-# 3. FUNGSI PENCOCOKAN UTAMA    
+# Fungsi pencocokan NLP utama  
 def cari_target_ruangan(input_pengunjung):
     # Cegah error jika database Firebase belum masuk
     if matrix_ruangan is None or not daftar_nama_ruangan:

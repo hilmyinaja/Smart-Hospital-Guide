@@ -29,20 +29,20 @@ def sinkronisasi_peta(data):
         room_name = item.get("name") 
         
         if room_name and "grid_x" in item and "grid_y" in item:
-            # 1. Update Memori A*
+            # Update Memori A*
             waypoint_graph.RUANGAN_GRID[room_name] = {
                 "x": item["grid_x"],
                 "y": item["grid_y"]
             }
             
-            # 2. Tarik keywords dari Firebase, jika kosong gunakan namanya sendiri
+            # Tarik keywords dari Firebase, jika kosong gunakan namanya sendiri
             kata_kunci = item.get("keywords", [])
             kata_kunci.append(room_name) # Pastikan nama aslinya selalu masuk hitungan
             
             data_nlp_baru[room_name] = kata_kunci
             print(f" -> '{room_name}' diupdate (X:{item['grid_x']}, Y:{item['grid_y']})")
 
-    # 3. Eksekusi Pelatihan Ulang NLP
+    # Eksekusi Pelatihan Ulang NLP
     latih_ulang_nlp(data_nlp_baru)
 
 # Jalankan listener di thread terpisah agar tidak mengganggu FastAPI
@@ -62,7 +62,7 @@ class RequestRute(BaseModel):
     start_node_id: str
     teks_pencarian: str
 
-# --- ENDPOINT NAVIGASI ---
+# Endpoint navigasi
 
 @app.get("/")
 def home():
@@ -93,9 +93,8 @@ def dapatkan_rute(request: RequestRute):
         "jalur_koordinat": hasil_rute["jalur_grid"]
     }
 
-# --- ENDPOINT ADMIN (CRUD) ---
-
-# 1. TAMBAH/UPDATE RUANGAN (POST)
+# Endpoint CRUD untuk manajemen ruangan (Admin)
+# Tambah/update ruangan (POST)
 @app.post("/api/rooms/{room_id}")
 def simpan_ruangan(room_id: str, room: RoomModel):
     try:
@@ -105,7 +104,7 @@ def simpan_ruangan(room_id: str, room: RoomModel):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Gagal menyimpan data: {str(e)}")
 
-# 2. EDIT KOORDINAT/NAMA (PATCH)
+# Edit koordinat/nama (PATCH)
 @app.patch("/api/rooms/{room_id}")
 def update_ruangan(room_id: str, updates: dict):
     try:
@@ -115,7 +114,7 @@ def update_ruangan(room_id: str, updates: dict):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Gagal memperbarui data: {str(e)}")
 
-# 3. HAPUS RUANGAN (DELETE)
+# Hapus ruangan (DELETE)
 @app.delete("/api/rooms/{room_id}")
 def hapus_ruangan(room_id: str):
     try:

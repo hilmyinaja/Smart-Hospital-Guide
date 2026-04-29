@@ -3,12 +3,12 @@
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# 1. Hubungkan ke Firebase
+# Hubungkan ke Firebase
 cred = credentials.Certificate("serviceAccountKey.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-# 2. Masukkan data JSON di atas ke sini (saya potong agar singkat)
+# Masukkan data JSON di atas ke sini 
 data_rooms = [
   {
     "id": "R001",
@@ -132,7 +132,7 @@ data_rooms = [
   }
 ]
 
-# 3. Tembak ke Firestore otomatis!
+# Tembak ke Firestore otomatis!
 print("Memulai upload data ke Firebase...")
 for ruang in data_rooms:
     # Menggunakan set() dengan nama dokumen sesuai ID (cth: R001)

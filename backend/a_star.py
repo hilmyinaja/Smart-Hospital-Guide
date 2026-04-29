@@ -50,7 +50,7 @@ def cari_rute_grid(start_id, target_id):
             # Pastikan indeks tidak keluar dari ukuran matriks (out of bounds)
             if 0 <= nx < GRID_WIDTH and 0 <= ny < GRID_HEIGHT:
                 
-                # Syarat bisa dilewati: Grid bernilai 0 (lorong) ATAU grid tersebut adalah tujuan akhir kita
+                # Syarat bisa dilewati: Grid bernilai 0 (lorong) ATAU grid tersebut adalah tujuan akhir 
                 if GRID_MAP[ny][nx] == 0 or (nx, ny) == target_coord:
                     
                     # Biaya pindah antar petak grid selalu 1
