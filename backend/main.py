@@ -21,29 +21,41 @@ class RoomModel(BaseModel):
 # Fungsi jembatan ke firestore
 def sinkronisasi_peta(data):
     """Mengupdate koordinat dan melatih ulang NLP saat database berubah"""
-    print("\n[FIREBASE] Pembaruan data terdeteksi...")
+    print("\n[FIREBASE] Pembaruan denah terdeteksi dari React UI...")
     
     data_nlp_baru = {} # Menampung kamus sementara untuk NLP
 
+    # KUNCI PENTING: Kita bersihkan memori RUANGAN_GRID lama 
+    # Agar ruangan yang baru saja kamu hapus di UI Konva juga ikut terhapus dari otak A*
+    waypoint_graph.RUANGAN_GRID.clear()
+
     for item in data:
-        room_name = item.get("name") 
+        # Gunakan id_dokumen (contoh: "R016") sebagai penanda unik
+        room_id = item.get("id_dokumen") 
+        room_name = item.get("name", "Tanpa Nama")
         
-        if room_name and "grid_x" in item and "grid_y" in item:
-            # Update Memori A*
-            waypoint_graph.RUANGAN_GRID[room_name] = {
+        if room_id and "grid_x" in item and "grid_y" in item:
+            # 1. Update Memori A* (Database Sementara untuk Algoritma Theo)
+            waypoint_graph.RUANGAN_GRID[room_id] = {
                 "x": item["grid_x"],
-                "y": item["grid_y"]
+                "y": item["grid_y"],
+                "name": room_name # Tetap simpan nama untuk kebutuhan debugging
             }
             
-            # Tarik keywords dari Firebase, jika kosong gunakan namanya sendiri
+            # 2. Update Memori Kamus NLP
             kata_kunci = item.get("keywords", [])
-            kata_kunci.append(room_name) # Pastikan nama aslinya selalu masuk hitungan
+            # Pastikan nama asli ruangan selalu menjadi salah satu keyword untuk NLP
+            if room_name not in kata_kunci:
+                kata_kunci.append(room_name)
             
-            data_nlp_baru[room_name] = kata_kunci
-            print(f" -> '{room_name}' diupdate (X:{item['grid_x']}, Y:{item['grid_y']})")
+            # NLP juga harus dipetakan menggunakan room_id
+            data_nlp_baru[room_id] = kata_kunci
+            
+            print(f" -> Load: [{room_id}] '{room_name}' (X:{item['grid_x']}, Y:{item['grid_y']})")
 
-    # Eksekusi Pelatihan Ulang NLP
+    # 3. Eksekusi Pelatihan Ulang NLP secara Real-Time
     latih_ulang_nlp(data_nlp_baru)
+    print("[FIREBASE] Sinkronisasi selesai. Matriks A* dan Model NLP siap digunakan!")
 
 # Jalankan listener di thread terpisah agar tidak mengganggu FastAPI
 threading.Thread(target=listen_to_firestore, args=(sinkronisasi_peta,), daemon=True).start()
