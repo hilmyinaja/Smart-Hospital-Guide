@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import { collection, onSnapshot } from "firebase/firestore";
+import { db } from "../firebase";
 import SharedMap from "../components/SharedMap";
 import "./Main.css";
 
@@ -27,7 +29,6 @@ const LoginIcon = () => (
 );
 
 // ── Sample data ──────────────────────────────────────────
-const LOCATIONS = ["", "Building A", "Building B", "Building C", "Lobby"];
 const FLOORS    = ["", "Lantai 1", "Lantai 2", "Lantai 3", "Lantai 4"];
 
 // ── Main component ───────────────────────────────────────
@@ -35,16 +36,76 @@ export default function App() {
   const navigate = useNavigate();
   const [search,      setSearch]      = useState("");
   const [outputText,  setOutputText]  = useState("");
-  const [location,    setLocation]    = useState("");
+  const [location,    setLocation]    = useState(""); // Ini sekarang menyimpan ID Kiosk
   const [floor,       setFloor]       = useState("Lantai 1");
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [username,    setUsername]    = useState("");
   const [password,    setPassword]    = useState("");
+  
+  const [kiosks,      setKiosks]      = useState([]);
+  const [pathData,    setPathData]    = useState([]);
+
+  // Fetch Kiosks dari Firebase secara real-time
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, "Kiosks"), (snapshot) => {
+      const loadedKiosks = [];
+      snapshot.forEach((docSnap) => {
+        loadedKiosks.push({
+          id: docSnap.id,
+          ...docSnap.data()
+        });
+      });
+      setKiosks(loadedKiosks);
+    }, (error) => {
+      console.error("Gagal memuat kiosk:", error);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Fungsi pencarian dan navigasi
+  const executeSearch = async (overrideLocation) => {
+    const searchLocation = typeof overrideLocation === 'string' ? overrideLocation : location;
+    
+    if (!search.trim()) return;
+    
+    if (!searchLocation) {
+      setOutputText("Silakan pilih Kiosk awal terlebih dahulu.");
+      return;
+    }
+
+    setOutputText("Mencari rute...");
+    try {
+      const response = await fetch("http://127.0.0.1:8000/api/route", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          start_node_id: searchLocation,
+          teks_pencarian: search.trim()
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        setOutputText(`Gagal: ${data.detail || "Terjadi kesalahan"}`);
+        setPathData([]);
+      } else {
+        setOutputText(`Rute ditemukan!\nMenuju: ${data.data_target.id_ruangan}\nConfidence: ${Math.round(data.data_target.confidence_nlp * 100)}%`);
+        setPathData(data.jalur_koordinat);
+      }
+    } catch (error) {
+      setOutputText(`Error: Tidak dapat terhubung ke server (${error.message})`);
+      setPathData([]);
+    }
+  };
 
   // When user submits a search, fill the output textarea
   const handleSearchKey = (e) => {
-    if (e.key === "Enter" && search.trim()) {
-      setOutputText(`Destination: ${search.trim()}\nLocation: ${location || "—"}\nFloor: ${floor || "—"}`);
+    if (e.key === "Enter") {
+      executeSearch();
     }
   };
 
@@ -114,7 +175,9 @@ export default function App() {
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={handleSearchKey}
             />
-            <SearchIcon />
+            <div style={{ cursor: "pointer", display: "flex", alignItems: "center" }} onClick={() => executeSearch()}>
+              <SearchIcon />
+            </div>
           </div>
 
           {/* Destination output */}
@@ -130,11 +193,19 @@ export default function App() {
             <select
               className="dropdown-select"
               value={location}
-              onChange={(e) => setLocation(e.target.value)}
+              onChange={(e) => {
+                const newLocation = e.target.value;
+                setLocation(newLocation);
+                if (search.trim()) {
+                  executeSearch(newLocation);
+                }
+              }}
             >
-              <option value="" disabled>Location</option>
-              {LOCATIONS.filter(Boolean).map((loc) => (
-                <option key={loc} value={loc}>{loc}</option>
+              <option value="" disabled>Pilih Kiosk Awal</option>
+              {kiosks.map((kiosk) => (
+                <option key={kiosk.id} value={kiosk.id}>
+                  {kiosk.name || kiosk.id}
+                </option>
               ))}
             </select>
             <ChevronIcon />
@@ -176,7 +247,7 @@ export default function App() {
             >
               <div className="map-content" style={{ width: "100%", height: "100%" }}>
                 {/* PANGGIL KOMPONEN PETA DI SINI */}
-                <SharedMap />
+                <SharedMap path={pathData} />
               </div>
             </TransformComponent>
           </TransformWrapper>

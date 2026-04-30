@@ -1,5 +1,6 @@
 # nlp_engine.py
 import re
+import difflib
 import numpy as np
 from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -16,14 +17,47 @@ daftar_nama_ruangan = []
 matrix_ruangan = None
 vectorizer = TfidfVectorizer(ngram_range=(1, 2))
 
+# Pengetahuan dasar asisten agar lebih pintar
+KAMUS_SINONIM = {
+    "ugd": "igd", "emergency": "igd", "darurat": "igd", "kecelakaan": "igd",
+    "wc": "toilet", "kamar mandi": "toilet", "kencing": "toilet", "berak": "toilet", "buang air": "toilet",
+    "bayar": "kasir", "uang": "kasir", "pembayaran": "kasir", "tagihan": "kasir",
+    "obat": "farmasi", "apotek": "farmasi", "apotik": "farmasi", "resep": "farmasi",
+    "rontgen": "radiologi", "xray": "radiologi", "scan": "radiologi", "mri": "radiologi", "usg": "radiologi",
+    "kandungan": "poli", "gigi": "poli", "mata": "poli", "periksa": "poli", "dokter": "poli", "konsultasi": "poli", "kontrol": "poli",
+    "sholat": "mushola", "masjid": "mushola", "ibadah": "mushola", "sembahyang": "mushola",
+    "makan": "kantin", "minum": "kantin", "lapar": "kantin", "haus": "kantin", "jajan": "kantin",
+    "menginap": "rawat inap", "besuk": "rawat inap", "jenguk": "rawat inap", "opname": "rawat inap", "bangsal": "rawat inap",
+    "checkup": "mcu", "cek kesehatan": "mcu", "medical check up": "mcu"
+}
+
 # Fungsi pembersihan teks untuk NLP
 def bersihkan_teks(teks_kotor):
     teks = teks_kotor.lower()
+    
+    # Perbaikan sinonim (misal: "mau ambil obat" -> "mau ambil farmasi")
+    for slang, baku in KAMUS_SINONIM.items():
+        teks = re.sub(rf'\b{slang}\b', baku, teks)
+        
     teks = re.sub(r'[^\w\s]', '', teks)
     teks_dasar = stemmer.stem(teks)
-    stopwords = ["mau", "ke", "di", "mana", "tolong", "antar", "cari", "ruang", "tempat", "saya", "ingin", "tanya", "mas", "mbak", "kasih", "tau", "arah", "jalan", "buat"]
+    
+    # Kata tugas yang tidak relevan untuk pencarian rute
+    stopwords = ["mau", "ke", "di", "mana", "tolong", "antar", "cari", "ruang", "tempat", "saya", "ingin", "tanya", "mas", "mbak", "kasih", "tau", "arah", "jalan", "buat", "ambil"]
     kata_akhir = [kata for kata in teks_dasar.split() if kata not in stopwords]
-    return " ".join(kata_akhir)
+    
+    # Fitur Koreksi Typo Sederhana (Fuzzy matching)
+    # Jika ada typo ringan (e.g. "apotikk" -> "apotik"), kita bisa coba benarkan.
+    kata_koreksi = []
+    semua_kata_kunci = list(KAMUS_SINONIM.keys()) + list(set(KAMUS_SINONIM.values())) + ["informasi", "laboratorium", "rehabilitasi", "medik"]
+    for kata in kata_akhir:
+        koreksi = difflib.get_close_matches(kata, semua_kata_kunci, n=1, cutoff=0.8)
+        if koreksi:
+            kata_koreksi.append(koreksi[0])
+        else:
+            kata_koreksi.append(kata)
+            
+    return " ".join(kata_koreksi)
 
 # Fungsi untuk melatih ulang model NLP dengan data terbaru dari Firebase
 def latih_ulang_nlp(data_kamus_baru):
@@ -63,7 +97,9 @@ def cari_target_ruangan(input_pengunjung):
 
     print(f"\n[DEBUG NLP] Input  : '{input_pengunjung}' -> Skor: {persentase_skor}%")
 
-    if persentase_skor >= 10.0:
+    # Ambang batas diturunkan ke 5% karena typo correction & tf-idf kadang menghasilkan skor kecil
+    # Namun jika sudah tertinggi, kemungkinan besar benar
+    if persentase_skor >= 5.0:
         return {
             "status": "success",
             "target_id": daftar_nama_ruangan[indeks_terbaik],

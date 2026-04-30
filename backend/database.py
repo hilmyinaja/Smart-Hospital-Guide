@@ -13,14 +13,29 @@ def listen_to_firestore(callback):
     rooms_ref = db.collection('Rooms')
     kiosks_ref = db.collection('Kiosks')
 
-    def on_snapshot(col_snapshot, changes, read_time):
+    state = {
+        "rooms": [],
+        "kiosks": []
+    }
+
+    def on_rooms_snapshot(col_snapshot, changes, read_time):
         updated_data = []
         for doc in col_snapshot:
             data = doc.to_dict()
             data['id_dokumen'] = doc.id 
             updated_data.append(data)
-        callback(updated_data)
+        state["rooms"] = updated_data
+        callback(state["rooms"] + state["kiosks"])
+
+    def on_kiosks_snapshot(col_snapshot, changes, read_time):
+        updated_data = []
+        for doc in col_snapshot:
+            data = doc.to_dict()
+            data['id_dokumen'] = doc.id 
+            updated_data.append(data)
+        state["kiosks"] = updated_data
+        callback(state["rooms"] + state["kiosks"])
 
     # Mulai mendengarkan perubahan
-    rooms_ref.on_snapshot(on_snapshot)
-    kiosks_ref.on_snapshot(on_snapshot)
+    rooms_ref.on_snapshot(on_rooms_snapshot)
+    kiosks_ref.on_snapshot(on_kiosks_snapshot)

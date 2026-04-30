@@ -9,8 +9,8 @@ import { db } from "../firebase"; // Pastikan path ini sesuai dengan lokasi file
 
 import "./Edit.css";
 
-// Komponen khusus Ruangan
-const RoomShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggingElement, GRID_SIZE }) => {
+// Komponen untuk render baik Ruangan maupun Kiosk
+const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggingElement, GRID_SIZE }) => {
   const shapeRef = useRef();
   const trRef = useRef();
 
@@ -22,7 +22,8 @@ const RoomShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggingEl
   }, [isSelected]);
 
   const handleRename = () => {
-    const newName = window.prompt("Masukkan Nama Ruangan:", shapeProps.name || "");
+    const typeLabel = shapeProps.type === 'kiosk' ? 'Kiosk' : 'Ruangan';
+    const newName = window.prompt(`Masukkan Nama ${typeLabel}:`, shapeProps.name || "");
     if (newName !== null) {
       onChange({
         ...shapeProps,
@@ -32,6 +33,7 @@ const RoomShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggingEl
   };
 
   const dynamicFontSize = Math.max(10, Math.min(shapeProps.width / 5, shapeProps.height / 2.5));
+  const textColor = shapeProps.type === 'kiosk' ? '#FFFFFF' : '#1b5e20';
 
   return (
     <React.Fragment>
@@ -42,7 +44,7 @@ const RoomShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggingEl
         ref={shapeRef}
         {...shapeProps}
         draggable
-        stroke="#1b5e20"
+        stroke={shapeProps.stroke}
         strokeWidth={2}
         onDragStart={() => setIsDraggingElement(true)}
         onTransformStart={() => setIsDraggingElement(true)}
@@ -77,14 +79,14 @@ const RoomShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggingEl
         }}
       />
       <Text
-        text={shapeProps.name || "Tanpa Nama"}
+        text={shapeProps.name || (shapeProps.type === 'kiosk' ? 'Kiosk' : 'Tanpa Nama')}
         x={shapeProps.x}
         y={shapeProps.y}
         width={shapeProps.width}
         height={shapeProps.height}
         fontSize={dynamicFontSize}
         fontStyle="bold"
-        fill="#1b5e20"
+        fill={textColor}
         align="center"
         verticalAlign="middle"
         padding={5}
@@ -121,30 +123,54 @@ export default function EditPage() {
   const GRID_SIZE = 25;
 
   useEffect(() => {
-    const fetchRoomsData = async () => {
+    const fetchAllData = async () => {
       try {
-        const querySnapshot = await getDocs(collection(db, "Rooms"));
-        const loadedRooms = [];
-        
-        querySnapshot.forEach((docSnap) => {
+        const [roomsSnapshot, kioskSnapshot] = await Promise.all([
+          getDocs(collection(db, "Rooms")),
+          getDocs(collection(db, "Kiosks"))
+        ]);
+
+        const allElements = [];
+
+        // Load Rooms
+        roomsSnapshot.forEach((docSnap) => {
           const data = docSnap.data();
-          loadedRooms.push({
+          allElements.push({
             id: docSnap.id,
+            type: 'room',
             name: data.name || "Tanpa Nama",
             x: (data.grid_x || 0) * GRID_SIZE,
             y: (data.grid_y || 0) * GRID_SIZE,
             width: (data.grid_width || 1) * GRID_SIZE,
             height: (data.grid_height || 1) * GRID_SIZE,
+            fill: "#4caf50",
+            stroke: "#1b5e20"
+          });
+        });
+
+        // Load Kiosks
+        kioskSnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          allElements.push({
+            id: docSnap.id,
+            type: 'kiosk',
+            name: data.name || "Kiosk",
+            x: (data.grid_x || 0) * GRID_SIZE,
+            y: (data.grid_y || 0) * GRID_SIZE,
+            width: (data.grid_width || 2) * GRID_SIZE,
+            height: (data.grid_height || 2) * GRID_SIZE,
+            fill: "#2196F3",
+            stroke: "#0D47A1"
           });
         });
         
-        setPlacedElements(loadedRooms);
+        setPlacedElements(allElements);
       } catch (error) {
         console.error("Gagal mengambil data dari Firestore:", error);
       }
     };
 
-    fetchRoomsData();
+    fetchAllData();
   }, []);
 
   useEffect(() => {
@@ -187,14 +213,12 @@ export default function EditPage() {
     }
   };
 
-  // Hilmy Fix: Fungsi pembantu untuk membuat ID incremental (R001, R002, dst)
+  // Fungsi pembantu untuk membuat ID incremental (R001, R002, dst atau K001, K002, dst)
   const generateNextRoomId = () => {
     let maxNumber = 0;
     
-    // Cari angka tertinggi dari ID yang sudah ada di state
     placedElements.forEach((el) => {
       if (el.id.startsWith('R')) {
-        // Ambil angka dari R015 menjadi 15
         const numberPart = parseInt(el.id.substring(1), 10);
         if (!isNaN(numberPart) && numberPart > maxNumber) {
           maxNumber = numberPart;
@@ -202,13 +226,28 @@ export default function EditPage() {
       }
     });
 
-    // Tambah 1 dari yang tertinggi
     const nextNumber = maxNumber + 1;
-    
-    // Format agar selalu tiga digit (contoh: 1 -> 001, 16 -> 016, 105 -> 105)
     const paddedNumber = String(nextNumber).padStart(3, '0');
     
     return `R${paddedNumber}`;
+  };
+
+  const generateNextKioskId = () => {
+    let maxNumber = 0;
+    
+    placedElements.forEach((el) => {
+      if (el.id.startsWith('K')) {
+        const numberPart = parseInt(el.id.substring(1), 10);
+        if (!isNaN(numberPart) && numberPart > maxNumber) {
+          maxNumber = numberPart;
+        }
+      }
+    });
+
+    const nextNumber = maxNumber + 1;
+    const paddedNumber = String(nextNumber).padStart(3, '0');
+    
+    return `K${paddedNumber}`;
   };
 
   const handleDrop = (e) => {
@@ -216,6 +255,7 @@ export default function EditPage() {
     const mapRect = mapRef.current.getBoundingClientRect();
     const clientX = e.clientX - mapRect.left;
     const clientY = e.clientY - mapRect.top;
+    const elementType = e.dataTransfer.getData("text/plain");
 
     if (transformRef.current) {
       const { state } = transformRef.current;
@@ -225,18 +265,37 @@ export default function EditPage() {
       const snappedX = Math.round(x / GRID_SIZE) * GRID_SIZE;
       const snappedY = Math.round(y / GRID_SIZE) * GRID_SIZE;
 
-      // Hilmy Fix: Panggil fungsi generate ID
-      const newId = generateNextRoomId();
-      
-      setPlacedElements([...placedElements, {
-        id: newId,
-        x: snappedX,
-        y: snappedY,
-        width: GRID_SIZE * 4,
-        height: GRID_SIZE * 2,
-        name: "Ruangan Baru"
-      }]);
-      setSelectedId(newId);
+      if (elementType === "new-kiosk") {
+        const newId = generateNextKioskId();
+        
+        setPlacedElements([...placedElements, {
+          id: newId,
+          type: 'kiosk',
+          x: snappedX,
+          y: snappedY,
+          width: GRID_SIZE * 2,
+          height: GRID_SIZE * 2,
+          name: "Kiosk Baru",
+          fill: "#2196F3",
+          stroke: "#0D47A1"
+        }]);
+        setSelectedId(newId);
+      } else {
+        const newId = generateNextRoomId();
+        
+        setPlacedElements([...placedElements, {
+          id: newId,
+          type: 'room',
+          x: snappedX,
+          y: snappedY,
+          width: GRID_SIZE * 4,
+          height: GRID_SIZE * 2,
+          name: "Ruangan Baru",
+          fill: "#4caf50",
+          stroke: "#1b5e20"
+        }]);
+        setSelectedId(newId);
+      }
     }
   };
 
@@ -252,13 +311,18 @@ export default function EditPage() {
       try {
         const batch = writeBatch(db);
 
+        // Handle deleted elements
         deletedElements.forEach((id) => {
-          const docRef = doc(db, "Rooms", id);
+          // Cek apakah ID dimulai dengan K atau R untuk determine koleksi
+          const collectionName = id.startsWith('K') ? "Kiosks" : "Rooms";
+          const docRef = doc(db, collectionName, id);
           batch.delete(docRef);
         });
 
+        // Handle all placed elements
         placedElements.forEach((el) => {
-          const docRef = doc(db, "Rooms", el.id.toString());
+          const collectionName = el.type === 'kiosk' ? "Kiosks" : "Rooms";
+          const docRef = doc(db, collectionName, el.id.toString());
           
           batch.set(docRef, {
             id: el.id.toString(),
@@ -271,7 +335,7 @@ export default function EditPage() {
         });
 
         await batch.commit(); 
-        alert("Denah berhasil disimpan ke Database!");
+        alert("Denah dan Kiosk berhasil disimpan ke Database!");
         navigate("/admin");
         
       } catch (error) {
@@ -305,7 +369,7 @@ export default function EditPage() {
   return (
     <div className="edit-page-container">
       <header className="edit-page-header">
-        <span className="edit-page-logo">Wayfinder</span>
+        <span className="edit-page-logo">Wayfinder - Edit Denah & Kiosk</span>
         <div className="edit-page-actions">
           <button className="edit-page-btn cancel" onClick={() => openConfirmDialog("cancel")}>Cancel</button>
           <button className="edit-page-btn save" onClick={() => openConfirmDialog("save")}>Save</button>
@@ -335,9 +399,9 @@ export default function EditPage() {
                     <Rect id="bg-grid" x={0} y={0} width={mapSize.width} height={mapSize.height} fill="transparent" />
                     {drawGrid()}
                     {placedElements.map((rect, i) => (
-                      <RoomShape
+                      <ElementShape
                         key={rect.id}
-                        shapeProps={{ ...rect, fill: "#4caf50" }}
+                        shapeProps={rect}
                         isSelected={rect.id === selectedId}
                         setIsDraggingElement={setIsDraggingElement}
                         GRID_SIZE={GRID_SIZE}
@@ -361,7 +425,7 @@ export default function EditPage() {
           
           <div className="edit-tools">
             <p style={{fontSize: "12px", color: "#666"}}>
-              {selectedId ? "Elemen Terpilih" : "Tidak ada elemen terpilih"}
+              {selectedId ? `Terpilih: ${selectedId}` : "Tidak ada elemen terpilih"}
             </p>
             <button 
               className="edit-page-btn delete" 
@@ -378,7 +442,7 @@ export default function EditPage() {
                 marginTop: "10px"
               }}
             >
-              Hapus Ruangan
+              Hapus Elemen
             </button>
             <p style={{fontSize: "10px", marginTop: "5px", color: "#888"}}>
               Atau tekan tombol 'Delete' di keyboard.
@@ -389,8 +453,11 @@ export default function EditPage() {
 
           <h3>Drag & Drop Elements</h3>
           <div className="dnd-zone">
-            <div draggable onDragStart={(e) => e.dataTransfer.setData("text/plain", "new-element")} style={{ width: GRID_SIZE, height: GRID_SIZE, background: "#1a73c8", cursor: "grab", marginBottom: 20 }}>
-              <p style={{ color: "white", padding: "5px", fontSize: "8px", textAlign: "center" }}>Drag</p>
+            <div draggable onDragStart={(e) => e.dataTransfer.setData("text/plain", "new-element")} style={{ width: GRID_SIZE * 4, height: GRID_SIZE * 2, background: "#4caf50", cursor: "grab", marginBottom: 15, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <p style={{ color: "#1b5e20", padding: "5px", fontSize: "12px", textAlign: "center", fontWeight: "bold" }}>Drag Ruangan</p>
+            </div>
+            <div draggable onDragStart={(e) => e.dataTransfer.setData("text/plain", "new-kiosk")} style={{ width: GRID_SIZE * 2, height: GRID_SIZE * 2, background: "#2196F3", cursor: "grab", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <p style={{ color: "white", padding: "5px", fontSize: "12px", textAlign: "center", fontWeight: "bold" }}>Drag Kiosk</p>
             </div>
           </div>
         </aside>

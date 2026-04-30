@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Stage, Layer, Rect, Text, Line } from "react-konva";
-import { collection, getDocs } from "firebase/firestore";
+import Konva from "konva";
+import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase"; // Sesuaikan path jika perlu
 
-export default function SharedMap() {
+export default function SharedMap({ path = [] }) {
   const [rooms, setRooms] = useState([]);
+  const [kiosks, setKiosks] = useState([]);
   const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
   const containerRef = useRef(null);
+  const lineRef = useRef(null);
   
   const GRID_SIZE = 25; // Harus sama dengan yang ada di EditPage.jsx
 
@@ -30,31 +33,69 @@ export default function SharedMap() {
 
   // Fetch data dari Firestore
   useEffect(() => {
-    const fetchRoomsData = async () => {
-      try {
-        const querySnapshot = await getDocs(collection(db, "Rooms"));
-        const loadedRooms = [];
-        
-        querySnapshot.forEach((docSnap) => {
-          const data = docSnap.data();
-          loadedRooms.push({
-            id: docSnap.id,
-            name: data.name || "Tanpa Nama",
-            x: (data.grid_x || 0) * GRID_SIZE,
-            y: (data.grid_y || 0) * GRID_SIZE,
-            width: (data.grid_width || 1) * GRID_SIZE,
-            height: (data.grid_height || 1) * GRID_SIZE,
-          });
+    const unsubscribeRooms = onSnapshot(collection(db, "Rooms"), (snapshot) => {
+      const loadedRooms = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        loadedRooms.push({
+          id: docSnap.id,
+          name: data.name || "Tanpa Nama",
+          x: (data.grid_x || 0) * GRID_SIZE,
+          y: (data.grid_y || 0) * GRID_SIZE,
+          width: (data.grid_width || 1) * GRID_SIZE,
+          height: (data.grid_height || 1) * GRID_SIZE,
         });
-        
-        setRooms(loadedRooms);
-      } catch (error) {
-        console.error("Gagal memuat peta:", error);
-      }
-    };
+      });
+      setRooms(loadedRooms);
+    }, (error) => console.error("Gagal memuat peta:", error));
 
-    fetchRoomsData();
+    return () => unsubscribeRooms();
   }, []);
+
+  // Fetch kiosk data dari Firestore
+  useEffect(() => {
+    const unsubscribeKiosks = onSnapshot(collection(db, "Kiosks"), (snapshot) => {
+      const loadedKiosks = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        loadedKiosks.push({
+          id: docSnap.id,
+          name: data.name || "Kiosk",
+          x: (data.grid_x || 0) * GRID_SIZE,
+          y: (data.grid_y || 0) * GRID_SIZE,
+          width: (data.grid_width || 2) * GRID_SIZE,
+          height: (data.grid_height || 2) * GRID_SIZE,
+        });
+      });
+      setKiosks(loadedKiosks);
+    }, (error) => console.error("Gagal memuat kiosk:", error));
+
+    return () => unsubscribeKiosks();
+  }, []);
+
+  // Animasi garis putus-putus
+  useEffect(() => {
+    if (!lineRef.current) return;
+    
+    // Gunakan Konva.Animation untuk animasi berkinerja tinggi tanpa re-render React
+    const anim = new Konva.Animation((frame) => {
+      // Atur kecepatan dan arah animasi dengan frame.time
+      const dashOffset = (frame.time / 20) % 20; 
+      lineRef.current.dashOffset(-dashOffset);
+    }, lineRef.current.getLayer());
+
+    anim.start();
+
+    return () => {
+      anim.stop();
+    };
+  }, [path]);
+
+  // Konversi path (grid) menjadi points (pixel)
+  const pathPoints = path.flatMap((point) => [
+    (point.x || 0) * GRID_SIZE + GRID_SIZE / 2,
+    (point.y || 0) * GRID_SIZE + GRID_SIZE / 2
+  ]);
 
   // Fungsi menggambar background grid (opsional untuk mode view)
   const drawGrid = () => {
@@ -109,6 +150,54 @@ export default function SharedMap() {
                 </React.Fragment>
               );
             })}
+
+            {/* Render kiosk */}
+            {kiosks.map((kiosk) => {
+              const fontSize = Math.max(10, Math.min(kiosk.width / 5, kiosk.height / 2.5));
+              
+              return (
+                <React.Fragment key={kiosk.id}>
+                  <Rect
+                    x={kiosk.x}
+                    y={kiosk.y}
+                    width={kiosk.width}
+                    height={kiosk.height}
+                    fill="#2196F3"
+                    stroke="#0D47A1"
+                    strokeWidth={2}
+                  />
+                  <Text
+                    text={kiosk.name}
+                    x={kiosk.x}
+                    y={kiosk.y}
+                    width={kiosk.width}
+                    height={kiosk.height}
+                    fontSize={fontSize}
+                    fontStyle="bold"
+                    fill="#FFFFFF"
+                    align="center"
+                    verticalAlign="middle"
+                    padding={5}
+                    wrap="char"
+                    ellipsis={true}
+                  />
+                </React.Fragment>
+              );
+            })}
+
+            {/* Render Garis Rute (Path) */}
+            {pathPoints.length > 0 && (
+              <Line
+                ref={lineRef}
+                points={pathPoints}
+                stroke="red"
+                strokeWidth={5}
+                dash={[10, 10]}
+                lineCap="round"
+                lineJoin="round"
+                tension={0} // garis lurus antar kotak, bukan kurva (opsional)
+              />
+            )}
           </Layer>
         </Stage>
       )}
