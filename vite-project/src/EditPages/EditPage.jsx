@@ -2,6 +2,11 @@ import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { Stage, Layer, Rect, Text, Line, Transformer } from "react-konva";
+
+// Import Firebase SDK untuk koneksi Database
+import { collection, getDocs, doc, writeBatch } from "firebase/firestore";
+import { db } from "../firebase"; // Pastikan path ini sesuai dengan lokasi file firebase.js kamu
+
 import "./Edit.css";
 
 // Komponen khusus Ruangan
@@ -109,10 +114,38 @@ export default function EditPage() {
   const [confirmAction, setConfirmAction] = useState(null);
   const [isDraggingElement, setIsDraggingElement] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
+  const [deletedElements, setDeletedElements] = useState([]);
 
   const mapRef = useRef(null);
   const transformRef = useRef(null);
   const GRID_SIZE = 25;
+
+  useEffect(() => {
+    const fetchRoomsData = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, "Rooms"));
+        const loadedRooms = [];
+        
+        querySnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          loadedRooms.push({
+            id: docSnap.id,
+            name: data.name || "Tanpa Nama",
+            x: (data.grid_x || 0) * GRID_SIZE,
+            y: (data.grid_y || 0) * GRID_SIZE,
+            width: (data.grid_width || 1) * GRID_SIZE,
+            height: (data.grid_height || 1) * GRID_SIZE,
+          });
+        });
+        
+        setPlacedElements(loadedRooms);
+      } catch (error) {
+        console.error("Gagal mengambil data dari Firestore:", error);
+      }
+    };
+
+    fetchRoomsData();
+  }, []);
 
   useEffect(() => {
     const updateMapSize = () => {
@@ -128,18 +161,16 @@ export default function EditPage() {
     return () => window.removeEventListener("resize", updateMapSize);
   }, []);
 
-  // Hilmy Add: Fungsi Utama untuk Menghapus Elemen Terpilih
   const deleteSelectedElement = () => {
     if (selectedId) {
+      setDeletedElements((prev) => [...prev, selectedId]);
       setPlacedElements(placedElements.filter((el) => el.id !== selectedId));
       setSelectedId(null);
     }
   };
 
-  // Hilmy Add: Listener Keyboard (Tombol Delete atau Backspace)
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Jika menekan tombol Delete atau Backspace dan ada elemen yang sedang dipilih
       if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
         deleteSelectedElement();
       }
@@ -156,6 +187,30 @@ export default function EditPage() {
     }
   };
 
+  // Hilmy Fix: Fungsi pembantu untuk membuat ID incremental (R001, R002, dst)
+  const generateNextRoomId = () => {
+    let maxNumber = 0;
+    
+    // Cari angka tertinggi dari ID yang sudah ada di state
+    placedElements.forEach((el) => {
+      if (el.id.startsWith('R')) {
+        // Ambil angka dari R015 menjadi 15
+        const numberPart = parseInt(el.id.substring(1), 10);
+        if (!isNaN(numberPart) && numberPart > maxNumber) {
+          maxNumber = numberPart;
+        }
+      }
+    });
+
+    // Tambah 1 dari yang tertinggi
+    const nextNumber = maxNumber + 1;
+    
+    // Format agar selalu tiga digit (contoh: 1 -> 001, 16 -> 016, 105 -> 105)
+    const paddedNumber = String(nextNumber).padStart(3, '0');
+    
+    return `R${paddedNumber}`;
+  };
+
   const handleDrop = (e) => {
     e.preventDefault();
     const mapRect = mapRef.current.getBoundingClientRect();
@@ -170,7 +225,9 @@ export default function EditPage() {
       const snappedX = Math.round(x / GRID_SIZE) * GRID_SIZE;
       const snappedY = Math.round(y / GRID_SIZE) * GRID_SIZE;
 
-      const newId = Date.now().toString();
+      // Hilmy Fix: Panggil fungsi generate ID
+      const newId = generateNextRoomId();
+      
       setPlacedElements([...placedElements, {
         id: newId,
         x: snappedX,
@@ -188,10 +245,44 @@ export default function EditPage() {
     setIsConfirmOpen(true);
   };
 
-  const handleConfirmYes = () => {
+  const handleConfirmYes = async () => {
     setIsConfirmOpen(false);
+    
+    if (confirmAction === "save") {
+      try {
+        const batch = writeBatch(db);
+
+        deletedElements.forEach((id) => {
+          const docRef = doc(db, "Rooms", id);
+          batch.delete(docRef);
+        });
+
+        placedElements.forEach((el) => {
+          const docRef = doc(db, "Rooms", el.id.toString());
+          
+          batch.set(docRef, {
+            id: el.id.toString(),
+            name: el.name,
+            grid_x: Math.round(el.x / GRID_SIZE),
+            grid_y: Math.round(el.y / GRID_SIZE),
+            grid_width: Math.round(el.width / GRID_SIZE),
+            grid_height: Math.round(el.height / GRID_SIZE),
+          }, { merge: true });
+        });
+
+        await batch.commit(); 
+        alert("Denah berhasil disimpan ke Database!");
+        navigate("/admin");
+        
+      } catch (error) {
+        console.error("Gagal menyimpan ke database:", error);
+        alert("Gagal menyimpan data, periksa koneksi atau aturan Firebase Anda.");
+      }
+    } else {
+      navigate("/admin");
+    }
+    
     setConfirmAction(null);
-    navigate("/admin");
   };
 
   const handleConfirmNo = () => {
@@ -225,7 +316,7 @@ export default function EditPage() {
         <div className="modal-overlay" onClick={handleConfirmNo}>
           <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
             <h3>Verifikasi</h3>
-            <p>Apakah Anda yakin ingin {confirmAction === "save" ? "menyimpan" : "membatalkan"} edit?</p>
+            <p>Apakah Anda yakin ingin {confirmAction === "save" ? "menyimpan denah ini ke database" : "membatalkan"} edit?</p>
             <div className="confirm-modal-actions">
               <button className="confirm-btn no" onClick={handleConfirmNo}>Tidak</button>
               <button className="confirm-btn yes" onClick={handleConfirmYes}>Iya</button>
@@ -268,7 +359,6 @@ export default function EditPage() {
         <aside className="edit-page-right-panel">
           <h3>Edit Panel</h3>
           
-          {/* Hilmy Add: UI untuk Hapus Elemen */}
           <div className="edit-tools">
             <p style={{fontSize: "12px", color: "#666"}}>
               {selectedId ? "Elemen Terpilih" : "Tidak ada elemen terpilih"}
