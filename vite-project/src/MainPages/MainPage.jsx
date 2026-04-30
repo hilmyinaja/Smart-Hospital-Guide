@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import SharedMap from "../components/SharedMap";
 import "./Main.css";
 
 // ── Icon components (inline SVG, no extra deps needed) ──
@@ -168,12 +169,14 @@ export default function App() {
             maxScale={5}
             centerOnInit={true}
           >
+            {/* Hapus contentStyle yang ada display:flex agar Konva bisa merender full size */}
             <TransformComponent
               wrapperStyle={{ width: "100%", height: "100%", cursor: "grab" }}
-              contentStyle={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}
+              contentStyle={{ width: "100%", height: "100vh" }} // HILMY FIX: Pastikan ini ditambahkan biar ngga putih kosong
             >
-              <div className="map-content">
-                <span className="map-placeholder-text">Peta Aktif (Pinch & Pan)</span>
+              <div className="map-content" style={{ width: "100%", height: "100%" }}>
+                {/* PANGGIL KOMPONEN PETA DI SINI */}
+                <SharedMap />
               </div>
             </TransformComponent>
           </TransformWrapper>
