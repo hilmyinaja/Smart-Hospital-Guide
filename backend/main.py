@@ -28,6 +28,11 @@ def sinkronisasi_peta(data):
     # KUNCI PENTING: Kita bersihkan memori RUANGAN_GRID lama 
     # Agar ruangan yang baru saja kamu hapus di UI Konva juga ikut terhapus dari otak A*
     waypoint_graph.RUANGAN_GRID.clear()
+    
+    # Bersihkan GRID_MAP ke 0 semua (Reset area)
+    for y in range(waypoint_graph.GRID_HEIGHT):
+        for x in range(waypoint_graph.GRID_WIDTH):
+            waypoint_graph.GRID_MAP[y][x] = 0
 
     for item in data:
         # Gunakan id_dokumen (contoh: "R016") sebagai penanda unik
@@ -35,12 +40,27 @@ def sinkronisasi_peta(data):
         room_name = item.get("name", "Tanpa Nama")
         
         if room_id and "grid_x" in item and "grid_y" in item:
+            gx = item["grid_x"]
+            gy = item["grid_y"]
+            gw = item.get("grid_width", 1)
+            gh = item.get("grid_height", 1)
+            
             # 1. Update Memori A* (Database Sementara untuk Algoritma Theo)
             waypoint_graph.RUANGAN_GRID[room_id] = {
-                "x": item["grid_x"],
-                "y": item["grid_y"],
+                "x": gx,
+                "y": gy,
+                "w": gw,
+                "h": gh,
                 "name": room_name # Tetap simpan nama untuk kebutuhan debugging
             }
+            
+            # Tandai area ruangan/kiosk sebagai rintangan (1)
+            for dy in range(gh):
+                for dx in range(gw):
+                    ny = gy + dy
+                    nx = gx + dx
+                    if 0 <= ny < waypoint_graph.GRID_HEIGHT and 0 <= nx < waypoint_graph.GRID_WIDTH:
+                        waypoint_graph.GRID_MAP[ny][nx] = 1
             
             # 2. Update Memori Kamus NLP
             kata_kunci = item.get("keywords", [])

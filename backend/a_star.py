@@ -9,31 +9,42 @@ def cari_rute_grid(start_id, target_id):
     start_node = RUANGAN_GRID[start_id]
     target_node = RUANGAN_GRID[target_id]
     
-    start_coord = (start_node["x"], start_node["y"])
-    target_coord = (target_node["x"], target_node["y"])
+    # Kumpulkan semua koordinat yang termasuk dalam ruangan tujuan
+    target_coords = set()
+    for dy in range(target_node.get("h", 1)):
+        for dx in range(target_node.get("w", 1)):
+            target_coords.add((target_node["x"] + dx, target_node["y"] + dy))
 
     # Priority Queue untuk F-Cost (Biaya Total)
     open_set = []
-    heapq.heappush(open_set, (0, start_coord))
     
     came_from = {}
+    g_score = {}
+    f_score = {}
     
-    # G-Cost (Jarak Aktual)
-    g_score = {start_coord: 0}
-    
-    # F-Cost = G-Cost + H-Cost (Manhattan)
-    f_score = {start_coord: hitung_manhattan(start_coord[0], start_coord[1], target_coord[0], target_coord[1])}
-    
+    # Masukkan SEMUA titik dari kiosk (start_node) ke open_set dengan cost awal 0
+    for dy in range(start_node.get("h", 1)):
+        for dx in range(start_node.get("w", 1)):
+            sx = start_node["x"] + dx
+            sy = start_node["y"] + dy
+            
+            g_score[(sx, sy)] = 0
+            # Estimasi h-cost sederhana ke titik origin target
+            h = hitung_manhattan(sx, sy, target_node["x"], target_node["y"])
+            f_score[(sx, sy)] = h
+            heapq.heappush(open_set, (h, (sx, sy)))
+            
     while open_set:
         current_f, current = heapq.heappop(open_set)
         
-        # Jika grid saat ini adalah grid tujuan
-        if current == target_coord:
+        # Jika grid saat ini menyentuh area ruangan tujuan
+        if current in target_coords:
             jalur = []
-            while current in came_from:
-                jalur.append({"x": current[0], "y": current[1]})
-                current = came_from[current]
-            jalur.append({"x": start_coord[0], "y": start_coord[1]})
+            curr = current
+            while curr in came_from:
+                jalur.append({"x": curr[0], "y": curr[1]})
+                curr = came_from[curr]
+            jalur.append({"x": curr[0], "y": curr[1]}) # Tambahkan titik pinggir kiosk yang menjadi start point
             jalur.reverse() # Urutkan dari awal ke akhir
             
             return {
@@ -50,8 +61,9 @@ def cari_rute_grid(start_id, target_id):
             # Pastikan indeks tidak keluar dari ukuran matriks (out of bounds)
             if 0 <= nx < GRID_WIDTH and 0 <= ny < GRID_HEIGHT:
                 
-                # Syarat bisa dilewati: Grid bernilai 0 (lorong) ATAU grid tersebut adalah tujuan akhir 
-                if GRID_MAP[ny][nx] == 0 or (nx, ny) == target_coord:
+                # Syarat bisa dilewati: Grid bernilai 0 (lorong) ATAU grid tersebut masuk dalam target
+                # Ini menghindari A* menembus ruangan lain (yang bernilai 1)
+                if GRID_MAP[ny][nx] == 0 or (nx, ny) in target_coords:
                     
                     # Biaya pindah antar petak grid selalu 1
                     tentative_g = g_score[current] + 1 
@@ -59,7 +71,7 @@ def cari_rute_grid(start_id, target_id):
                     if (nx, ny) not in g_score or tentative_g < g_score[(nx, ny)]:
                         came_from[(nx, ny)] = current
                         g_score[(nx, ny)] = tentative_g
-                        f_score[(nx, ny)] = tentative_g + hitung_manhattan(nx, ny, target_coord[0], target_coord[1])
+                        f_score[(nx, ny)] = tentative_g + hitung_manhattan(nx, ny, target_node["x"], target_node["y"])
                         
                         heapq.heappush(open_set, (f_score[(nx, ny)], (nx, ny)))
                         
