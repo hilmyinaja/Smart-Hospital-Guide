@@ -9,11 +9,18 @@ def cari_rute_grid(start_id, target_id):
     start_node = RUANGAN_GRID[start_id]
     target_node = RUANGAN_GRID[target_id]
     
-    # Kumpulkan semua koordinat yang termasuk dalam ruangan tujuan
+    # Kumpulkan koordinat tujuan
     target_coords = set()
-    for dy in range(target_node.get("h", 1)):
-        for dx in range(target_node.get("w", 1)):
-            target_coords.add((target_node["x"] + dx, target_node["y"] + dy))
+    
+    # Jika ruangan memiliki titik pintu spesifik, gunakan titik itu saja
+    if "door_x" in target_node and "door_y" in target_node:
+        # Pintu dijamin berada di lorong (bernilai 0) yang menempel ke ruangan
+        target_coords.add((target_node["door_x"], target_node["door_y"]))
+    else:
+        # Fallback: seluruh petak pinggiran ruangan
+        for dy in range(target_node.get("h", 1)):
+            for dx in range(target_node.get("w", 1)):
+                target_coords.add((target_node["x"] + dx, target_node["y"] + dy))
 
     # Priority Queue untuk F-Cost (Biaya Total)
     open_set = []
@@ -29,8 +36,10 @@ def cari_rute_grid(start_id, target_id):
             sy = start_node["y"] + dy
             
             g_score[(sx, sy)] = 0
-            # Estimasi h-cost sederhana ke titik origin target
-            h = hitung_manhattan(sx, sy, target_node["x"], target_node["y"])
+            # Estimasi h-cost sederhana ke titik origin target (atau titik pintunya)
+            tx = target_node.get("door_x", target_node["x"])
+            ty = target_node.get("door_y", target_node["y"])
+            h = hitung_manhattan(sx, sy, tx, ty)
             f_score[(sx, sy)] = h
             heapq.heappush(open_set, (h, (sx, sy)))
             
@@ -71,7 +80,9 @@ def cari_rute_grid(start_id, target_id):
                     if (nx, ny) not in g_score or tentative_g < g_score[(nx, ny)]:
                         came_from[(nx, ny)] = current
                         g_score[(nx, ny)] = tentative_g
-                        f_score[(nx, ny)] = tentative_g + hitung_manhattan(nx, ny, target_node["x"], target_node["y"])
+                        tx = target_node.get("door_x", target_node["x"])
+                        ty = target_node.get("door_y", target_node["y"])
+                        f_score[(nx, ny)] = tentative_g + hitung_manhattan(nx, ny, tx, ty)
                         
                         heapq.heappush(open_set, (f_score[(nx, ny)], (nx, ny)))
                         

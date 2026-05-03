@@ -44,6 +44,8 @@ export default function SharedMap({ path = [] }) {
           y: (data.grid_y || 0) * GRID_SIZE,
           width: (data.grid_width || 1) * GRID_SIZE,
           height: (data.grid_height || 1) * GRID_SIZE,
+          door_side: data.door_side || 'bottom',
+          door_offset: data.door_offset || 0,
         });
       });
       setRooms(loadedRooms);
@@ -121,6 +123,23 @@ export default function SharedMap({ path = [] }) {
             {rooms.map((room) => {
               const fontSize = Math.max(10, Math.min(room.width / 5, room.height / 2.5));
               
+              // Hitung letak pintu
+              let dx = room.x;
+              let dy = room.y;
+              if (room.door_side === 'top') {
+                 dx += room.door_offset * GRID_SIZE;
+                 dy += 0;
+              } else if (room.door_side === 'bottom') {
+                 dx += room.door_offset * GRID_SIZE;
+                 dy += room.height - GRID_SIZE;
+              } else if (room.door_side === 'left') {
+                 dx += 0;
+                 dy += room.door_offset * GRID_SIZE;
+              } else if (room.door_side === 'right') {
+                 dx += room.width - GRID_SIZE;
+                 dy += room.door_offset * GRID_SIZE;
+              }
+              
               return (
                 <React.Fragment key={room.id}>
                   <Rect
@@ -130,6 +149,16 @@ export default function SharedMap({ path = [] }) {
                     height={room.height}
                     fill="#4caf50"
                     stroke="#1b5e20"
+                    strokeWidth={2}
+                  />
+                  {/* Render Pintu */}
+                  <Rect
+                    x={dx}
+                    y={dy}
+                    width={GRID_SIZE}
+                    height={GRID_SIZE}
+                    fill="#795548"
+                    stroke="#5D4037"
                     strokeWidth={2}
                   />
                   <Text

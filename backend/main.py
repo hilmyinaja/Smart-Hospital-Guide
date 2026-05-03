@@ -45,12 +45,33 @@ def sinkronisasi_peta(data):
             gw = item.get("grid_width", 1)
             gh = item.get("grid_height", 1)
             
+            door_side = item.get("door_side", "bottom")
+            door_offset = item.get("door_offset", 0)
+            
+            # Hitung letak pintu (titik navigasi target)
+            door_x = gx
+            door_y = gy
+            if door_side == "top":
+                door_x = gx + door_offset
+                door_y = gy
+            elif door_side == "bottom":
+                door_x = gx + door_offset
+                door_y = gy + gh - 1
+            elif door_side == "left":
+                door_x = gx
+                door_y = gy + door_offset
+            elif door_side == "right":
+                door_x = gx + gw - 1
+                door_y = gy + door_offset
+            
             # 1. Update Memori A* (Database Sementara untuk Algoritma Theo)
             waypoint_graph.RUANGAN_GRID[room_id] = {
                 "x": gx,
                 "y": gy,
                 "w": gw,
                 "h": gh,
+                "door_x": door_x,
+                "door_y": door_y,
                 "name": room_name # Tetap simpan nama untuk kebutuhan debugging
             }
             

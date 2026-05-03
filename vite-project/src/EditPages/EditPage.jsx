@@ -35,6 +35,30 @@ const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggin
   const dynamicFontSize = Math.max(10, Math.min(shapeProps.width / 5, shapeProps.height / 2.5));
   const textColor = shapeProps.type === 'kiosk' ? '#FFFFFF' : '#1b5e20';
 
+  const getDoorPos = () => {
+    const side = shapeProps.door_side || 'bottom';
+    const offset = shapeProps.door_offset || 0;
+    let dx = shapeProps.x;
+    let dy = shapeProps.y;
+    
+    if (side === 'top') {
+       dx += offset * GRID_SIZE;
+       dy += 0;
+    } else if (side === 'bottom') {
+       dx += offset * GRID_SIZE;
+       dy += shapeProps.height - GRID_SIZE;
+    } else if (side === 'left') {
+       dx += 0;
+       dy += offset * GRID_SIZE;
+    } else if (side === 'right') {
+       dx += shapeProps.width - GRID_SIZE;
+       dy += offset * GRID_SIZE;
+    }
+    return { x: dx, y: dy };
+  };
+
+  const doorPos = getDoorPos();
+
   return (
     <React.Fragment>
       <Rect
@@ -94,6 +118,18 @@ const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggin
         wrap="char"
         ellipsis={true}
       />
+      {shapeProps.type === 'room' && (
+        <Rect
+          x={doorPos.x}
+          y={doorPos.y}
+          width={GRID_SIZE}
+          height={GRID_SIZE}
+          fill="#795548"
+          stroke="#5D4037"
+          strokeWidth={2}
+          listening={false}
+        />
+      )}
       {isSelected && (
         <Transformer
           ref={trRef}
@@ -143,6 +179,8 @@ export default function EditPage() {
             y: (data.grid_y || 0) * GRID_SIZE,
             width: (data.grid_width || 1) * GRID_SIZE,
             height: (data.grid_height || 1) * GRID_SIZE,
+            door_side: data.door_side || 'bottom',
+            door_offset: data.door_offset || 0,
             fill: "#4caf50",
             stroke: "#1b5e20"
           });
@@ -290,6 +328,8 @@ export default function EditPage() {
           y: snappedY,
           width: GRID_SIZE * 4,
           height: GRID_SIZE * 2,
+          door_side: 'bottom',
+          door_offset: 0,
           name: "Ruangan Baru",
           fill: "#4caf50",
           stroke: "#1b5e20"
@@ -331,6 +371,10 @@ export default function EditPage() {
             grid_y: Math.round(el.y / GRID_SIZE),
             grid_width: Math.round(el.width / GRID_SIZE),
             grid_height: Math.round(el.height / GRID_SIZE),
+            ...(el.type === 'room' && {
+              door_side: el.door_side || 'bottom',
+              door_offset: el.door_offset || 0
+            })
           }, { merge: true });
         });
 
@@ -447,6 +491,49 @@ export default function EditPage() {
             <p style={{fontSize: "10px", marginTop: "5px", color: "#888"}}>
               Atau tekan tombol 'Delete' di keyboard.
             </p>
+            
+            {/* DOOR CONTROLS */}
+            {selectedId && placedElements.find(el => el.id === selectedId)?.type === 'room' && (() => {
+               const room = placedElements.find(el => el.id === selectedId);
+               const updateRoom = (changes) => {
+                   setPlacedElements(placedElements.map(el => el.id === selectedId ? { ...el, ...changes } : el));
+               };
+               return (
+                   <div className="door-controls" style={{marginTop: "15px", background: "#f9f9f9", padding: "10px", borderRadius: "5px", border: "1px solid #ddd"}}>
+                       <h4 style={{margin: "0 0 10px 0", fontSize: "14px", color: "#333"}}>🚪 Pengaturan Pintu</h4>
+                       <label style={{display: "block", marginBottom: "5px", fontSize: "12px", color: "#555"}}>Sisi Pintu:</label>
+                       <select 
+                           value={room.door_side || 'bottom'} 
+                           onChange={(e) => updateRoom({ door_side: e.target.value, door_offset: 0 })}
+                           style={{width: "100%", padding: "5px", marginBottom: "10px", borderRadius: "3px", border: "1px solid #ccc"}}
+                       >
+                           <option value="top">Atas (Top)</option>
+                           <option value="bottom">Bawah (Bottom)</option>
+                           <option value="left">Kiri (Left)</option>
+                           <option value="right">Kanan (Right)</option>
+                       </select>
+
+                       <label style={{display: "block", marginBottom: "5px", fontSize: "12px", color: "#555"}}>Geser Pintu:</label>
+                       <div style={{display: "flex", gap: "10px", alignItems: "center", justifyContent: "center"}}>
+                           <button 
+                               onClick={() => updateRoom({ door_offset: Math.max(0, (room.door_offset || 0) - 1) })}
+                               style={{padding: "5px 15px", cursor: "pointer", background: "#e0e0e0", border: "none", borderRadius: "3px"}}
+                           >-</button>
+                           <span style={{fontWeight: "bold", width: "20px", textAlign: "center"}}>{room.door_offset || 0}</span>
+                           <button 
+                               onClick={() => {
+                                   const maxOffset = (room.door_side === 'left' || room.door_side === 'right') 
+                                       ? Math.max(0, (room.height / GRID_SIZE) - 1) 
+                                       : Math.max(0, (room.width / GRID_SIZE) - 1);
+                                   updateRoom({ door_offset: Math.min(maxOffset, (room.door_offset || 0) + 1) });
+                               }}
+                               style={{padding: "5px 15px", cursor: "pointer", background: "#e0e0e0", border: "none", borderRadius: "3px"}}
+                           >+</button>
+                       </div>
+                   </div>
+               );
+            })()}
+            
           </div>
 
           <hr style={{margin: "20px 0", border: "0.5px solid #ddd"}} />
