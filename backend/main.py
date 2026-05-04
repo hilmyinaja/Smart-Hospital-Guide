@@ -141,9 +141,11 @@ def dapatkan_rute(request: RequestRute):
         "pesan": "Rute grid berhasil ditemukan",
         "data_target": {
             "id_ruangan": target_id,
+            "nama_ruangan": waypoint_graph.RUANGAN_GRID.get(target_id, {}).get("name", target_id),
             "confidence_nlp": hasil_nlp["confidence_score"]
         },
-        "jalur_koordinat": hasil_rute["jalur_grid"]
+        "jalur_koordinat": hasil_rute["jalur_grid"],
+        "langkah_navigasi": hasil_rute["teks_navigasi"]
     }
 
 # Endpoint CRUD untuk manajemen ruangan (Admin)

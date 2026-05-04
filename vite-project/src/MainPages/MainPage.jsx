@@ -41,11 +41,14 @@ export default function App() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [username,    setUsername]    = useState("");
   const [password,    setPassword]    = useState("");
-  
   const [kiosks,      setKiosks]      = useState([]);
   const [pathData,    setPathData]    = useState([]);
+  const [fullPathData,setFullPathData]  = useState([]);
+  const [langkahNavigasi, setLangkahNavigasi] = useState([]);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [targetRoomName, setTargetRoomName] = useState("");
 
-  // Fetch Kiosks dari Firebase secara real-time
+  // Fetch kiosk data dari Firestore
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "Kiosks"), (snapshot) => {
       const loadedKiosks = [];
@@ -62,6 +65,17 @@ export default function App() {
 
     return () => unsubscribe();
   }, []);
+
+  // Fungsi Text-to-Speech (Membacakan Teks)
+  const speakText = (text) => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel(); // Hentikan suara sebelumnya jika masih bicara
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'id-ID'; // Aksen Bahasa Indonesia
+      utterance.rate = 0.9; // Sedikit lebih lambat agar mudah dipahami
+      window.speechSynthesis.speak(utterance);
+    }
+  };
 
   // Fungsi pencarian dan navigasi
   const executeSearch = async (overrideLocation) => {
@@ -92,9 +106,28 @@ export default function App() {
       if (!response.ok) {
         setOutputText(`Gagal: ${data.detail || "Terjadi kesalahan"}`);
         setPathData([]);
+        setFullPathData([]);
+        setLangkahNavigasi([]);
       } else {
-        setOutputText(`Rute ditemukan!\nMenuju: ${data.data_target.id_ruangan}\nConfidence: ${Math.round(data.data_target.confidence_nlp * 100)}%`);
-        setPathData(data.jalur_koordinat);
+        const roomName = data.data_target.nama_ruangan;
+        setTargetRoomName(roomName);
+        setFullPathData(data.jalur_koordinat);
+        setLangkahNavigasi(data.langkah_navigasi || []);
+        setCurrentStep(0);
+        
+        if (data.langkah_navigasi && data.langkah_navigasi.length > 0) {
+            const endIndex = data.langkah_navigasi[0].index_akhir;
+            setPathData(data.jalur_koordinat.slice(0, endIndex + 1));
+            
+            const firstText = data.langkah_navigasi[0].teks;
+            setOutputText(`Rute ditemukan!\nMenuju: ${roomName}\n\n${firstText}`);
+            speakText(firstText);
+        } else {
+            setPathData(data.jalur_koordinat);
+            const fallbackText = `Rute ditemukan menuju ${roomName}`;
+            setOutputText(fallbackText);
+            speakText(fallbackText);
+        }
       }
     } catch (error) {
       setOutputText(`Error: Tidak dapat terhubung ke server (${error.message})`);
@@ -185,8 +218,46 @@ export default function App() {
             className="destination-output"
             placeholder="Destination output text"
             value={outputText}
-            onChange={(e) => setOutputText(e.target.value)}
+            readOnly
+            style={{ minHeight: "100px" }}
           />
+
+          {/* Navigation Controls */}
+          {langkahNavigasi.length > 0 && (
+            <div className="step-controls" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 20px 20px 20px' }}>
+              <button 
+                disabled={currentStep === 0}
+                onClick={() => {
+                  const newStep = currentStep - 1;
+                  setCurrentStep(newStep);
+                  const endIndex = langkahNavigasi[newStep].index_akhir;
+                  setPathData(fullPathData.slice(0, endIndex + 1));
+                  const stepText = langkahNavigasi[newStep].teks;
+                  setOutputText(`Menuju: ${targetRoomName}\n\n${stepText}`);
+                  speakText(stepText);
+                }}
+                style={{ padding: '8px 12px', cursor: currentStep === 0 ? 'not-allowed' : 'pointer', background: currentStep === 0 ? '#ccc' : '#2196F3', color: 'white', border: 'none', borderRadius: '4px' }}
+              >
+                &lt; Sebelumnya
+              </button>
+              <span style={{ fontSize: '14px', fontWeight: 'bold' }}>{currentStep + 1} / {langkahNavigasi.length}</span>
+              <button 
+                disabled={currentStep === langkahNavigasi.length - 1}
+                onClick={() => {
+                  const newStep = currentStep + 1;
+                  setCurrentStep(newStep);
+                  const endIndex = langkahNavigasi[newStep].index_akhir;
+                  setPathData(fullPathData.slice(0, endIndex + 1));
+                  const stepText = langkahNavigasi[newStep].teks;
+                  setOutputText(`Menuju: ${targetRoomName}\n\n${stepText}`);
+                  speakText(stepText);
+                }}
+                style={{ padding: '8px 12px', cursor: currentStep === langkahNavigasi.length - 1 ? 'not-allowed' : 'pointer', background: currentStep === langkahNavigasi.length - 1 ? '#ccc' : '#4caf50', color: 'white', border: 'none', borderRadius: '4px' }}
+              >
+                Selanjutnya &gt;
+              </button>
+            </div>
+          )}
 
           {/* Location dropdown */}
           <div className="dropdown-wrapper">

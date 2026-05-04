@@ -56,9 +56,12 @@ def cari_rute_grid(start_id, target_id):
             jalur.append({"x": curr[0], "y": curr[1]}) # Tambahkan titik pinggir kiosk yang menjadi start point
             jalur.reverse() # Urutkan dari awal ke akhir
             
+            nav_text = generate_navigation_text(jalur, start_id, target_id)
+            
             return {
                 "status": "success",
-                "jalur_grid": jalur
+                "jalur_grid": jalur,
+                "teks_navigasi": nav_text
             }
             
         cx, cy = current
@@ -87,6 +90,95 @@ def cari_rute_grid(start_id, target_id):
                         heapq.heappush(open_set, (f_score[(nx, ny)], (nx, ny)))
                         
     return {"status": "error", "pesan": "Rute buntu. Tidak ada jalan menuju tujuan."}
+
+def get_adjacent_room(x, y, exclude_ids=None):
+    if exclude_ids is None:
+        exclude_ids = set()
+    
+    for r_id, room in RUANGAN_GRID.items():
+        if r_id in exclude_ids:
+            continue
+            
+        rx = room["x"]
+        ry = room["y"]
+        rw = room.get("w", 1)
+        rh = room.get("h", 1)
+        
+        # Cek apakah (x, y) berada dalam bounding box ruangan diperbesar 1 petak
+        if (rx - 1 <= x <= rx + rw) and (ry - 1 <= y <= ry + rh):
+            # Hindari Kiosk (kiosk_id biasa berawalan K) atau kita filter dari nama
+            if room.get("name") and "Kiosk" not in room.get("name", ""):
+                return room["name"]
+    return None
+
+def generate_navigation_text(path, start_id, target_id):
+    if not path or len(path) < 2:
+        return [{"teks": "Anda sudah sampai di tujuan.", "index_akhir": len(path) - 1 if path else 0}]
+
+    start_name = RUANGAN_GRID.get(start_id, {}).get("name", "Kiosk")
+    target_name = RUANGAN_GRID.get(target_id, {}).get("name", "Tujuan")
+    langkah = []
+    current_dir = None
+
+    def get_direction(p1, p2):
+        if p2["x"] > p1["x"]: return 'Kanan'
+        if p2["x"] < p1["x"]: return 'Kiri'
+        if p2["y"] > p1["y"]: return 'Bawah'
+        if p2["y"] < p1["y"]: return 'Atas'
+        return None
+
+    def get_turn(prev_dir, next_dir):
+        if prev_dir == next_dir: return None
+        turns = {
+            'Atas': {'Kanan': 'Kanan', 'Kiri': 'Kiri'},
+            'Bawah': {'Kanan': 'Kiri', 'Kiri': 'Kanan'},
+            'Kanan': {'Atas': 'Kiri', 'Bawah': 'Kanan'},
+            'Kiri': {'Atas': 'Kanan', 'Bawah': 'Kiri'}
+        }
+        return turns.get(prev_dir, {}).get(next_dir, 'Berbalik Arah')
+
+    exclude_ids = {start_id, target_id}
+
+    for i in range(len(path) - 1):
+        p1 = path[i]
+        p2 = path[i + 1]
+        dir = get_direction(p1, p2)
+
+        if not current_dir:
+            current_dir = dir
+        elif current_dir != dir:
+            turn = get_turn(current_dir, dir)
+            adj_room = get_adjacent_room(p1["x"], p1["y"], exclude_ids)
+            
+            if len(langkah) == 0:
+                if adj_room:
+                    teks = f"Dari {start_name}, berjalanlah ke arah {current_dir} sampai ketemu {adj_room}, lalu bersiap belok {turn}."
+                else:
+                    teks = f"Dari {start_name}, berjalanlah ke arah {current_dir} sampai persimpangan, lalu bersiap belok {turn}."
+            else:
+                if adj_room:
+                    teks = f"Setelah belok, lurus terus sampai ketemu {adj_room}, lalu bersiap belok {turn}."
+                else:
+                    teks = f"Setelah belok, lurus terus sampai persimpangan, lalu bersiap belok {turn}."
+            
+            langkah.append({
+                "teks": teks,
+                "index_akhir": i
+            })
+            
+            current_dir = dir
+
+    if len(langkah) == 0:
+        teks_akhir = f"Dari {start_name}, berjalanlah ke arah {current_dir} dan Anda akan sampai di {target_name}."
+    else:
+        teks_akhir = f"Setelah belok, lurus terus dan Anda akan sampai di {target_name}."
+
+    langkah.append({
+        "teks": teks_akhir,
+        "index_akhir": len(path) - 1
+    })
+
+    return langkah
 
 # --- TESTING LOKAL ---
 if __name__ == "__main__":
