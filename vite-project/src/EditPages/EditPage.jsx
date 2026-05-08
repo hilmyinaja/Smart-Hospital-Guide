@@ -2,14 +2,12 @@ import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { Stage, Layer, Rect, Text, Line, Transformer } from "react-konva";
-
-// Import Firebase SDK untuk koneksi Database
 import { collection, getDocs, doc, writeBatch } from "firebase/firestore";
-import { db } from "../firebase"; // Pastikan path ini sesuai dengan lokasi file firebase.js kamu
-
+import { db } from "../firebase";
 import "./Edit.css";
 
-// Komponen untuk render baik Ruangan maupun Kiosk
+const FLOORS = ["Lantai 1", "Lantai 2", "Lantai 3", "Lantai 4"];
+
 const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggingElement, GRID_SIZE }) => {
   const shapeRef = useRef();
   const trRef = useRef();
@@ -25,10 +23,7 @@ const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggin
     const typeLabel = shapeProps.type === 'kiosk' ? 'Kiosk' : 'Ruangan';
     const newName = window.prompt(`Masukkan Nama ${typeLabel}:`, shapeProps.name || "");
     if (newName !== null) {
-      onChange({
-        ...shapeProps,
-        name: newName,
-      });
+      onChange({ ...shapeProps, name: newName });
     }
   };
 
@@ -40,20 +35,10 @@ const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggin
     const offset = shapeProps.door_offset || 0;
     let dx = shapeProps.x;
     let dy = shapeProps.y;
-    
-    if (side === 'top') {
-       dx += offset * GRID_SIZE;
-       dy += 0;
-    } else if (side === 'bottom') {
-       dx += offset * GRID_SIZE;
-       dy += shapeProps.height - GRID_SIZE;
-    } else if (side === 'left') {
-       dx += 0;
-       dy += offset * GRID_SIZE;
-    } else if (side === 'right') {
-       dx += shapeProps.width - GRID_SIZE;
-       dy += offset * GRID_SIZE;
-    }
+    if (side === 'top') { dx += offset * GRID_SIZE; }
+    else if (side === 'bottom') { dx += offset * GRID_SIZE; dy += shapeProps.height - GRID_SIZE; }
+    else if (side === 'left') { dy += offset * GRID_SIZE; }
+    else if (side === 'right') { dx += shapeProps.width - GRID_SIZE; dy += offset * GRID_SIZE; }
     return { x: dx, y: dy };
   };
 
@@ -72,12 +57,10 @@ const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggin
         strokeWidth={2}
         onDragStart={() => setIsDraggingElement(true)}
         onTransformStart={() => setIsDraggingElement(true)}
-        dragBoundFunc={(pos) => {
-          return {
+        dragBoundFunc={(pos) => ({
             x: Math.round(pos.x / GRID_SIZE) * GRID_SIZE,
             y: Math.round(pos.y / GRID_SIZE) * GRID_SIZE,
-          };
-        }}
+        })}
         onDragEnd={(e) => {
           setIsDraggingElement(false);
           onChange({
@@ -119,26 +102,13 @@ const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggin
         ellipsis={true}
       />
       {shapeProps.type === 'room' && (
-        <Rect
-          x={doorPos.x}
-          y={doorPos.y}
-          width={GRID_SIZE}
-          height={GRID_SIZE}
-          fill="#795548"
-          stroke="#5D4037"
-          strokeWidth={2}
-          listening={false}
-        />
+        <Rect x={doorPos.x} y={doorPos.y} width={GRID_SIZE} height={GRID_SIZE} fill="#795548" stroke="#5D4037" strokeWidth={2} listening={false} />
       )}
       {isSelected && (
-        <Transformer
-          ref={trRef}
-          rotateEnabled={false}
-          boundBoxFunc={(oldBox, newBox) => {
+        <Transformer ref={trRef} rotateEnabled={false} boundBoxFunc={(oldBox, newBox) => {
             if (newBox.width < GRID_SIZE || newBox.height < GRID_SIZE) return oldBox;
             return newBox;
-          }}
-        />
+        }} />
       )}
     </React.Fragment>
   );
@@ -153,6 +123,7 @@ export default function EditPage() {
   const [isDraggingElement, setIsDraggingElement] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [deletedElements, setDeletedElements] = useState([]);
+  const [activeEditFloor, setActiveEditFloor] = useState("Lantai 1");
 
   const mapRef = useRef(null);
   const transformRef = useRef(null);
@@ -168,12 +139,12 @@ export default function EditPage() {
 
         const allElements = [];
 
-        // Load Rooms
         roomsSnapshot.forEach((docSnap) => {
           const data = docSnap.data();
           allElements.push({
             id: docSnap.id,
             type: 'room',
+            floor: data.floor || "Lantai 1", 
             name: data.name || "Tanpa Nama",
             x: (data.grid_x || 0) * GRID_SIZE,
             y: (data.grid_y || 0) * GRID_SIZE,
@@ -181,43 +152,36 @@ export default function EditPage() {
             height: (data.grid_height || 1) * GRID_SIZE,
             door_side: data.door_side || 'bottom',
             door_offset: data.door_offset || 0,
-            fill: "#4caf50",
-            stroke: "#1b5e20"
+            fill: "#4caf50", stroke: "#1b5e20"
           });
         });
 
-        // Load Kiosks
         kioskSnapshot.forEach((docSnap) => {
           const data = docSnap.data();
           allElements.push({
             id: docSnap.id,
             type: 'kiosk',
+            floor: data.floor || "Lantai 1",
             name: data.name || "Kiosk",
             x: (data.grid_x || 0) * GRID_SIZE,
             y: (data.grid_y || 0) * GRID_SIZE,
             width: (data.grid_width || 2) * GRID_SIZE,
             height: (data.grid_height || 2) * GRID_SIZE,
-            fill: "#2196F3",
-            stroke: "#0D47A1"
+            fill: "#2196F3", stroke: "#0D47A1"
           });
         });
-        
         setPlacedElements(allElements);
       } catch (error) {
-        console.error("Gagal mengambil data dari Firestore:", error);
+        console.error("Gagal mengambil data:", error);
       }
     };
-
     fetchAllData();
   }, []);
 
   useEffect(() => {
     const updateMapSize = () => {
       if (mapRef.current) {
-        setMapSize({
-          width: mapRef.current.clientWidth,
-          height: mapRef.current.clientHeight,
-        });
+        setMapSize({ width: mapRef.current.clientWidth, height: mapRef.current.clientHeight });
       }
     };
     updateMapSize();
@@ -235,57 +199,37 @@ export default function EditPage() {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
-        deleteSelectedElement();
-      }
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedId) deleteSelectedElement();
     };
-
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedId, placedElements]);
 
   const checkDeselect = (e) => {
     const clickedOnEmpty = e.target === e.target.getStage() || e.target.attrs.id === "bg-grid";
-    if (clickedOnEmpty) {
-      setSelectedId(null);
-    }
+    if (clickedOnEmpty) setSelectedId(null);
   };
 
-  // Fungsi pembantu untuk membuat ID incremental (R001, R002, dst atau K001, K002, dst)
   const generateNextRoomId = () => {
     let maxNumber = 0;
-    
     placedElements.forEach((el) => {
       if (el.id.startsWith('R')) {
-        const numberPart = parseInt(el.id.substring(1), 10);
-        if (!isNaN(numberPart) && numberPart > maxNumber) {
-          maxNumber = numberPart;
-        }
+        const num = parseInt(el.id.substring(1), 10);
+        if (!isNaN(num) && num > maxNumber) maxNumber = num;
       }
     });
-
-    const nextNumber = maxNumber + 1;
-    const paddedNumber = String(nextNumber).padStart(3, '0');
-    
-    return `R${paddedNumber}`;
+    return `R${String(maxNumber + 1).padStart(3, '0')}`;
   };
 
   const generateNextKioskId = () => {
     let maxNumber = 0;
-    
     placedElements.forEach((el) => {
       if (el.id.startsWith('K')) {
-        const numberPart = parseInt(el.id.substring(1), 10);
-        if (!isNaN(numberPart) && numberPart > maxNumber) {
-          maxNumber = numberPart;
-        }
+        const num = parseInt(el.id.substring(1), 10);
+        if (!isNaN(num) && num > maxNumber) maxNumber = num;
       }
     });
-
-    const nextNumber = maxNumber + 1;
-    const paddedNumber = String(nextNumber).padStart(3, '0');
-    
-    return `K${paddedNumber}`;
+    return `K${String(maxNumber + 1).padStart(3, '0')}`;
   };
 
   const handleDrop = (e) => {
@@ -296,8 +240,7 @@ export default function EditPage() {
     const elementType = e.dataTransfer.getData("text/plain");
 
     if (transformRef.current) {
-      const { state } = transformRef.current;
-      const { scale, positionX, positionY } = state;
+      const { scale, positionX, positionY } = transformRef.current.state;
       const x = (clientX - positionX) / scale;
       const y = (clientY - positionY) / scale;
       const snappedX = Math.round(x / GRID_SIZE) * GRID_SIZE;
@@ -305,128 +248,98 @@ export default function EditPage() {
 
       if (elementType === "new-kiosk") {
         const newId = generateNextKioskId();
-        
         setPlacedElements([...placedElements, {
-          id: newId,
-          type: 'kiosk',
-          x: snappedX,
-          y: snappedY,
-          width: GRID_SIZE * 2,
-          height: GRID_SIZE * 2,
-          name: "Kiosk Baru",
-          fill: "#2196F3",
-          stroke: "#0D47A1"
+          id: newId, type: 'kiosk', 
+          floor: activeEditFloor, 
+          x: snappedX, y: snappedY, width: GRID_SIZE * 2, height: GRID_SIZE * 2,
+          name: "Kiosk Baru", fill: "#2196F3", stroke: "#0D47A1"
         }]);
         setSelectedId(newId);
       } else {
         const newId = generateNextRoomId();
-        
         setPlacedElements([...placedElements, {
-          id: newId,
-          type: 'room',
-          x: snappedX,
-          y: snappedY,
-          width: GRID_SIZE * 4,
-          height: GRID_SIZE * 2,
-          door_side: 'bottom',
-          door_offset: 0,
-          name: "Ruangan Baru",
-          fill: "#4caf50",
-          stroke: "#1b5e20"
+          id: newId, type: 'room',
+          floor: activeEditFloor,
+          x: snappedX, y: snappedY, width: GRID_SIZE * 4, height: GRID_SIZE * 2,
+          door_side: 'bottom', door_offset: 0, name: "Ruangan Baru", fill: "#4caf50", stroke: "#1b5e20"
         }]);
         setSelectedId(newId);
       }
     }
   };
 
-  const openConfirmDialog = (action) => {
-    setConfirmAction(action);
-    setIsConfirmOpen(true);
-  };
-
   const handleConfirmYes = async () => {
     setIsConfirmOpen(false);
-    
     if (confirmAction === "save") {
       try {
         const batch = writeBatch(db);
-
-        // Handle deleted elements
         deletedElements.forEach((id) => {
-          // Cek apakah ID dimulai dengan K atau R untuk determine koleksi
-          const collectionName = id.startsWith('K') ? "Kiosks" : "Rooms";
-          const docRef = doc(db, collectionName, id);
-          batch.delete(docRef);
+          const col = id.startsWith('K') ? "Kiosks" : "Rooms";
+          batch.delete(doc(db, col, id));
         });
 
-        // Handle all placed elements
         placedElements.forEach((el) => {
-          const collectionName = el.type === 'kiosk' ? "Kiosks" : "Rooms";
-          const docRef = doc(db, collectionName, el.id.toString());
-          
-          batch.set(docRef, {
+          const col = el.type === 'kiosk' ? "Kiosks" : "Rooms";
+          batch.set(doc(db, col, el.id.toString()), {
             id: el.id.toString(),
             name: el.name,
+            floor: el.floor, 
             grid_x: Math.round(el.x / GRID_SIZE),
             grid_y: Math.round(el.y / GRID_SIZE),
             grid_width: Math.round(el.width / GRID_SIZE),
             grid_height: Math.round(el.height / GRID_SIZE),
-            ...(el.type === 'room' && {
-              door_side: el.door_side || 'bottom',
-              door_offset: el.door_offset || 0
-            })
+            ...(el.type === 'room' && { door_side: el.door_side || 'bottom', door_offset: el.door_offset || 0 })
           }, { merge: true });
         });
 
-        await batch.commit(); 
-        alert("Denah dan Kiosk berhasil disimpan ke Database!");
+        await batch.commit();
+        alert("Denah multi-lantai berhasil disimpan!");
         navigate("/admin");
-        
       } catch (error) {
-        console.error("Gagal menyimpan ke database:", error);
-        alert("Gagal menyimpan data, periksa koneksi atau aturan Firebase Anda.");
+        console.error("Gagal simpan:", error);
       }
-    } else {
-      navigate("/admin");
-    }
-    
-    setConfirmAction(null);
-  };
-
-  const handleConfirmNo = () => {
-    setIsConfirmOpen(false);
+    } else navigate("/admin");
     setConfirmAction(null);
   };
 
   const drawGrid = () => {
     const lines = [];
     const { width, height } = mapSize;
-    for (let i = 0; i < width / GRID_SIZE; i++) {
-      lines.push(<Line key={`v${i}`} points={[Math.round(i * GRID_SIZE), 0, Math.round(i * GRID_SIZE), height]} stroke="#9e9e9e" strokeWidth={1} />);
-    }
-    for (let j = 0; j < height / GRID_SIZE; j++) {
-      lines.push(<Line key={`h${j}`} points={[0, Math.round(j * GRID_SIZE), width, Math.round(j * GRID_SIZE)]} stroke="#9e9e9e" strokeWidth={1} />);
-    }
+    for (let i = 0; i < width / GRID_SIZE; i++) lines.push(<Line key={`v${i}`} points={[Math.round(i * GRID_SIZE), 0, Math.round(i * GRID_SIZE), height]} stroke="#9e9e9e" strokeWidth={1} />);
+    for (let j = 0; j < height / GRID_SIZE; j++) lines.push(<Line key={`h${j}`} points={[0, Math.round(j * GRID_SIZE), width, Math.round(j * GRID_SIZE)]} stroke="#9e9e9e" strokeWidth={1} />);
     return lines;
   };
 
   return (
     <div className="edit-page-container">
       <header className="edit-page-header">
-        <span className="edit-page-logo">Wayfinder - Edit Denah & Kiosk</span>
+        <span className="edit-page-logo">Wayfinder - Editor</span>
+        <div className="floor-selector-header" style={{ marginLeft: "20px" }}>
+            <label style={{ color: "white", marginRight: "10px", fontSize: "14px" }}>Edit Lantai:</label>
+            <select 
+                value={activeEditFloor} 
+                onChange={(e) => {
+                    setActiveEditFloor(e.target.value);
+                    setSelectedId(null);
+                }}
+                style={{ padding: "5px 10px", borderRadius: "4px", border: "none" }}
+            >
+                {FLOORS.map(f => <option key={f} value={f}>{f}</option>)}
+            </select>
+        </div>
         <div className="edit-page-actions">
-          <button className="edit-page-btn cancel" onClick={() => openConfirmDialog("cancel")}>Cancel</button>
-          <button className="edit-page-btn save" onClick={() => openConfirmDialog("save")}>Save</button>
+          <button className="edit-page-btn cancel" onClick={() => setIsConfirmOpen(true)}>Cancel</button>
+          <button className="edit-page-btn save" onClick={() => { setConfirmAction("save"); setIsConfirmOpen(true); }}>Save</button>
         </div>
       </header>
 
       {isConfirmOpen && (
-        <div className="modal-overlay" onClick={handleConfirmNo}>
-          <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay">
+          <div className="confirm-modal">
             <h3>Verifikasi</h3>
-            <p>Apakah Anda yakin ingin {confirmAction === "save" ? "menyimpan denah ini ke database" : "membatalkan"} edit?</p>
+            <p>Simpan perubahan lantai ke database?</p>
             <div className="confirm-modal-actions">
-              <button className="confirm-btn no" onClick={handleConfirmNo}>Tidak</button>
+              <button className="confirm-btn no" onClick={() => setIsConfirmOpen(false)}>Tidak</button>
               <button className="confirm-btn yes" onClick={handleConfirmYes}>Iya</button>
             </div>
           </div>
@@ -435,27 +348,31 @@ export default function EditPage() {
 
       <div className="edit-page-layout">
         <main className="edit-page-map" ref={mapRef} onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}>
-          <TransformWrapper ref={transformRef} initialScale={1} minScale={0.5} maxScale={5} centerOnInit={true} panning={{ disabled: isDraggingElement }}>
+          <TransformWrapper ref={transformRef} panning={{ disabled: isDraggingElement }}>
             <TransformComponent wrapperStyle={{ width: "100%", height: "100%", cursor: isDraggingElement ? "grabbing" : "grab" }}>
               <div className="map-content" style={{ width: mapSize.width, height: mapSize.height, background: "#e0e0e0" }}>
-                <Stage width={mapSize.width} height={mapSize.height} onMouseDown={checkDeselect} onTouchStart={checkDeselect}>
+                <Stage width={mapSize.width} height={mapSize.height} onMouseDown={checkDeselect}>
                   <Layer>
                     <Rect id="bg-grid" x={0} y={0} width={mapSize.width} height={mapSize.height} fill="transparent" />
                     {drawGrid()}
-                    {placedElements.map((rect, i) => (
-                      <ElementShape
-                        key={rect.id}
-                        shapeProps={rect}
-                        isSelected={rect.id === selectedId}
-                        setIsDraggingElement={setIsDraggingElement}
-                        GRID_SIZE={GRID_SIZE}
-                        onSelect={() => setSelectedId(rect.id)}
-                        onChange={(newAttrs) => {
-                          const rects = placedElements.slice();
-                          rects[i] = newAttrs;
-                          setPlacedElements(rects);
-                        }}
-                      />
+                    
+                    {placedElements
+                      .filter(el => el.floor === activeEditFloor)
+                      .map((rect, i) => (
+                        <ElementShape
+                            key={rect.id}
+                            shapeProps={rect}
+                            isSelected={rect.id === selectedId}
+                            setIsDraggingElement={setIsDraggingElement}
+                            GRID_SIZE={GRID_SIZE}
+                            onSelect={() => setSelectedId(rect.id)}
+                            onChange={(newAttrs) => {
+                                const index = placedElements.findIndex(e => e.id === rect.id);
+                                const rects = [...placedElements];
+                                rects[index] = newAttrs;
+                                setPlacedElements(rects);
+                            }}
+                        />
                     ))}
                   </Layer>
                 </Stage>
@@ -465,8 +382,7 @@ export default function EditPage() {
         </main>
 
         <aside className="edit-page-right-panel">
-          <h3>Edit Panel</h3>
-          
+          <h3>Edit Panel - {activeEditFloor}</h3>
           <div className="edit-tools">
             <p style={{fontSize: "12px", color: "#666"}}>
               {selectedId ? `Terpilih: ${selectedId}` : "Tidak ada elemen terpilih"}
@@ -492,7 +408,7 @@ export default function EditPage() {
               Atau tekan tombol 'Delete' di keyboard.
             </p>
             
-            {/* DOOR CONTROLS */}
+            {/* DOOR CONTROLS (Dikembalikan Penuh) */}
             {selectedId && placedElements.find(el => el.id === selectedId)?.type === 'room' && (() => {
                const room = placedElements.find(el => el.id === selectedId);
                const updateRoom = (changes) => {

@@ -318,7 +318,7 @@ export default function App() {
             >
               <div className="map-content" style={{ width: "100%", height: "100%" }}>
                 {/* PANGGIL KOMPONEN PETA DI SINI */}
-                <SharedMap path={pathData} />
+                <SharedMap path={pathData} currentFloor={floor} />
               </div>
             </TransformComponent>
           </TransformWrapper>

@@ -1,37 +1,36 @@
+// SharedMap.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { Stage, Layer, Rect, Text, Line } from "react-konva";
 import Konva from "konva";
 import { collection, onSnapshot } from "firebase/firestore";
-import { db } from "../firebase"; // Sesuaikan path jika perlu
+import { db } from "../firebase"; 
 
-export default function SharedMap({ path = [] }) {
+// Pilar 2: Menambahkan prop 'currentFloor' untuk filter visual
+export default function SharedMap({ path = [], currentFloor = "Lantai 1" }) {
   const [rooms, setRooms] = useState([]);
   const [kiosks, setKiosks] = useState([]);
   const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
   const containerRef = useRef(null);
   const lineRef = useRef(null);
   
-  const GRID_SIZE = 25; // Harus sama dengan yang ada di EditPage.jsx
+  const GRID_SIZE = 25; 
 
-  // Mengambil ukuran kontainer induk agar peta responsif
   useEffect(() => {
     const updateSize = () => {
       if (containerRef.current) {
         setMapSize({
-          // HILMY FIX: Beri nilai fallback (misal 2000x1500) jika clientWidth kebetulan 0 saat pertama kali render
           width: containerRef.current.clientWidth || 2000, 
           height: containerRef.current.clientHeight || 1500,
         });
       }
     };
     
-    // timeout biar CSS selesai ngeload sebelum mengukur
     setTimeout(updateSize, 100); 
     window.addEventListener("resize", updateSize);
     return () => window.removeEventListener("resize", updateSize);
   }, []);
 
-  // Fetch data dari Firestore
+  // Fetch data Rooms
   useEffect(() => {
     const unsubscribeRooms = onSnapshot(collection(db, "Rooms"), (snapshot) => {
       const loadedRooms = [];
@@ -39,6 +38,8 @@ export default function SharedMap({ path = [] }) {
         const data = docSnap.data();
         loadedRooms.push({
           id: docSnap.id,
+          // Pilar 2: Pastikan data floor diambil dari Firestore
+          floor: data.floor || "Lantai 1", 
           name: data.name || "Tanpa Nama",
           x: (data.grid_x || 0) * GRID_SIZE,
           y: (data.grid_y || 0) * GRID_SIZE,
@@ -54,7 +55,7 @@ export default function SharedMap({ path = [] }) {
     return () => unsubscribeRooms();
   }, []);
 
-  // Fetch kiosk data dari Firestore
+  // Fetch data Kiosks
   useEffect(() => {
     const unsubscribeKiosks = onSnapshot(collection(db, "Kiosks"), (snapshot) => {
       const loadedKiosks = [];
@@ -62,6 +63,8 @@ export default function SharedMap({ path = [] }) {
         const data = docSnap.data();
         loadedKiosks.push({
           id: docSnap.id,
+          // Pilar 2: Pastikan data floor diambil dari Firestore
+          floor: data.floor || "Lantai 1",
           name: data.name || "Kiosk",
           x: (data.grid_x || 0) * GRID_SIZE,
           y: (data.grid_y || 0) * GRID_SIZE,
@@ -75,31 +78,22 @@ export default function SharedMap({ path = [] }) {
     return () => unsubscribeKiosks();
   }, []);
 
-  // Animasi garis putus-putus
+  // Animasi garis rute
   useEffect(() => {
     if (!lineRef.current) return;
-    
-    // Gunakan Konva.Animation untuk animasi berkinerja tinggi tanpa re-render React
     const anim = new Konva.Animation((frame) => {
-      // Atur kecepatan dan arah animasi dengan frame.time
       const dashOffset = (frame.time / 20) % 20; 
       lineRef.current.dashOffset(-dashOffset);
     }, lineRef.current.getLayer());
-
     anim.start();
-
-    return () => {
-      anim.stop();
-    };
+    return () => anim.stop();
   }, [path]);
 
-  // Konversi path (grid) menjadi points (pixel)
   const pathPoints = path.flatMap((point) => [
     (point.x || 0) * GRID_SIZE + GRID_SIZE / 2,
     (point.y || 0) * GRID_SIZE + GRID_SIZE / 2
   ]);
 
-  // Fungsi menggambar background grid (opsional untuk mode view)
   const drawGrid = () => {
     const lines = [];
     const { width, height } = mapSize;
@@ -119,113 +113,43 @@ export default function SharedMap({ path = [] }) {
           <Layer>
             {drawGrid()}
             
-            {/* Render ruangan Read Only */}
-            {rooms.map((room) => {
-              const fontSize = Math.max(10, Math.min(room.width / 5, room.height / 2.5));
-              
-              // Hitung letak pintu
-              let dx = room.x;
-              let dy = room.y;
-              if (room.door_side === 'top') {
-                 dx += room.door_offset * GRID_SIZE;
-                 dy += 0;
-              } else if (room.door_side === 'bottom') {
-                 dx += room.door_offset * GRID_SIZE;
-                 dy += room.height - GRID_SIZE;
-              } else if (room.door_side === 'left') {
-                 dx += 0;
-                 dy += room.door_offset * GRID_SIZE;
-              } else if (room.door_side === 'right') {
-                 dx += room.width - GRID_SIZE;
-                 dy += room.door_offset * GRID_SIZE;
-              }
-              
-              return (
-                <React.Fragment key={room.id}>
-                  <Rect
-                    x={room.x}
-                    y={room.y}
-                    width={room.width}
-                    height={room.height}
-                    fill="#4caf50"
-                    stroke="#1b5e20"
-                    strokeWidth={2}
-                  />
-                  {/* Render Pintu */}
-                  <Rect
-                    x={dx}
-                    y={dy}
-                    width={GRID_SIZE}
-                    height={GRID_SIZE}
-                    fill="#795548"
-                    stroke="#5D4037"
-                    strokeWidth={2}
-                  />
-                  <Text
-                    text={room.name}
-                    x={room.x}
-                    y={room.y}
-                    width={room.width}
-                    height={room.height}
-                    fontSize={fontSize}
-                    fontStyle="bold"
-                    fill="#1b5e20"
-                    align="center"
-                    verticalAlign="middle"
-                    padding={5}
-                    wrap="char"
-                    ellipsis={true}
-                  />
-                </React.Fragment>
-              );
+            {/* Pilar 2: Filter ruangan berdasarkan prop currentFloor */}
+            {rooms
+              .filter((room) => room.floor === currentFloor)
+              .map((room) => {
+                const fontSize = Math.max(10, Math.min(room.width / 5, room.height / 2.5));
+                let dx = room.x;
+                let dy = room.y;
+                if (room.door_side === 'top') { dx += room.door_offset * GRID_SIZE; } 
+                else if (room.door_side === 'bottom') { dx += room.door_offset * GRID_SIZE; dy += room.height - GRID_SIZE; } 
+                else if (room.door_side === 'left') { dy += room.door_offset * GRID_SIZE; } 
+                else if (room.door_side === 'right') { dx += room.width - GRID_SIZE; dy += room.door_offset * GRID_SIZE; }
+                
+                return (
+                  <React.Fragment key={room.id}>
+                    <Rect x={room.x} y={room.y} width={room.width} height={room.height} fill="#4caf50" stroke="#1b5e20" strokeWidth={2} />
+                    <Rect x={dx} y={dy} width={GRID_SIZE} height={GRID_SIZE} fill="#795548" stroke="#5D4037" strokeWidth={2} />
+                    <Text text={room.name} x={room.x} y={room.y} width={room.width} height={room.height} fontSize={fontSize} fontStyle="bold" fill="#1b5e20" align="center" verticalAlign="middle" padding={5} wrap="char" ellipsis={true} />
+                  </React.Fragment>
+                );
             })}
 
-            {/* Render kiosk */}
-            {kiosks.map((kiosk) => {
-              const fontSize = Math.max(10, Math.min(kiosk.width / 5, kiosk.height / 2.5));
-              
-              return (
-                <React.Fragment key={kiosk.id}>
-                  <Rect
-                    x={kiosk.x}
-                    y={kiosk.y}
-                    width={kiosk.width}
-                    height={kiosk.height}
-                    fill="#2196F3"
-                    stroke="#0D47A1"
-                    strokeWidth={2}
-                  />
-                  <Text
-                    text={kiosk.name}
-                    x={kiosk.x}
-                    y={kiosk.y}
-                    width={kiosk.width}
-                    height={kiosk.height}
-                    fontSize={fontSize}
-                    fontStyle="bold"
-                    fill="#FFFFFF"
-                    align="center"
-                    verticalAlign="middle"
-                    padding={5}
-                    wrap="char"
-                    ellipsis={true}
-                  />
-                </React.Fragment>
-              );
+            {/* Pilar 2: Filter kiosk berdasarkan prop currentFloor */}
+            {kiosks
+              .filter((kiosk) => kiosk.floor === currentFloor)
+              .map((kiosk) => {
+                const fontSize = Math.max(10, Math.min(kiosk.width / 5, kiosk.height / 2.5));
+                return (
+                  <React.Fragment key={kiosk.id}>
+                    <Rect x={kiosk.x} y={kiosk.y} width={kiosk.width} height={kiosk.height} fill="#2196F3" stroke="#0D47A1" strokeWidth={2} />
+                    <Text text={kiosk.name} x={kiosk.x} y={kiosk.y} width={kiosk.width} height={kiosk.height} fontSize={fontSize} fontStyle="bold" fill="#FFFFFF" align="center" verticalAlign="middle" padding={5} wrap="char" ellipsis={true} />
+                  </React.Fragment>
+                );
             })}
 
-            {/* Render Garis Rute (Path) */}
+            {/* Garis rute hanya muncul jika ada path data */}
             {pathPoints.length > 0 && (
-              <Line
-                ref={lineRef}
-                points={pathPoints}
-                stroke="red"
-                strokeWidth={5}
-                dash={[10, 10]}
-                lineCap="round"
-                lineJoin="round"
-                tension={0} // garis lurus antar kotak, bukan kurva (opsional)
-              />
+              <Line ref={lineRef} points={pathPoints} stroke="red" strokeWidth={5} dash={[10, 10]} lineCap="round" lineJoin="round" tension={0} />
             )}
           </Layer>
         </Stage>
