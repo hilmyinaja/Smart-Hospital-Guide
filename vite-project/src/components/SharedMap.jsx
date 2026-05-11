@@ -1,9 +1,58 @@
 // SharedMap.jsx
-import React, { useState, useEffect, useRef } from "react";
-import { Stage, Layer, Rect, Text, Line } from "react-konva";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { Stage, Layer, Rect, Text, Line, Group, Circle } from "react-konva";
 import Konva from "konva";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase"; 
+
+// Helper: Hitung total panjang rute
+function getTotalPathLength(pathPoints) {
+  let total = 0;
+  for (let i = 0; i < pathPoints.length - 2; i += 2) {
+    const x1 = pathPoints[i];
+    const y1 = pathPoints[i + 1];
+    const x2 = pathPoints[i + 2];
+    const y2 = pathPoints[i + 3];
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    total += Math.sqrt(dx * dx + dy * dy);
+  }
+  return total;
+}
+
+// Helper: Dapatkan koordinat dan sudut pada jarak tertentu dari rute
+function getPointAtDistance(pathPoints, distance) {
+  let currentDist = 0;
+  for (let i = 0; i < pathPoints.length - 2; i += 2) {
+    const x1 = pathPoints[i];
+    const y1 = pathPoints[i + 1];
+    const x2 = pathPoints[i + 2];
+    const y2 = pathPoints[i + 3];
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const segLen = Math.sqrt(dx * dx + dy * dy);
+    
+    if (currentDist + segLen >= distance) {
+      const ratio = (distance - currentDist) / segLen;
+      const x = x1 + dx * ratio;
+      const y = y1 + dy * ratio;
+      const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+      return { x, y, angle };
+    }
+    currentDist += segLen;
+  }
+  
+  const lastX = pathPoints[pathPoints.length - 2];
+  const lastY = pathPoints[pathPoints.length - 1];
+  
+  if (pathPoints.length >= 4) {
+    const dx = pathPoints[pathPoints.length - 2] - pathPoints[pathPoints.length - 4];
+    const dy = pathPoints[pathPoints.length - 1] - pathPoints[pathPoints.length - 3];
+    const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+    return { x: lastX, y: lastY, angle };
+  }
+  return { x: lastX, y: lastY, angle: 0 };
+}
 
 // Pilar 2: Menambahkan prop 'currentFloor' untuk filter visual
 export default function SharedMap({ path = [], currentFloor = "Lantai 1" }) {
@@ -12,6 +61,9 @@ export default function SharedMap({ path = [], currentFloor = "Lantai 1" }) {
   const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
   const containerRef = useRef(null);
   const lineRef = useRef(null);
+  const personRef = useRef(null);
+  const leftFootRef = useRef(null);
+  const rightFootRef = useRef(null);
   
   const GRID_SIZE = 25; 
 
@@ -78,22 +130,47 @@ export default function SharedMap({ path = [], currentFloor = "Lantai 1" }) {
     return () => unsubscribeKiosks();
   }, []);
 
-  // Animasi garis rute
+  const pathPoints = useMemo(() => {
+    const filteredPath = path.filter(p => !p.floor || p.floor === currentFloor);
+    return filteredPath.flatMap((point) => [
+      (point.x || 0) * GRID_SIZE + GRID_SIZE / 2,
+      (point.y || 0) * GRID_SIZE + GRID_SIZE / 2
+    ]);
+  }, [path, currentFloor]);
+
+  // Animasi garis rute dan orang berjalan
   useEffect(() => {
     if (!lineRef.current) return;
+    
+    const totalPathLength = getTotalPathLength(pathPoints);
+    const WALK_SPEED = 70; // Kecepatan berjalan (pixels per second)
+
     const anim = new Konva.Animation((frame) => {
+      // 1. Animasi dash line rute
       const dashOffset = (frame.time / 20) % 20; 
       lineRef.current.dashOffset(-dashOffset);
+
+      // 2. Animasi orang berjalan
+      if (personRef.current && pathPoints.length >= 4 && totalPathLength > 0) {
+        const distance = ((frame.time / 1000) * WALK_SPEED) % totalPathLength;
+        const { x, y, angle } = getPointAtDistance(pathPoints, distance);
+        
+        personRef.current.x(x);
+        personRef.current.y(y);
+        personRef.current.rotation(angle);
+        
+        // Animasi ayunan kaki (bergerak di sumbu X lokal karena orang menghadap ke X)
+        if (leftFootRef.current && rightFootRef.current) {
+            const footSwing = Math.sin(frame.time * 0.015) * 8; 
+            leftFootRef.current.x(footSwing);
+            rightFootRef.current.x(-footSwing); 
+        }
+      }
     }, lineRef.current.getLayer());
+    
     anim.start();
     return () => anim.stop();
-  }, [path]);
-
-  const filteredPath = path.filter(p => !p.floor || p.floor === currentFloor);
-  const pathPoints = filteredPath.flatMap((point) => [
-    (point.x || 0) * GRID_SIZE + GRID_SIZE / 2,
-    (point.y || 0) * GRID_SIZE + GRID_SIZE / 2
-  ]);
+  }, [pathPoints]);
 
   const drawGrid = () => {
     const lines = [];
@@ -150,7 +227,25 @@ export default function SharedMap({ path = [], currentFloor = "Lantai 1" }) {
 
             {/* Garis rute hanya muncul jika ada path data */}
             {pathPoints.length > 0 && (
-              <Line ref={lineRef} points={pathPoints} stroke="red" strokeWidth={5} dash={[10, 10]} lineCap="round" lineJoin="round" tension={0} />
+              <>
+                <Line ref={lineRef} points={pathPoints} stroke="red" strokeWidth={5} dash={[10, 10]} lineCap="round" lineJoin="round" tension={0} />
+                
+                {/* Animasi Orang Berjalan Top-down */}
+                {pathPoints.length >= 4 && (
+                  <Group ref={personRef}>
+                    {/* Kaki Kiri */}
+                    <Rect ref={leftFootRef} x={0} y={-8} width={10} height={6} fill="#333" cornerRadius={3} offsetX={5} offsetY={3} />
+                    {/* Kaki Kanan */}
+                    <Rect ref={rightFootRef} x={0} y={8} width={10} height={6} fill="#333" cornerRadius={3} offsetX={5} offsetY={3} />
+                    
+                    {/* Bahu/Badan */}
+                    <Rect x={0} y={0} width={16} height={24} fill="#2196F3" cornerRadius={8} offsetX={8} offsetY={12} />
+                    
+                    {/* Kepala */}
+                    <Circle x={0} y={0} radius={7} fill="#FFCCBC" stroke="#333" strokeWidth={1} />
+                  </Group>
+                )}
+              </>
             )}
           </Layer>
         </Stage>
