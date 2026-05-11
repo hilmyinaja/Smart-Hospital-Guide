@@ -86,15 +86,15 @@
 .confirm-modal {
   background: white;
   border-radius: 12px;
-  padding: 30px;
-  max-width: 400px;
+  padding: 50px;
+  max-width: 460px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   text-align: center;
 }
 
 .confirm-modal h3 {
   margin: 0 0 15px 0;
-  font-size: 20px;
+  font-size: 40px;
   color: #333;
 }
 
@@ -112,7 +112,7 @@
 }
 
 .confirm-btn {
-  padding: 10px 24px;
+  padding: 16px 35px;
   border: none;
   border-radius: 6px;
   cursor: pointer;
