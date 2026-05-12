@@ -6,8 +6,6 @@ import { collection, getDocs, doc, writeBatch } from "firebase/firestore";
 import { db } from "../firebase";
 import "./Edit.css";
 
-const FLOORS = ["Lantai 1", "Lantai 2", "Lantai 3", "Lantai 4"];
-
 const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggingElement, GRID_SIZE }) => {
   const shapeRef = useRef();
   const trRef = useRef();
@@ -30,19 +28,35 @@ const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggin
   const dynamicFontSize = Math.max(10, Math.min(shapeProps.width / 5, shapeProps.height / 2.5));
   const textColor = shapeProps.type === 'kiosk' ? '#FFFFFF' : '#1b5e20';
 
-  const getDoorPos = () => {
-    const side = shapeProps.door_side || 'bottom';
-    const offset = shapeProps.door_offset || 0;
-    let dx = shapeProps.x;
-    let dy = shapeProps.y;
-    if (side === 'top') { dx += offset * GRID_SIZE; }
-    else if (side === 'bottom') { dx += offset * GRID_SIZE; dy += shapeProps.height - GRID_SIZE; }
-    else if (side === 'left') { dy += offset * GRID_SIZE; }
-    else if (side === 'right') { dx += shapeProps.width - GRID_SIZE; dy += offset * GRID_SIZE; }
-    return { x: dx, y: dy };
+  // Render penanda endpoint (garis merah marun di tengah sisi aktif)
+  const renderEndpoints = () => {
+    if (shapeProps.type !== 'room') return null;
+    const endpoints = shapeProps.endpoints || ['bottom'];
+    const markerLen = 16; 
+    const markerThick = 4;
+    
+    return endpoints.map((side) => {
+      let mX, mY, mW, mH;
+      if (side === 'top') {
+        mX = shapeProps.x + shapeProps.width / 2 - markerThick / 2;
+        mY = shapeProps.y - markerLen / 2;
+        mW = markerThick; mH = markerLen;
+      } else if (side === 'bottom') {
+        mX = shapeProps.x + shapeProps.width / 2 - markerThick / 2;
+        mY = shapeProps.y + shapeProps.height - markerLen / 2;
+        mW = markerThick; mH = markerLen;
+      } else if (side === 'left') {
+        mX = shapeProps.x - markerLen / 2;
+        mY = shapeProps.y + shapeProps.height / 2 - markerThick / 2;
+        mW = markerLen; mH = markerThick;
+      } else if (side === 'right') {
+        mX = shapeProps.x + shapeProps.width - markerLen / 2;
+        mY = shapeProps.y + shapeProps.height / 2 - markerThick / 2;
+        mW = markerLen; mH = markerThick;
+      }
+      return <Rect key={side} x={mX} y={mY} width={mW} height={mH} fill="#B71C1C" listening={false} />;
+    });
   };
-
-  const doorPos = getDoorPos();
 
   return (
     <React.Fragment>
@@ -101,9 +115,10 @@ const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggin
         wrap="char"
         ellipsis={true}
       />
-      {shapeProps.type === 'room' && (
-        <Rect x={doorPos.x} y={doorPos.y} width={GRID_SIZE} height={GRID_SIZE} fill="#795548" stroke="#5D4037" strokeWidth={2} listening={false} />
-      )}
+      
+      {/* Panggil visualisasi penanda endpoint dosen */}
+      {renderEndpoints()}
+
       {isSelected && (
         <Transformer ref={trRef} rotateEnabled={false} boundBoxFunc={(oldBox, newBox) => {
             if (newBox.width < GRID_SIZE || newBox.height < GRID_SIZE) return oldBox;
@@ -117,12 +132,16 @@ const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggin
 export default function EditPage() {
   const navigate = useNavigate();
   const [placedElements, setPlacedElements] = useState([]);
-  const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
+  
+  // PERBAIKAN: Berikan ukuran default awal area kanvas virtual yang memadai (2000x1500)
+  const [mapSize, setMapSize] = useState({ width: 2000, height: 1500 });
+  
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
   const [isDraggingElement, setIsDraggingElement] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [deletedElements, setDeletedElements] = useState([]);
+  const [floors, setFloors] = useState(["Lantai 1", "Lantai 2", "Lantai 3", "Lantai 4"]);
   const [activeEditFloor, setActiveEditFloor] = useState("Lantai 1");
 
   const mapRef = useRef(null);
@@ -138,26 +157,28 @@ export default function EditPage() {
         ]);
 
         const allElements = [];
+        const uniqueFloors = new Set(["Lantai 1", "Lantai 2", "Lantai 3", "Lantai 4"]);
 
         roomsSnapshot.forEach((docSnap) => {
           const data = docSnap.data();
+          if (data.floor) uniqueFloors.add(data.floor);
           allElements.push({
             id: docSnap.id,
             type: 'room',
-            floor: data.floor || "Lantai 1", 
+            floor: data.floor || "Lantai 1",
             name: data.name || "Tanpa Nama",
             x: (data.grid_x || 0) * GRID_SIZE,
             y: (data.grid_y || 0) * GRID_SIZE,
             width: (data.grid_width || 1) * GRID_SIZE,
             height: (data.grid_height || 1) * GRID_SIZE,
-            door_side: data.door_side || 'bottom',
-            door_offset: data.door_offset || 0,
+            endpoints: data.endpoints && data.endpoints.length > 0 ? data.endpoints : ['bottom'],
             fill: "#4caf50", stroke: "#1b5e20"
           });
         });
 
         kioskSnapshot.forEach((docSnap) => {
           const data = docSnap.data();
+          if (data.floor) uniqueFloors.add(data.floor);
           allElements.push({
             id: docSnap.id,
             type: 'kiosk',
@@ -171,6 +192,7 @@ export default function EditPage() {
           });
         });
         setPlacedElements(allElements);
+        setFloors(Array.from(uniqueFloors));
       } catch (error) {
         console.error("Gagal mengambil data:", error);
       }
@@ -178,13 +200,18 @@ export default function EditPage() {
     fetchAllData();
   }, []);
 
+  // PERBAIKAN: Gunakan setTimeout dan fallback agar dimensi Stage tidak pernah 0
   useEffect(() => {
     const updateMapSize = () => {
       if (mapRef.current) {
-        setMapSize({ width: mapRef.current.clientWidth, height: mapRef.current.clientHeight });
+        setMapSize({ 
+          width: mapRef.current.clientWidth || 2000, 
+          height: mapRef.current.clientHeight || 1500 
+        });
       }
     };
-    updateMapSize();
+    
+    setTimeout(updateMapSize, 100);
     window.addEventListener("resize", updateMapSize);
     return () => window.removeEventListener("resize", updateMapSize);
   }, []);
@@ -232,36 +259,86 @@ export default function EditPage() {
     return `K${String(maxNumber + 1).padStart(3, '0')}`;
   };
 
+  const handleAddFloor = () => {
+    const newFloor = window.prompt("Masukkan nama lantai baru:\n(Contoh: Lantai 5, Gedung B, Basement)");
+    if (newFloor && newFloor.trim() !== "") {
+      const formattedFloor = newFloor.trim();
+      if (floors.includes(formattedFloor)) {
+        alert("Lantai tersebut sudah ada di daftar!");
+        return;
+      }
+      setFloors([...floors, formattedFloor]);
+      setActiveEditFloor(formattedFloor);
+      setSelectedId(null);
+    }
+  };
+
+  const handleDeleteFloor = () => {
+    if (floors.length <= 1) {
+      alert("Tidak dapat menghapus. Harus tersisa minimal satu lantai di editor!");
+      return;
+    }
+    
+    const confirmDelete = window.confirm(
+      `Apakah Anda yakin ingin menghapus "${activeEditFloor}"?\n\nPERHATIAN: Seluruh elemen (Ruangan & Kiosk) yang berada di lantai ini akan terhapus dari database saat Anda menekan tombol Save.`
+    );
+
+    if (confirmDelete) {
+      const elementsToDelete = placedElements.filter(el => el.floor === activeEditFloor);
+      const idsToDelete = elementsToDelete.map(el => el.id);
+      setDeletedElements(prev => [...prev, ...idsToDelete]);
+
+      setPlacedElements(prev => prev.filter(el => el.floor !== activeEditFloor));
+
+      const remainingFloors = floors.filter(f => f !== activeEditFloor);
+      setFloors(remainingFloors);
+      setActiveEditFloor(remainingFloors[0]);
+      setSelectedId(null);
+    }
+  };
+
   const handleDrop = (e) => {
     e.preventDefault();
     const mapRect = mapRef.current.getBoundingClientRect();
     const clientX = e.clientX - mapRect.left;
     const clientY = e.clientY - mapRect.top;
-    const elementType = e.dataTransfer.getData("text/plain");
+    
+    let dragData;
+    try {
+        dragData = JSON.parse(e.dataTransfer.getData("text/plain"));
+    } catch (err) {
+        console.error("Gagal parsing drag data:", err);
+        return; 
+    }
 
-    if (transformRef.current) {
+    if (transformRef.current && dragData) {
       const { scale, positionX, positionY } = transformRef.current.state;
       const x = (clientX - positionX) / scale;
       const y = (clientY - positionY) / scale;
       const snappedX = Math.round(x / GRID_SIZE) * GRID_SIZE;
       const snappedY = Math.round(y / GRID_SIZE) * GRID_SIZE;
 
-      if (elementType === "new-kiosk") {
+      if (dragData.type === "new-kiosk") {
         const newId = generateNextKioskId();
         setPlacedElements([...placedElements, {
           id: newId, type: 'kiosk', 
           floor: activeEditFloor, 
-          x: snappedX, y: snappedY, width: GRID_SIZE * 2, height: GRID_SIZE * 2,
-          name: "Kiosk Baru", fill: "#2196F3", stroke: "#0D47A1"
+          x: snappedX, y: snappedY, 
+          width: GRID_SIZE * (dragData.defaultGridWidth || 2), 
+          height: GRID_SIZE * (dragData.defaultGridHeight || 2),
+          name: dragData.defaultName, fill: "#2196F3", stroke: "#0D47A1"
         }]);
         setSelectedId(newId);
-      } else {
+      } else if (dragData.type === "new-room") {
         const newId = generateNextRoomId();
         setPlacedElements([...placedElements, {
           id: newId, type: 'room',
           floor: activeEditFloor,
-          x: snappedX, y: snappedY, width: GRID_SIZE * 4, height: GRID_SIZE * 2,
-          door_side: 'bottom', door_offset: 0, name: "Ruangan Baru", fill: "#4caf50", stroke: "#1b5e20"
+          x: snappedX, y: snappedY, 
+          width: GRID_SIZE * (dragData.defaultGridWidth || 4), 
+          height: GRID_SIZE * (dragData.defaultGridHeight || 2),
+          endpoints: dragData.endpoints, 
+          name: dragData.defaultName, fill: "#4caf50", stroke: "#1b5e20"
         }]);
         setSelectedId(newId);
       }
@@ -288,12 +365,12 @@ export default function EditPage() {
             grid_y: Math.round(el.y / GRID_SIZE),
             grid_width: Math.round(el.width / GRID_SIZE),
             grid_height: Math.round(el.height / GRID_SIZE),
-            ...(el.type === 'room' && { door_side: el.door_side || 'bottom', door_offset: el.door_offset || 0 })
+            ...(el.type === 'room' && { endpoints: el.endpoints || ['bottom'] })
           }, { merge: true });
         });
 
         await batch.commit();
-        alert("Denah multi-lantai berhasil disimpan!");
+        alert("Denah dan setingan endpoint baru berhasil disimpan!");
         navigate("/admin");
       } catch (error) {
         console.error("Gagal simpan:", error);
@@ -314,19 +391,6 @@ export default function EditPage() {
     <div className="edit-page-container">
       <header className="edit-page-header">
         <span className="edit-page-logo">Wayfinder - Editor</span>
-        <div className="floor-selector-header" style={{ marginLeft: "20px" }}>
-            <label style={{ color: "white", marginRight: "10px", fontSize: "14px" }}>Edit Lantai:</label>
-            <select 
-                value={activeEditFloor} 
-                onChange={(e) => {
-                    setActiveEditFloor(e.target.value);
-                    setSelectedId(null);
-                }}
-                style={{ padding: "5px 10px", borderRadius: "4px", border: "none" }}
-            >
-                {FLOORS.map(f => <option key={f} value={f}>{f}</option>)}
-            </select>
-        </div>
         <div className="edit-page-actions">
           <button className="edit-page-btn cancel" onClick={() => setIsConfirmOpen(true)}>Cancel</button>
           <button className="edit-page-btn save" onClick={() => { setConfirmAction("save"); setIsConfirmOpen(true); }}>Save</button>
@@ -337,7 +401,7 @@ export default function EditPage() {
         <div className="modal-overlay">
           <div className="confirm-modal">
             <h3>Verifikasi</h3>
-            <p>Simpan perubahan lantai ke database?</p>
+            <p>Simpan perubahan ke database?</p>
             <div className="confirm-modal-actions">
               <button className="confirm-btn no" onClick={() => setIsConfirmOpen(false)}>Tidak</button>
               <button className="confirm-btn yes" onClick={handleConfirmYes}>Iya</button>
@@ -382,6 +446,41 @@ export default function EditPage() {
         </main>
 
         <aside className="edit-page-right-panel">
+          {/* ── CARD 1: MANAJEMEN LANTAI BARU ── */}
+          <div style={{ background: "#ffffff", padding: "12px", borderRadius: "6px", border: "1px solid #cce5ff", marginBottom: "15px", boxShadow: "0 2px 4px rgba(0,0,0,0.03)" }}>
+            <h4 style={{ margin: "0 0 10px 0", fontSize: "13px", color: "#0056b3", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span>Manajemen Lantai</span>
+              <span style={{ fontSize: "10px", background: "#e8f4f8", padding: "2px 6px", borderRadius: "10px", color: "#0d47a1" }}>{floors.length} Lantai</span>
+            </h4>
+            
+            <select 
+              value={activeEditFloor} 
+              onChange={(e) => {
+                setActiveEditFloor(e.target.value);
+                setSelectedId(null);
+              }}
+              style={{ width: "100%", padding: "8px", borderRadius: "4px", border: "1px solid #b8daff", marginBottom: "10px", fontSize: "13px", fontWeight: "bold", color: "#0056b3", background: "#f8fbff", cursor: "pointer" }}
+            >
+              {floors.map(f => <option key={f} value={f}>{f}</option>)}
+            </select>
+
+            <div style={{ display: "flex", gap: "6px" }}>
+              <button 
+                onClick={handleAddFloor}
+                style={{ flex: 1, padding: "7px", fontSize: "11px", background: "#28a745", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold", transition: "0.2s" }}
+              >
+                Tambah
+              </button>
+              <button 
+                onClick={handleDeleteFloor}
+                style={{ flex: 1, padding: "7px", fontSize: "11px", background: "#dc3545", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold", transition: "0.2s" }}
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
+
+          {/* ── CARD 2: KONTROL EDIT ELEMEN TERPILIH ── */}
           <h3>Edit Panel - {activeEditFloor}</h3>
           <div className="edit-tools">
             <p style={{fontSize: "12px", color: "#666"}}>
@@ -392,59 +491,41 @@ export default function EditPage() {
               onClick={deleteSelectedElement}
               disabled={!selectedId}
               style={{
-                width: "100%",
-                padding: "10px",
-                backgroundColor: selectedId ? "#f44336" : "#ccc",
-                color: "white",
-                border: "none",
-                borderRadius: "5px",
-                cursor: selectedId ? "pointer" : "not-allowed",
-                marginTop: "10px"
+                width: "100%", padding: "10px", backgroundColor: selectedId ? "#f44336" : "#ccc",
+                color: "white", border: "none", borderRadius: "5px", cursor: selectedId ? "pointer" : "not-allowed", marginTop: "10px"
               }}
             >
               Hapus Elemen
             </button>
-            <p style={{fontSize: "10px", marginTop: "5px", color: "#888"}}>
-              Atau tekan tombol 'Delete' di keyboard.
-            </p>
             
-            {/* DOOR CONTROLS (Dikembalikan Penuh) */}
             {selectedId && placedElements.find(el => el.id === selectedId)?.type === 'room' && (() => {
                const room = placedElements.find(el => el.id === selectedId);
                const updateRoom = (changes) => {
                    setPlacedElements(placedElements.map(el => el.id === selectedId ? { ...el, ...changes } : el));
                };
                return (
-                   <div className="door-controls" style={{marginTop: "15px", background: "#f9f9f9", padding: "10px", borderRadius: "5px", border: "1px solid #ddd"}}>
-                       <h4 style={{margin: "0 0 10px 0", fontSize: "14px", color: "#333"}}>🚪 Pengaturan Pintu</h4>
-                       <label style={{display: "block", marginBottom: "5px", fontSize: "12px", color: "#555"}}>Sisi Pintu:</label>
-                       <select 
-                           value={room.door_side || 'bottom'} 
-                           onChange={(e) => updateRoom({ door_side: e.target.value, door_offset: 0 })}
-                           style={{width: "100%", padding: "5px", marginBottom: "10px", borderRadius: "3px", border: "1px solid #ccc"}}
-                       >
-                           <option value="top">Atas (Top)</option>
-                           <option value="bottom">Bawah (Bottom)</option>
-                           <option value="left">Kiri (Left)</option>
-                           <option value="right">Kanan (Right)</option>
-                       </select>
-
-                       <label style={{display: "block", marginBottom: "5px", fontSize: "12px", color: "#555"}}>Geser Pintu:</label>
-                       <div style={{display: "flex", gap: "10px", alignItems: "center", justifyContent: "center"}}>
-                           <button 
-                               onClick={() => updateRoom({ door_offset: Math.max(0, (room.door_offset || 0) - 1) })}
-                               style={{padding: "5px 15px", cursor: "pointer", background: "#e0e0e0", border: "none", borderRadius: "3px"}}
-                           >-</button>
-                           <span style={{fontWeight: "bold", width: "20px", textAlign: "center"}}>{room.door_offset || 0}</span>
-                           <button 
-                               onClick={() => {
-                                   const maxOffset = (room.door_side === 'left' || room.door_side === 'right') 
-                                       ? Math.max(0, (room.height / GRID_SIZE) - 1) 
-                                       : Math.max(0, (room.width / GRID_SIZE) - 1);
-                                   updateRoom({ door_offset: Math.min(maxOffset, (room.door_offset || 0) + 1) });
-                               }}
-                               style={{padding: "5px 15px", cursor: "pointer", background: "#e0e0e0", border: "none", borderRadius: "3px"}}
-                           >+</button>
+                   <div className="endpoint-controls" style={{marginTop: "15px", background: "#f9f9f9", padding: "10px", borderRadius: "5px", border: "1px solid #ddd"}}>
+                       <h4 style={{margin: "0 0 10px 0", fontSize: "14px", color: "#B71C1C"}}>📍 Sisi Endpoint Aktif</h4>
+                       <p style={{fontSize: "11px", color: "#666", marginBottom: "6px"}}>Ubah manual jika template tidak sesuai:</p>
+                       <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", background: "#fff", padding: "8px", borderRadius: "4px", border: "1px solid #eee"}}>
+                           {['top', 'bottom', 'left', 'right'].map(side => {
+                               const labels = {top: "Atas", bottom: "Bawah", left: "Kiri", right: "Kanan"};
+                               const isChecked = (room.endpoints || []).includes(side);
+                               return (
+                                   <label key={side} style={{fontSize: "12px", display: "flex", alignItems: "center", gap: "5px", cursor: "pointer"}}>
+                                       <input 
+                                           type="checkbox" 
+                                           checked={isChecked}
+                                           onChange={() => {
+                                               const curr = room.endpoints || [];
+                                               const next = isChecked ? curr.filter(s => s !== side) : [...curr, side];
+                                               updateRoom({ endpoints: next.length > 0 ? next : ['bottom'] });
+                                           }}
+                                       />
+                                       {labels[side]}
+                                   </label>
+                               );
+                           })}
                        </div>
                    </div>
                );
@@ -454,13 +535,60 @@ export default function EditPage() {
 
           <hr style={{margin: "20px 0", border: "0.5px solid #ddd"}} />
 
-          <h3>Drag & Drop Elements</h3>
-          <div className="dnd-zone">
-            <div draggable onDragStart={(e) => e.dataTransfer.setData("text/plain", "new-element")} style={{ width: GRID_SIZE * 4, height: GRID_SIZE * 2, background: "#4caf50", cursor: "grab", marginBottom: 15, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <p style={{ color: "#1b5e20", padding: "5px", fontSize: "12px", textAlign: "center", fontWeight: "bold" }}>Drag Ruangan</p>
-            </div>
-            <div draggable onDragStart={(e) => e.dataTransfer.setData("text/plain", "new-kiosk")} style={{ width: GRID_SIZE * 2, height: GRID_SIZE * 2, background: "#2196F3", cursor: "grab", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <p style={{ color: "white", padding: "5px", fontSize: "12px", textAlign: "center", fontWeight: "bold" }}>Drag Kiosk</p>
+          <h3>Template Elemen</h3>
+          <p style={{fontSize: "11px", color: "#666", marginTop: "-5px", marginBottom: "15px"}}>Tarik template langsung ke peta.</p>
+          
+          <div className="dnd-zone" style={{display: "flex", flexDirection: "column", gap: "10px"}}>
+            {[
+              { name: "Opposing Door Room ", endpoints: ['left', 'right'], color: "#4caf50" },
+              { name: "One Door Room", endpoints: ['top',], color: "#4caf50" },
+              { name: "Two Door Room ", endpoints: ['left', 'bottom'], color: "#4caf50" },
+              { name: "Three Door Room", endpoints: ['left', 'right', 'bottom'], color: "#4caf50" },
+              { name: "Four Door Room", endpoints: ['top', 'bottom', 'left', 'right'], color: "#4caf50" }
+            ].map(preset => (
+              <div 
+                key={preset.name}
+                draggable 
+                onDragStart={(e) => {
+                  e.dataTransfer.setData("text/plain", JSON.stringify({
+                    type: "new-room",
+                    defaultName: preset.name,
+                    endpoints: preset.endpoints,
+                    defaultGridWidth: 4,
+                    defaultGridHeight: 2
+                  }));
+                }} 
+                style={{ 
+                  width: "100%", height: "40px", background: preset.color, border: "1px solid #1b5e20",
+                  cursor: "grab", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "4px" 
+                }}
+              >
+                <p style={{ color: "#1b5e20", padding: "5px", fontSize: "11px", textAlign: "center", fontWeight: "bold" }}>
+                  {preset.name}
+                </p>
+              </div>
+            ))}
+
+            <div style={{margin: "10px 0", borderTop: "1px solid #eee"}}></div>
+
+            <div 
+              draggable 
+              onDragStart={(e) => {
+                e.dataTransfer.setData("text/plain", JSON.stringify({
+                  type: "new-kiosk",
+                  defaultName: "Kiosk Baru",
+                  defaultGridWidth: 2,
+                  defaultGridHeight: 2
+                }));
+              }} 
+              style={{ 
+                width: GRID_SIZE * 2, height: GRID_SIZE * 2, background: "#2196F3", border: "1px solid #0D47A1",
+                cursor: "grab", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto" 
+              }}
+            >
+              <p style={{ color: "white", padding: "2px", fontSize: "10px", textAlign: "center", fontWeight: "bold" }}>
+                Drag Kiosk
+              </p>
             </div>
           </div>
         </aside>

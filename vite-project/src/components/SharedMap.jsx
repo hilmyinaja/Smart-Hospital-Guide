@@ -5,7 +5,6 @@ import Konva from "konva";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase"; 
 
-// Helper: Hitung total panjang rute
 function getTotalPathLength(pathPoints) {
   let total = 0;
   for (let i = 0; i < pathPoints.length - 2; i += 2) {
@@ -20,7 +19,6 @@ function getTotalPathLength(pathPoints) {
   return total;
 }
 
-// Helper: Dapatkan koordinat dan sudut pada jarak tertentu dari rute
 function getPointAtDistance(pathPoints, distance) {
   let currentDist = 0;
   for (let i = 0; i < pathPoints.length - 2; i += 2) {
@@ -54,7 +52,6 @@ function getPointAtDistance(pathPoints, distance) {
   return { x: lastX, y: lastY, angle: 0 };
 }
 
-// Pilar 2: Menambahkan prop 'currentFloor' untuk filter visual
 export default function SharedMap({ path = [], currentFloor = "Lantai 1" }) {
   const [rooms, setRooms] = useState([]);
   const [kiosks, setKiosks] = useState([]);
@@ -90,15 +87,14 @@ export default function SharedMap({ path = [], currentFloor = "Lantai 1" }) {
         const data = docSnap.data();
         loadedRooms.push({
           id: docSnap.id,
-          // Pilar 2: Pastikan data floor diambil dari Firestore
           floor: data.floor || "Lantai 1", 
           name: data.name || "Tanpa Nama",
           x: (data.grid_x || 0) * GRID_SIZE,
           y: (data.grid_y || 0) * GRID_SIZE,
           width: (data.grid_width || 1) * GRID_SIZE,
           height: (data.grid_height || 1) * GRID_SIZE,
-          door_side: data.door_side || 'bottom',
-          door_offset: data.door_offset || 0,
+          // Ambil array endpoints
+          endpoints: data.endpoints && data.endpoints.length > 0 ? data.endpoints : ['bottom'],
         });
       });
       setRooms(loadedRooms);
@@ -115,7 +111,6 @@ export default function SharedMap({ path = [], currentFloor = "Lantai 1" }) {
         const data = docSnap.data();
         loadedKiosks.push({
           id: docSnap.id,
-          // Pilar 2: Pastikan data floor diambil dari Firestore
           floor: data.floor || "Lantai 1",
           name: data.name || "Kiosk",
           x: (data.grid_x || 0) * GRID_SIZE,
@@ -138,19 +133,15 @@ export default function SharedMap({ path = [], currentFloor = "Lantai 1" }) {
     ]);
   }, [path, currentFloor]);
 
-  // Animasi garis rute dan orang berjalan
   useEffect(() => {
     if (!lineRef.current) return;
-    
     const totalPathLength = getTotalPathLength(pathPoints);
-    const WALK_SPEED = 70; // Kecepatan berjalan (pixels per second)
+    const WALK_SPEED = 70; 
 
     const anim = new Konva.Animation((frame) => {
-      // 1. Animasi dash line rute
       const dashOffset = (frame.time / 20) % 20; 
       lineRef.current.dashOffset(-dashOffset);
 
-      // 2. Animasi orang berjalan
       if (personRef.current && pathPoints.length >= 4 && totalPathLength > 0) {
         const distance = ((frame.time / 1000) * WALK_SPEED) % totalPathLength;
         const { x, y, angle } = getPointAtDistance(pathPoints, distance);
@@ -159,7 +150,6 @@ export default function SharedMap({ path = [], currentFloor = "Lantai 1" }) {
         personRef.current.y(y);
         personRef.current.rotation(angle);
         
-        // Animasi ayunan kaki (bergerak di sumbu X lokal karena orang menghadap ke X)
         if (leftFootRef.current && rightFootRef.current) {
             const footSwing = Math.sin(frame.time * 0.015) * 8; 
             leftFootRef.current.x(footSwing);
@@ -191,28 +181,39 @@ export default function SharedMap({ path = [], currentFloor = "Lantai 1" }) {
           <Layer>
             {drawGrid()}
             
-            {/* Pilar 2: Filter ruangan berdasarkan prop currentFloor */}
+            {/* Render Ruangan + Penanda Titik Tengah Endpoint */}
             {rooms
               .filter((room) => room.floor === currentFloor)
               .map((room) => {
                 const fontSize = Math.max(10, Math.min(room.width / 5, room.height / 2.5));
-                let dx = room.x;
-                let dy = room.y;
-                if (room.door_side === 'top') { dx += room.door_offset * GRID_SIZE; } 
-                else if (room.door_side === 'bottom') { dx += room.door_offset * GRID_SIZE; dy += room.height - GRID_SIZE; } 
-                else if (room.door_side === 'left') { dy += room.door_offset * GRID_SIZE; } 
-                else if (room.door_side === 'right') { dx += room.width - GRID_SIZE; dy += room.door_offset * GRID_SIZE; }
+                const markerLen = 16;
+                const markerThick = 4;
                 
                 return (
                   <React.Fragment key={room.id}>
                     <Rect x={room.x} y={room.y} width={room.width} height={room.height} fill="#4caf50" stroke="#1b5e20" strokeWidth={2} />
-                    <Rect x={dx} y={dy} width={GRID_SIZE} height={GRID_SIZE} fill="#795548" stroke="#5D4037" strokeWidth={2} />
+                    
+                    {/* Render markah di setiap endpoint yang dimiliki ruangan ini */}
+                    {room.endpoints.map((side) => {
+                      let mX, mY, mW, mH;
+                      if (side === 'top') {
+                        mX = room.x + room.width / 2 - markerThick / 2; mY = room.y - markerLen / 2; mW = markerThick; mH = markerLen;
+                      } else if (side === 'bottom') {
+                        mX = room.x + room.width / 2 - markerThick / 2; mY = room.y + room.height - markerLen / 2; mW = markerThick; mH = markerLen;
+                      } else if (side === 'left') {
+                        mX = room.x - markerLen / 2; mY = room.y + room.height / 2 - markerThick / 2; mW = markerLen; mH = markerThick;
+                      } else if (side === 'right') {
+                        mX = room.x + room.width - markerLen / 2; mY = room.y + room.height / 2 - markerThick / 2; mW = markerLen; mH = markerThick;
+                      }
+                      return <Rect key={side} x={mX} y={mY} width={mW} height={mH} fill="#B71C1C" listening={false} />;
+                    })}
+
                     <Text text={room.name} x={room.x} y={room.y} width={room.width} height={room.height} fontSize={fontSize} fontStyle="bold" fill="#1b5e20" align="center" verticalAlign="middle" padding={5} wrap="char" ellipsis={true} />
                   </React.Fragment>
                 );
             })}
 
-            {/* Pilar 2: Filter kiosk berdasarkan prop currentFloor */}
+            {/* Render Kiosks */}
             {kiosks
               .filter((kiosk) => kiosk.floor === currentFloor)
               .map((kiosk) => {
@@ -225,23 +226,15 @@ export default function SharedMap({ path = [], currentFloor = "Lantai 1" }) {
                 );
             })}
 
-            {/* Garis rute hanya muncul jika ada path data */}
+            {/* Garis Rute & Orang Berjalan */}
             {pathPoints.length > 0 && (
               <>
                 <Line ref={lineRef} points={pathPoints} stroke="red" strokeWidth={5} dash={[10, 10]} lineCap="round" lineJoin="round" tension={0} />
-                
-                {/* Animasi Orang Berjalan Top-down */}
                 {pathPoints.length >= 4 && (
                   <Group ref={personRef}>
-                    {/* Kaki Kiri */}
                     <Rect ref={leftFootRef} x={0} y={-8} width={10} height={6} fill="#333" cornerRadius={3} offsetX={5} offsetY={3} />
-                    {/* Kaki Kanan */}
                     <Rect ref={rightFootRef} x={0} y={8} width={10} height={6} fill="#333" cornerRadius={3} offsetX={5} offsetY={3} />
-                    
-                    {/* Bahu/Badan */}
                     <Rect x={0} y={0} width={16} height={24} fill="#2196F3" cornerRadius={8} offsetX={8} offsetY={12} />
-                    
-                    {/* Kepala */}
                     <Circle x={0} y={0} radius={7} fill="#FFCCBC" stroke="#333" strokeWidth={1} />
                   </Group>
                 )}
