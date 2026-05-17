@@ -1,4 +1,3 @@
-// SharedMap.jsx
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Stage, Layer, Rect, Text, Line, Group, Circle } from "react-konva";
 import Konva from "konva";
@@ -79,7 +78,6 @@ export default function SharedMap({ path = [], currentFloor = "Lantai 1" }) {
     return () => window.removeEventListener("resize", updateSize);
   }, []);
 
-  // Fetch data Rooms
   useEffect(() => {
     const unsubscribeRooms = onSnapshot(collection(db, "Rooms"), (snapshot) => {
       const loadedRooms = [];
@@ -93,7 +91,6 @@ export default function SharedMap({ path = [], currentFloor = "Lantai 1" }) {
           y: (data.grid_y || 0) * GRID_SIZE,
           width: (data.grid_width || 1) * GRID_SIZE,
           height: (data.grid_height || 1) * GRID_SIZE,
-          // Ambil array endpoints
           endpoints: data.endpoints && data.endpoints.length > 0 ? data.endpoints : ['bottom'],
         });
       });
@@ -103,7 +100,6 @@ export default function SharedMap({ path = [], currentFloor = "Lantai 1" }) {
     return () => unsubscribeRooms();
   }, []);
 
-  // Fetch data Kiosks
   useEffect(() => {
     const unsubscribeKiosks = onSnapshot(collection(db, "Kiosks"), (snapshot) => {
       const loadedKiosks = [];
@@ -181,52 +177,57 @@ export default function SharedMap({ path = [], currentFloor = "Lantai 1" }) {
           <Layer>
             {drawGrid()}
             
-            {/* Render Ruangan + Penanda Titik Tengah Endpoint */}
+            {/* Render Ruangan bersih senada background (Tanpa Endpoint) */}
             {rooms
               .filter((room) => room.floor === currentFloor)
               .map((room) => {
-                const fontSize = Math.max(10, Math.min(room.width / 5, room.height / 2.5));
-                const markerLen = 16;
-                const markerThick = 4;
+                const textContent = room.name || "Tanpa Nama";
+                const textLen = textContent.length || 1;
+                const usableWidth = room.width - 10;
+                // Auto shrink formula
+                const fontSize = Math.max(5, Math.min(room.width / 4, room.height / 2.5, (usableWidth * 2.5) / textLen));
                 
                 return (
                   <React.Fragment key={room.id}>
-                    <Rect x={room.x} y={room.y} width={room.width} height={room.height} fill="#4caf50" stroke="#1b5e20" strokeWidth={2} />
+                    <Rect x={room.x} y={room.y} width={room.width} height={room.height} fill="#f8f9fa" stroke="#dae0e5" strokeWidth={2} />
                     
-                    {/* Render markah di setiap endpoint yang dimiliki ruangan ini */}
-                    {room.endpoints.map((side) => {
-                      let mX, mY, mW, mH;
-                      if (side === 'top') {
-                        mX = room.x + room.width / 2 - markerThick / 2; mY = room.y - markerLen / 2; mW = markerThick; mH = markerLen;
-                      } else if (side === 'bottom') {
-                        mX = room.x + room.width / 2 - markerThick / 2; mY = room.y + room.height - markerLen / 2; mW = markerThick; mH = markerLen;
-                      } else if (side === 'left') {
-                        mX = room.x - markerLen / 2; mY = room.y + room.height / 2 - markerThick / 2; mW = markerLen; mH = markerThick;
-                      } else if (side === 'right') {
-                        mX = room.x + room.width - markerLen / 2; mY = room.y + room.height / 2 - markerThick / 2; mW = markerLen; mH = markerThick;
-                      }
-                      return <Rect key={side} x={mX} y={mY} width={mW} height={mH} fill="#B71C1C" listening={false} />;
-                    })}
-
-                    <Text text={room.name} x={room.x} y={room.y} width={room.width} height={room.height} fontSize={fontSize} fontStyle="bold" fill="#1b5e20" align="center" verticalAlign="middle" padding={5} wrap="char" ellipsis={true} />
+                    <Text 
+                        text={textContent} 
+                        x={room.x} y={room.y} width={room.width} height={room.height} 
+                        fontSize={fontSize} fontStyle="bold" fill="#495057" 
+                        align="center" verticalAlign="middle" padding={5} 
+                        wrap="word" ellipsis={false} 
+                    />
                   </React.Fragment>
                 );
             })}
 
-            {/* Render Kiosks */}
+            {/* Render Kiosks tetap biru */}
             {kiosks
               .filter((kiosk) => kiosk.floor === currentFloor)
               .map((kiosk) => {
-                const fontSize = Math.max(10, Math.min(kiosk.width / 5, kiosk.height / 2.5));
+                const textContent = kiosk.name || "Kiosk";
+                const textLen = textContent.length || 1;
+                const usableWidth = kiosk.width - 10;
+                // Auto shrink formula
+                const fontSize = Math.max(5, Math.min(kiosk.width / 4, kiosk.height / 2.5, (usableWidth * 2) / textLen));
+                
                 return (
                   <React.Fragment key={kiosk.id}>
                     <Rect x={kiosk.x} y={kiosk.y} width={kiosk.width} height={kiosk.height} fill="#2196F3" stroke="#0D47A1" strokeWidth={2} />
-                    <Text text={kiosk.name} x={kiosk.x} y={kiosk.y} width={kiosk.width} height={kiosk.height} fontSize={fontSize} fontStyle="bold" fill="#FFFFFF" align="center" verticalAlign="middle" padding={5} wrap="char" ellipsis={true} />
+                    
+                    <Text 
+                        text={textContent} 
+                        x={kiosk.x} y={kiosk.y} width={kiosk.width} height={kiosk.height} 
+                        fontSize={fontSize} fontStyle="bold" fill="#FFFFFF" 
+                        align="center" verticalAlign="middle" padding={5} 
+                        wrap="word" ellipsis={false} 
+                    />
                   </React.Fragment>
                 );
             })}
 
-            {/* Garis Rute & Orang Berjalan */}
+            {/* Garis Rute & Animasi Orang Berjalan */}
             {pathPoints.length > 0 && (
               <>
                 <Line ref={lineRef} points={pathPoints} stroke="red" strokeWidth={5} dash={[10, 10]} lineCap="round" lineJoin="round" tension={0} />
