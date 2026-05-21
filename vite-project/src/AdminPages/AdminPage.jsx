@@ -76,7 +76,7 @@ export default function App() {
         const data = docSnap.data();
         if (data.floor) foundFloors.add(data.floor);
         if (data.name && data.name !== "Tanpa Nama") {
-          loadedRooms.push({ id: docSnap.id, name: data.name });
+          loadedRooms.push({ id: docSnap.id, name: data.name, floor: data.floor || "Lantai 1" });
         }
       });
 
@@ -326,7 +326,7 @@ export default function App() {
                   onClick={() => {
                       const parentRoomId = floor.replace("submap_", "");
                       const parentRoom = rooms.find(r => r.id === parentRoomId);
-                      setFloor(parentRoom ? parentRoom.floor : floors[0]);
+                      setFloor(parentRoom?.floor || "Lantai 1");
                   }}
                   style={{ position: "absolute", top: "20px", left: "20px", zIndex: 100, padding: "10px 20px", background: "#FF9800", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", boxShadow: "0 4px 6px rgba(0,0,0,0.1)" }}
               >
