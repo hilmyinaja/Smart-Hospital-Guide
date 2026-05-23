@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { collection, onSnapshot } from "firebase/firestore";
@@ -47,6 +47,8 @@ export default function App() {
   const [rooms,       setRooms]       = useState([]); // STATE BARU: Daftar Ruangan
   const [pathData,    setPathData]    = useState([]);
   const [targetRoomName, setTargetRoomName] = useState("");
+  const [navigationSteps, setNavigationSteps] = useState([]);
+  const [activeStepIndex, setActiveStepIndex] = useState(-1);
 
   useEffect(() => {
     // 1. Listen ke Kiosks
@@ -95,6 +97,13 @@ export default function App() {
     };
   }, []);
 
+  const activePath = useMemo(() => {
+    if (activeStepIndex === -1 || !navigationSteps.length || !pathData.length) return null;
+    const startIndex = activeStepIndex === 0 ? 0 : navigationSteps[activeStepIndex - 1].index_akhir;
+    const endIndex = navigationSteps[activeStepIndex].index_akhir;
+    return pathData.slice(startIndex, endIndex + 1);
+  }, [pathData, navigationSteps, activeStepIndex]);
+
   const speakSteps = (langkahNavigasi) => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
@@ -104,6 +113,7 @@ export default function App() {
         utterance.lang = 'id-ID';
         utterance.rate = 1.15;
         utterance.onstart = () => {
+          setActiveStepIndex(index);
           if (step.floor) {
             setFloor(step.floor);
           }
@@ -118,6 +128,8 @@ export default function App() {
               setLocation("");
               setFloor("Lantai 1");
               setPathData([]);
+              setNavigationSteps([]);
+              setActiveStepIndex(-1);
               setTargetRoomName("");
             }, 3000);
           };
@@ -157,10 +169,14 @@ export default function App() {
       if (!response.ok) {
         setOutputText(`Gagal: ${data.detail || "Terjadi kesalahan"}`);
         setPathData([]);
+        setNavigationSteps([]);
+        setActiveStepIndex(-1);
       } else {
         const roomName = data.data_target.nama_ruangan;
         setTargetRoomName(roomName);
         setPathData(data.jalur_koordinat);
+        setNavigationSteps(data.langkah_navigasi);
+        setActiveStepIndex(-1);
         
         let allText = "Teks navigasi tidak tersedia.";
         if (data.langkah_navigasi && data.langkah_navigasi.length > 0) {
@@ -353,6 +369,7 @@ export default function App() {
               <div className="map-content" style={{ width: "100%", height: "100%" }}>
                 <SharedMap 
                   path={pathData} 
+                  activePath={activePath}
                   currentFloor={floor} 
                   onRoomClick={(room) => {
                       if (floors.includes(`submap_${room.id}`)) {

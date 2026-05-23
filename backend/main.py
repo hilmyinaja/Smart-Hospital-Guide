@@ -123,7 +123,7 @@ def home():
 
 @app.post("/api/route")
 def dapatkan_rute(request: RequestRute):
-    hasil_nlp = cari_target_ruangan(request.teks_pencarian)
+    hasil_nlp = cari_target_ruangan(request.teks_pencarian, request.start_node_id)
     if hasil_nlp["status"] == "error":
         raise HTTPException(status_code=400, detail=hasil_nlp["pesan"])
         

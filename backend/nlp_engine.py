@@ -80,7 +80,7 @@ def latih_ulang_nlp(data_kamus_baru):
     print(f"[NLP] Model berhasil dilatih ulang! ({len(daftar_nama_ruangan)} Ruangan Aktif)")
 
 # Fungsi pencocokan NLP utama  
-def cari_target_ruangan(input_pengunjung):
+def cari_target_ruangan(input_pengunjung, start_node_id=None):
     # Cegah error jika database Firebase belum masuk
     if matrix_ruangan is None or not daftar_nama_ruangan:
         return {"status": "error", "pesan": "Sistem sedang memuat data peta, mohon tunggu."}
@@ -92,18 +92,57 @@ def cari_target_ruangan(input_pengunjung):
     vektor_input = vectorizer.transform([input_bersih])
     skor_kemiripan = cosine_similarity(vektor_input, matrix_ruangan)[0]
     
-    indeks_terbaik = np.argmax(skor_kemiripan)
-    persentase_skor = round(skor_kemiripan[indeks_terbaik] * 100, 2)
-
-    print(f"\n[DEBUG NLP] Input  : '{input_pengunjung}' -> Skor: {persentase_skor}%")
-
+    # Cari skor maksimum
+    max_score = np.max(skor_kemiripan)
+    
     # Ambang batas diturunkan ke 5% karena typo correction & tf-idf kadang menghasilkan skor kecil
     # Namun jika sudah tertinggi, kemungkinan besar benar
-    if persentase_skor >= 5.0:
+    if max_score >= 0.05:
+        # Cari semua kandidat yang memiliki skor kemiripan maksimum
+        kandidat_indeks = np.where(skor_kemiripan == max_score)[0]
+        
+        terbaik_id = None
+        
+        if len(kandidat_indeks) == 1:
+            terbaik_id = daftar_nama_ruangan[kandidat_indeks[0]]
+        else:
+            # Jika lebih dari 1 (nama ruangan sama), tentukan berdasarkan jarak terdekat dari start_node_id
+            if start_node_id:
+                import waypoint_graph
+                start_room = waypoint_graph.RUANGAN_GRID.get(start_node_id)
+                if start_room:
+                    start_floor = start_room.get("floor", "Lantai 1")
+                    start_x = start_room.get("x", 0)
+                    start_y = start_room.get("y", 0)
+                    
+                    terbaik_jarak = float('inf')
+                    
+                    for idx in kandidat_indeks:
+                        kandidat_id = daftar_nama_ruangan[idx]
+                        kandidat_room = waypoint_graph.RUANGAN_GRID.get(kandidat_id)
+                        if not kandidat_room: continue
+                        
+                        k_floor = kandidat_room.get("floor", "Lantai 1")
+                        k_x = kandidat_room.get("x", 0)
+                        k_y = kandidat_room.get("y", 0)
+                        
+                        # Penalty besar jika lantai berbeda (10000)
+                        floor_penalty = 0 if k_floor == start_floor else 10000 
+                        jarak_manhattan = abs(start_x - k_x) + abs(start_y - k_y)
+                        total_jarak = jarak_manhattan + floor_penalty
+                        
+                        if total_jarak < terbaik_jarak:
+                            terbaik_jarak = total_jarak
+                            terbaik_id = kandidat_id
+                
+            # Jika tidak ada start_node_id atau gagal menghitung, pilih yang pertama saja
+            if not terbaik_id:
+                terbaik_id = daftar_nama_ruangan[kandidat_indeks[0]]
+                
         return {
             "status": "success",
-            "target_id": daftar_nama_ruangan[indeks_terbaik],
-            "confidence_score": f"{persentase_skor}%",
+            "target_id": terbaik_id,
+            "confidence_score": f"{round(max_score * 100, 2)}%",
             "teks_hasil_sastrawi": input_bersih
         }
     else:

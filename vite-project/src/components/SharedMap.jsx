@@ -51,7 +51,7 @@ function getPointAtDistance(pathPoints, distance) {
   return { x: lastX, y: lastY, angle: 0 };
 }
 
-export default function SharedMap({ path = [], currentFloor = "Lantai 1", onRoomClick }) {
+export default function SharedMap({ path = [], activePath = null, currentFloor = "Lantai 1", onRoomClick }) {
   const [rooms, setRooms] = useState([]);
   const [kiosks, setKiosks] = useState([]);
   const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
@@ -129,18 +129,28 @@ export default function SharedMap({ path = [], currentFloor = "Lantai 1", onRoom
     ]);
   }, [path, currentFloor]);
 
+  const activePathPoints = useMemo(() => {
+    if (!activePath) return pathPoints;
+    const filteredPath = activePath.filter(p => !p.floor || p.floor === currentFloor);
+    return filteredPath.flatMap((point) => [
+      (point.x || 0) * GRID_SIZE + GRID_SIZE / 2,
+      (point.y || 0) * GRID_SIZE + GRID_SIZE / 2
+    ]);
+  }, [activePath, pathPoints, currentFloor]);
+
   useEffect(() => {
     if (!lineRef.current) return;
-    const totalPathLength = getTotalPathLength(pathPoints);
+    const totalPathLength = getTotalPathLength(activePathPoints);
     const WALK_SPEED = 70; 
 
     const anim = new Konva.Animation((frame) => {
+      if (!lineRef.current) return;
       const dashOffset = (frame.time / 20) % 20; 
       lineRef.current.dashOffset(-dashOffset);
 
-      if (personRef.current && pathPoints.length >= 4 && totalPathLength > 0) {
+      if (personRef.current && activePathPoints.length >= 4 && totalPathLength > 0) {
         const distance = ((frame.time / 1000) * WALK_SPEED) % totalPathLength;
-        const { x, y, angle } = getPointAtDistance(pathPoints, distance);
+        const { x, y, angle } = getPointAtDistance(activePathPoints, distance);
         
         personRef.current.x(x);
         personRef.current.y(y);
@@ -156,7 +166,7 @@ export default function SharedMap({ path = [], currentFloor = "Lantai 1", onRoom
     
     anim.start();
     return () => anim.stop();
-  }, [pathPoints]);
+  }, [activePathPoints]);
 
   const drawGrid = () => {
     const lines = [];
@@ -236,14 +246,22 @@ export default function SharedMap({ path = [], currentFloor = "Lantai 1", onRoom
             {/* Garis Rute & Animasi Orang Berjalan */}
             {pathPoints.length > 0 && (
               <>
-                <Line ref={lineRef} points={pathPoints} stroke="red" strokeWidth={5} dash={[10, 10]} lineCap="round" lineJoin="round" tension={0} />
-                {pathPoints.length >= 4 && (
-                  <Group ref={personRef}>
-                    <Rect ref={leftFootRef} x={0} y={-8} width={10} height={6} fill="#333" cornerRadius={3} offsetX={5} offsetY={3} />
-                    <Rect ref={rightFootRef} x={0} y={8} width={10} height={6} fill="#333" cornerRadius={3} offsetX={5} offsetY={3} />
-                    <Rect x={0} y={0} width={16} height={24} fill="#2196F3" cornerRadius={8} offsetX={8} offsetY={12} />
-                    <Circle x={0} y={0} radius={7} fill="#FFCCBC" stroke="#333" strokeWidth={1} />
-                  </Group>
+                {/* Rute keseluruhan (redup) */}
+                <Line points={pathPoints} stroke="rgba(255, 0, 0, 0.2)" strokeWidth={5} lineCap="round" lineJoin="round" tension={0} />
+                
+                {/* Rute aktif & Animasi */}
+                {activePathPoints.length > 0 && (
+                  <>
+                    <Line ref={lineRef} points={activePathPoints} stroke="red" strokeWidth={5} dash={[10, 10]} lineCap="round" lineJoin="round" tension={0} />
+                    {activePathPoints.length >= 4 && (
+                      <Group ref={personRef}>
+                        <Rect ref={leftFootRef} x={0} y={-8} width={10} height={6} fill="#333" cornerRadius={3} offsetX={5} offsetY={3} />
+                        <Rect ref={rightFootRef} x={0} y={8} width={10} height={6} fill="#333" cornerRadius={3} offsetX={5} offsetY={3} />
+                        <Rect x={0} y={0} width={16} height={24} fill="#2196F3" cornerRadius={8} offsetX={8} offsetY={12} />
+                        <Circle x={0} y={0} radius={7} fill="#FFCCBC" stroke="#333" strokeWidth={1} />
+                      </Group>
+                    )}
+                  </>
                 )}
               </>
             )}
