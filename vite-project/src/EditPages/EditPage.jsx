@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { Stage, Layer, Rect, Text, Line, Transformer } from "react-konva";
@@ -174,6 +174,27 @@ export default function EditPage() {
   const mapRef = useRef(null);
   const transformRef = useRef(null);
   const GRID_SIZE = 25;
+
+  const calculatedMapSize = useMemo(() => {
+    let maxX = mapSize.width || 2000;
+    let maxY = mapSize.height || 1500;
+    
+    placedElements.forEach(el => {
+      if (el.floor === activeEditFloor) {
+        const right = el.x + el.width;
+        const bottom = el.y + el.height;
+        if (right > maxX) maxX = right;
+        if (bottom > maxY) maxY = bottom;
+      }
+    });
+    
+    return {
+      width: maxX + 1000,
+      height: maxY + 1000
+    };
+  }, [placedElements, activeEditFloor, mapSize.width, mapSize.height]);
+
+
 
   const saveHistory = useCallback((newElements) => {
     let newHistory = history.slice(0, historyStep + 1);
@@ -456,7 +477,7 @@ export default function EditPage() {
 
   const drawGrid = () => {
     const lines = [];
-    const { width, height } = mapSize;
+    const { width, height } = calculatedMapSize;
     for (let i = 0; i < width / GRID_SIZE; i++) lines.push(<Line key={`v${i}`} points={[Math.round(i * GRID_SIZE), 0, Math.round(i * GRID_SIZE), height]} stroke="#9e9e9e" strokeWidth={1} />);
     for (let j = 0; j < height / GRID_SIZE; j++) lines.push(<Line key={`h${j}`} points={[0, Math.round(j * GRID_SIZE), width, Math.round(j * GRID_SIZE)]} stroke="#9e9e9e" strokeWidth={1} />);
     return lines;
@@ -499,12 +520,12 @@ export default function EditPage() {
 
       <div className="edit-page-layout">
         <main className="edit-page-map" ref={mapRef} onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}>
-          <TransformWrapper ref={transformRef} panning={{ disabled: isDraggingElement }}>
+          <TransformWrapper ref={transformRef} panning={{ disabled: isDraggingElement }} initialScale={1} minScale={0.05} maxScale={10} limitToBounds={false}>
             <TransformComponent wrapperStyle={{ width: "100%", height: "100%", cursor: isDraggingElement ? "grabbing" : "grab" }}>
-              <div className="map-content" style={{ width: mapSize.width, height: mapSize.height, background: "#e0e0e0" }}>
-                <Stage width={mapSize.width} height={mapSize.height} onMouseDown={checkDeselect}>
+              <div className="map-content" style={{ width: calculatedMapSize.width, height: calculatedMapSize.height, background: "#e0e0e0" }}>
+                <Stage width={calculatedMapSize.width} height={calculatedMapSize.height} onMouseDown={checkDeselect}>
                   <Layer>
-                    <Rect id="bg-grid" x={0} y={0} width={mapSize.width} height={mapSize.height} fill="transparent" />
+                    <Rect id="bg-grid" x={0} y={0} width={calculatedMapSize.width} height={calculatedMapSize.height} fill="transparent" />
                     {drawGrid()}
                     
                     {placedElements

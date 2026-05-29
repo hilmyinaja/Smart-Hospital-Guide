@@ -51,7 +51,7 @@ function getPointAtDistance(pathPoints, distance) {
   return { x: lastX, y: lastY, angle: 0 };
 }
 
-export default function SharedMap({ path = [], activePath = null, currentFloor = "Lantai 1", onRoomClick }) {
+export default function SharedMap({ path = [], activePath = null, currentFloor = "Lantai 1", onRoomClick, showGrid = true, showBorder = false }) {
   const [rooms, setRooms] = useState([]);
   const [kiosks, setKiosks] = useState([]);
   const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
@@ -62,6 +62,73 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
   const rightFootRef = useRef(null);
   
   const GRID_SIZE = 25; 
+
+  const mapBounds = useMemo(() => {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    rooms.forEach((room) => {
+      if (room.floor === currentFloor) {
+        minX = Math.min(minX, room.x);
+        minY = Math.min(minY, room.y);
+        maxX = Math.max(maxX, room.x + room.width);
+        maxY = Math.max(maxY, room.y + room.height);
+      }
+    });
+
+    kiosks.forEach((kiosk) => {
+      if (kiosk.floor === currentFloor) {
+        minX = Math.min(minX, kiosk.x);
+        minY = Math.min(minY, kiosk.y);
+        maxX = Math.max(maxX, kiosk.x + kiosk.width);
+        maxY = Math.max(maxY, kiosk.y + kiosk.height);
+      }
+    });
+
+    if (minX === Infinity || minY === Infinity || maxX === -Infinity || maxY === -Infinity) {
+      return null;
+    }
+
+    const padding = 25;
+    return {
+      x: minX - padding,
+      y: minY - padding,
+      width: (maxX - minX) + 2 * padding,
+      height: (maxY - minY) + 2 * padding
+    };
+  }, [rooms, kiosks, currentFloor]);
+
+  const calculatedMapSize = useMemo(() => {
+    let maxX = mapSize.width || 2000;
+    let maxY = mapSize.height || 1500;
+    
+    rooms.forEach(room => {
+      if (room.floor === currentFloor) {
+        const right = room.x + room.width;
+        const bottom = room.y + room.height;
+        if (right > maxX) maxX = right;
+        if (bottom > maxY) maxY = bottom;
+      }
+    });
+    
+    kiosks.forEach(kiosk => {
+      if (kiosk.floor === currentFloor) {
+        const right = kiosk.x + kiosk.width;
+        const bottom = kiosk.y + kiosk.height;
+        if (right > maxX) maxX = right;
+        if (bottom > maxY) maxY = bottom;
+      }
+    });
+
+    return {
+      width: maxX + 1000,
+      height: maxY + 1000
+    };
+  }, [rooms, kiosks, currentFloor, mapSize.width, mapSize.height]);
+
+
 
   useEffect(() => {
     const updateSize = () => {
@@ -170,7 +237,7 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
 
   const drawGrid = () => {
     const lines = [];
-    const { width, height } = mapSize;
+    const { width, height } = calculatedMapSize;
     for (let i = 0; i < width / GRID_SIZE; i++) {
       lines.push(<Line key={`v${i}`} points={[Math.round(i * GRID_SIZE), 0, Math.round(i * GRID_SIZE), height]} stroke="#e0e0e0" strokeWidth={1} />);
     }
@@ -183,9 +250,28 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
   return (
     <div ref={containerRef} style={{ width: "100%", height: "100%", background: "#f5f5f5" }}>
       {mapSize.width > 0 && mapSize.height > 0 && (
-        <Stage width={mapSize.width} height={mapSize.height}>
+        <Stage width={calculatedMapSize.width} height={calculatedMapSize.height}>
           <Layer>
-            {drawGrid()}
+            {showGrid && drawGrid()}
+
+            {/* Visual Bounding Box (Warp/Wrap line) */}
+            {showBorder && mapBounds && (
+              <Rect 
+                x={mapBounds.x} 
+                y={mapBounds.y} 
+                width={mapBounds.width} 
+                height={mapBounds.height} 
+                fill="#ffffff" 
+                stroke="#1a73c8" 
+                strokeWidth={2.5} 
+                cornerRadius={16} 
+                dash={[10, 10]} 
+                shadowColor="rgba(26, 115, 200, 0.08)"
+                shadowBlur={10}
+                shadowOffset={{ x: 0, y: 4 }}
+                listening={false}
+              />
+            )}
             
             {/* Render Ruangan bersih senada background (Tanpa Endpoint) */}
             {rooms
