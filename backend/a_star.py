@@ -143,12 +143,15 @@ def cari_rute_grid(start_id, target_id, language="id"):
         lift_target = find_nearest_lift(temp_target)
         
         if not lift_start or not lift_target:
-            msg = f"Tidak ditemukan Lift/Tangga antar {curr_floor} dan {actual_target_floor}." if language == "id" else f"No Elevator/Stairs found between {curr_floor} and {actual_target_floor}."
+            if language == "id":
+                msg = f"Tidak ditemukan Lift/Tangga antar {curr_floor} dan {actual_target_floor}."
+            else:
+                msg = f"No Elevator/Stairs found between {get_translated_floor(curr_floor, language)} and {get_translated_floor(actual_target_floor, language)}."
             return {"status": "error", "pesan": msg}
             
         jalur_1 = _a_star_single_floor(curr_node, lift_start)
         if not jalur_1:
-            msg = f"Rute buntu menuju lift di {curr_floor}." if language == "id" else f"Dead end route to elevator on {curr_floor}."
+            msg = f"Rute buntu menuju lift di {curr_floor}." if language == "id" else f"Dead end route to elevator on {get_translated_floor(curr_floor, language)}."
             return {"status": "error", "pesan": msg}
         phases.extend(jalur_1)
         
@@ -159,7 +162,7 @@ def cari_rute_grid(start_id, target_id, language="id"):
     temp_target = target_parent_room if target_parent_room else target_node
     jalur_2 = _a_star_single_floor(curr_node, temp_target)
     if not jalur_2:
-        msg = f"Rute buntu menuju tujuan di {curr_floor}." if language == "id" else f"Dead end route to destination on {curr_floor}."
+        msg = f"Rute buntu menuju tujuan di {curr_floor}." if language == "id" else f"Dead end route to destination on {get_translated_floor(curr_floor, language)}."
         return {"status": "error", "pesan": msg}
     phases.extend(jalur_2)
     
@@ -178,12 +181,15 @@ def cari_rute_grid(start_id, target_id, language="id"):
         "teks_navigasi": nav_text
     }
 
-def get_adjacent_room(x, y, exclude_ids=None):
+def get_adjacent_room(x, y, floor, exclude_ids=None):
     if exclude_ids is None:
         exclude_ids = set()
     
     for r_id, room in RUANGAN_GRID.items():
         if r_id in exclude_ids:
+            continue
+            
+        if room.get("floor", "Lantai 1") != floor:
             continue
             
         rx = room["x"]
@@ -197,6 +203,17 @@ def get_adjacent_room(x, y, exclude_ids=None):
             if room.get("name") and "Kiosk" not in room.get("name", ""):
                 return room["name"]
     return None
+
+def get_translated_floor(floor_str, language="en"):
+    if language == "id": return floor_str
+    import re
+    match = re.search(r'Lantai\s+(\d+)', floor_str, re.IGNORECASE)
+    if match:
+        num = int(match.group(1))
+        ordinals = ["Zero", "First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth", "Ninth", "Tenth", "Eleventh", "Twelfth", "Thirteenth", "Fourteenth", "Fifteenth"]
+        if 0 < num < len(ordinals): return f"{ordinals[num]} Floor"
+        return f"Floor {num}"
+    return floor_str
 
 def generate_navigation_text(path, start_id, target_id, language="id"):
     if not path or len(path) < 2:
@@ -252,7 +269,8 @@ def generate_navigation_text(path, start_id, target_id, language="id"):
                 parent_name = RUANGAN_GRID.get(parent_id, {}).get("name", "Ruangan Induk")
                 teks_transisi = f"Keluar dari {parent_name}." if language == "id" else f"Exit from {parent_name}."
             else:
-                teks_transisi = f"Gunakan Lift untuk menuju ke {p2['floor']}." if language == "id" else f"Use the Lift to go to {p2['floor']}."
+                t_floor = get_translated_floor(p2['floor'], language)
+                teks_transisi = f"Gunakan Lift untuk menuju ke {p2['floor']}." if language == "id" else f"Use the Lift to go to {t_floor}."
                 
             langkah.append({
                 "teks": teks_transisi,
@@ -269,7 +287,7 @@ def generate_navigation_text(path, start_id, target_id, language="id"):
             current_dir = dir
         elif current_dir != dir:
             turn = get_turn(current_dir, dir)
-            adj_room = get_adjacent_room(p1["x"], p1["y"], exclude_ids)
+            adj_room = get_adjacent_room(p1["x"], p1["y"], p1["floor"], exclude_ids)
             
             if len(langkah) == 0:
                 if language == "id": prefix = f"Dari {start_name}, berjalanlah ke arah {current_dir}"
@@ -280,7 +298,9 @@ def generate_navigation_text(path, start_id, target_id, language="id"):
                     else: prefix = f"After entering, walk {'North/Up' if current_dir=='Atas' else 'South/Down' if current_dir=='Bawah' else 'East/Right' if current_dir=='Kanan' else 'West/Left'}"
                 else:
                     if language == "id": prefix = f"Setelah keluar di {p1['floor']}, berjalanlah ke arah {current_dir}"
-                    else: prefix = f"After exiting at {p1['floor']}, walk {'North/Up' if current_dir=='Atas' else 'South/Down' if current_dir=='Bawah' else 'East/Right' if current_dir=='Kanan' else 'West/Left'}"
+                    else: 
+                        t_floor1 = get_translated_floor(p1['floor'], language)
+                        prefix = f"After exiting at {t_floor1}, walk {'North/Up' if current_dir=='Atas' else 'South/Down' if current_dir=='Bawah' else 'East/Right' if current_dir=='Kanan' else 'West/Left'}"
                 is_after_transition = False
             else:
                 prefix = "Setelah belok, lurus terus" if language == "id" else "After turning, go straight"

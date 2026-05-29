@@ -240,10 +240,10 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
     const lines = [];
     const { width, height } = calculatedMapSize;
     for (let i = 0; i < width / GRID_SIZE; i++) {
-      lines.push(<Line key={`v${i}`} points={[Math.round(i * GRID_SIZE), 0, Math.round(i * GRID_SIZE), height]} stroke="#e0e0e0" strokeWidth={1} />);
+      lines.push(<Line key={`v${i}`} points={[Math.round(i * GRID_SIZE), 0, Math.round(i * GRID_SIZE), height]} stroke="#e0e0e0" strokeWidth={1} listening={false} perfectDrawEnabled={false} />);
     }
     for (let j = 0; j < height / GRID_SIZE; j++) {
-      lines.push(<Line key={`h${j}`} points={[0, Math.round(j * GRID_SIZE), width, Math.round(j * GRID_SIZE)]} stroke="#e0e0e0" strokeWidth={1} />);
+      lines.push(<Line key={`h${j}`} points={[0, Math.round(j * GRID_SIZE), width, Math.round(j * GRID_SIZE)]} stroke="#e0e0e0" strokeWidth={1} listening={false} perfectDrawEnabled={false} />);
     }
     return lines;
   };
@@ -291,7 +291,7 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
                       onMouseEnter={(e) => { if (onRoomClick) { e.target.getStage().container().style.cursor = 'pointer'; } }}
                       onMouseLeave={(e) => { if (onRoomClick) { e.target.getStage().container().style.cursor = 'default'; } }}
                   >
-                    <Rect x={room.x} y={room.y} width={room.width} height={room.height} fill="#f8f9fa" stroke="#dae0e5" strokeWidth={2} />
+                    <Rect x={room.x} y={room.y} width={room.width} height={room.height} fill="#f8f9fa" stroke="#dae0e5" strokeWidth={2} perfectDrawEnabled={false} shadowForStrokeEnabled={false} listening={false} />
                     
                     <Text 
                         text={textContent} 
@@ -299,6 +299,8 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
                         fontSize={fontSize} fontStyle="bold" fill="#495057" 
                         align="center" verticalAlign="middle" padding={5} 
                         wrap="word" ellipsis={false} 
+                        perfectDrawEnabled={false}
+                        listening={false}
                     />
                   </Group>
                 );
@@ -316,14 +318,16 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
                 
                 return (
                   <React.Fragment key={kiosk.id}>
-                    <Rect x={kiosk.x} y={kiosk.y} width={kiosk.width} height={kiosk.height} fill="#2196F3" stroke="#0D47A1" strokeWidth={2} />
+                    <Rect x={kiosk.x} y={kiosk.y} width={kiosk.width} height={kiosk.height} fill="#2196F3" stroke="#0D47A1" strokeWidth={2} perfectDrawEnabled={false} shadowForStrokeEnabled={false} listening={false} />
                     
                     <Text 
                         text={textContent} 
                         x={kiosk.x} y={kiosk.y} width={kiosk.width} height={kiosk.height} 
-                        fontSize={fontSize} fontStyle="bold" fill="#FFFFFF" 
+                        fontSize={fontSize} fontStyle="bold" fill="#ffffff" 
                         align="center" verticalAlign="middle" padding={5} 
                         wrap="word" ellipsis={false} 
+                        perfectDrawEnabled={false}
+                        listening={false}
                     />
                   </React.Fragment>
                 );

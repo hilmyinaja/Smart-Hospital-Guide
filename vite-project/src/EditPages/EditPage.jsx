@@ -109,6 +109,8 @@ const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggin
         stroke={visualColors.stroke} 
         draggable
         strokeWidth={isSelected ? 3 : 2} 
+        perfectDrawEnabled={false}
+        shadowForStrokeEnabled={false} 
         onDragStart={() => setIsDraggingElement(true)}
         onTransformStart={() => setIsDraggingElement(true)}
         dragBoundFunc={(pos) => ({
@@ -154,6 +156,7 @@ const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggin
         listening={false}
         wrap="word"
         ellipsis={false}
+        perfectDrawEnabled={false}
       />
       
       {renderEndpoints()}
@@ -589,7 +592,7 @@ export default function EditPage() {
 
       <div className="edit-page-layout">
         <main className="edit-page-map" ref={mapRef} onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}>
-          <TransformWrapper ref={transformRef} panning={{ disabled: isDraggingElement }} initialScale={1} minScale={0.05} maxScale={10} limitToBounds={false} wheel={{ step: 0.05 }}>
+          <TransformWrapper ref={transformRef} panning={{ disabled: isDraggingElement }} initialScale={1} minScale={0.05} maxScale={10} limitToBounds={false} wheel={{ step: 0.015 }}>
             <TransformComponent wrapperStyle={{ width: "100%", height: "100%", cursor: isDraggingElement ? "grabbing" : "grab" }}>
               <div className="map-content" style={{ width: calculatedMapSize.width, height: calculatedMapSize.height, background: "#e0e0e0" }}>
                 <Stage width={calculatedMapSize.width} height={calculatedMapSize.height} onMouseDown={checkDeselect} onTouchStart={checkDeselect}>

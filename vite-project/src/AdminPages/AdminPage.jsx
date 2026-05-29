@@ -414,7 +414,7 @@ export default function App() {
                   {getText('back_to_main_floor')}
               </button>
           )}
-          <TransformWrapper initialScale={1} minScale={0.05} maxScale={10} centerOnInit={true} limitToBounds={false} wheel={{ step: 0.05 }}>
+          <TransformWrapper initialScale={1} minScale={0.05} maxScale={10} centerOnInit={true} limitToBounds={false} wheel={{ step: 0.015 }}>
             <TransformComponent wrapperStyle={{ width: "100%", height: "100%", cursor: "grab" }} contentStyle={{ width: "100%", height: "100vh" }}>
               <div className="map-content" style={{ width: "100%", height: "100%" }}>
                 <SharedMap 
