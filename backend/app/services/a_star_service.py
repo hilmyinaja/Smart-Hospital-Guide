@@ -1,5 +1,5 @@
 import heapq
-from waypoint_graph import get_grid_map, GRID_WIDTH, GRID_HEIGHT, RUANGAN_GRID, hitung_manhattan
+from app.core.state import get_grid_map, GRID_WIDTH, GRID_HEIGHT, RUANGAN_GRID, hitung_manhattan
 
 def _a_star_single_floor(start_node, target_node):
     floor = start_node.get("floor", "Lantai 1")
@@ -64,22 +64,30 @@ def _a_star_single_floor(start_node, target_node):
                         
     return None
 
-def find_nearest_lift(start_node):
-    floor = start_node.get("floor", "Lantai 1")
-    lifts = []
-    for r_id, room in RUANGAN_GRID.items():
-        if room.get("floor", "Lantai 1") == floor:
-            name = room.get("name", "").lower()
-            if "lift" in name and "tangga" not in name:
-                lifts.append(room)
-                
-    if not lifts:
-        return None
+def cari_pasangan_lift_terbaik(start_node, target_node, curr_floor, target_floor):
+    from app.core.state import hitung_manhattan
+    lifts_start = [r for r in RUANGAN_GRID.values() if r.get("floor") == curr_floor and "lift" in r.get("name", "").lower() and "tangga" not in r.get("name", "").lower()]
+    lifts_target = [r for r in RUANGAN_GRID.values() if r.get("floor") == target_floor and "lift" in r.get("name", "").lower() and "tangga" not in r.get("name", "").lower()]
+    
+    if not lifts_start or not lifts_target:
+        return None, None
         
-    sx = start_node["x"]
-    sy = start_node["y"]
-    lifts.sort(key=lambda r: hitung_manhattan(sx, sy, r["x"], r["y"]))
-    return lifts[0]
+    best_pair = None
+    min_dist = float('inf')
+    
+    for l1 in lifts_start:
+        # Cari pasangan lift di lantai tujuan berdasarkan shaft yang sama (X,Y paling dekat)
+        l2 = min(lifts_target, key=lambda l: hitung_manhattan(l1["x"], l1["y"], l["x"], l["y"]))
+        
+        # Hitung total estimasi jarak: Start -> Lift 1 -> (Pindah Lantai) -> Lift 2 -> Target
+        dist1 = hitung_manhattan(start_node["x"], start_node["y"], l1["x"], l1["y"])
+        dist2 = hitung_manhattan(l2["x"], l2["y"], target_node["x"], target_node["y"])
+        
+        if dist1 + dist2 < min_dist:
+            min_dist = dist1 + dist2
+            best_pair = (l1, l2)
+            
+    return best_pair
 
 def get_pintu_masuk(floor_name):
     for r_id, room in RUANGAN_GRID.items():
@@ -138,9 +146,8 @@ def cari_rute_grid(start_id, target_id, language="id"):
         
     # 3. Pindah lantai via Lift (jika beda lantai standar)
     if curr_floor != actual_target_floor:
-        lift_start = find_nearest_lift(curr_node)
         temp_target = target_parent_room if target_parent_room else target_node
-        lift_target = find_nearest_lift(temp_target)
+        lift_start, lift_target = cari_pasangan_lift_terbaik(curr_node, temp_target, curr_floor, actual_target_floor)
         
         if not lift_start or not lift_target:
             if language == "id":

@@ -8,10 +8,11 @@ print("Memuat mesin NLP (Sentence Transformers)...")
 # Menggunakan model multilingual yang mendukung bahasa Indonesia & Inggris
 model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
 
-# Variabel global kosong yang akan diisi oleh Firebase nanti
 DATABASE_RUANGAN = {}
 daftar_nama_ruangan = []
 embeddings_ruangan = None
+
+NLP_CACHE = {}
 
 # Pengetahuan dasar asisten agar lebih pintar
 KAMUS_SINONIM = {
@@ -39,7 +40,7 @@ def bersihkan_teks(teks_kotor):
         
     teks = re.sub(r'[^\w\s]', '', teks)
     
-    # Kata tugas yang tidak relevan untuk pencarian rute (ID & EN)
+    # Kata tugas yang tidak relevan (ID & EN)
     stopwords = [
         "mau", "ke", "di", "mana", "tolong", "antar", "cari", "ruang", "tempat", "saya", "ingin", "tanya", "mas", "mbak", "kasih", "tau", "arah", "jalan", "buat", "ambil",
         "want", "to", "go", "where", "please", "take", "me", "find", "room", "place", "i", "ask", "show", "way", "direction", "get", "looking", "for"
@@ -61,20 +62,17 @@ def latih_ulang_nlp(data_kamus_baru):
         teks_gabungan = " ".join(sinonim)
         korpus_dokumen.append(bersihkan_teks(teks_gabungan))
 
-    # Latih ulang model Embeddings dengan data terbaru dari Firebase
     new_embeddings = model.encode(korpus_dokumen, convert_to_tensor=True)
     
-    # KUNCI PENTING: Swap variabel secara atomik setelah komputasi 3-5 detik selesai
-    # untuk mencegah Race Condition ketika ada pencarian berbarengan
     DATABASE_RUANGAN = data_kamus_baru
     daftar_nama_ruangan = list(DATABASE_RUANGAN.keys())
     embeddings_ruangan = new_embeddings
+    
+    NLP_CACHE.clear()
 
     print(f"[NLP] Model berhasil dilatih ulang! ({len(daftar_nama_ruangan)} Ruangan Aktif)")
 
-# Fungsi pencocokan NLP utama  
 def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id"):
-    # Cegah error jika database Firebase belum masuk
     if embeddings_ruangan is None or not daftar_nama_ruangan:
         pesan = "Sistem sedang memuat data peta, mohon tunggu." if language == "id" else "System is loading map data, please wait."
         return {"status": "error", "pesan": pesan}
@@ -90,7 +88,7 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id"):
     match_lantai = re.fullmatch(r'lantai\s+(\w+)', teks_cek) # \w+ agar menangkap angka maupun string "dasar" dsb
     if match_lantai:
         target_floor = f"Lantai {match_lantai.group(1)}"
-        import waypoint_graph
+        from app.core import state as waypoint_graph
         for r_id, room in waypoint_graph.RUANGAN_GRID.items():
             if room.get("floor", "Lantai 1").lower() == target_floor.lower():
                 nama = room.get("name", "").lower()
@@ -101,7 +99,11 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id"):
                         "confidence_score": 1.0
                     }
 
-    input_embedding = model.encode(input_bersih, convert_to_tensor=True)
+    if input_bersih in NLP_CACHE:
+        input_embedding = NLP_CACHE[input_bersih]
+    else:
+        input_embedding = model.encode(input_bersih, convert_to_tensor=True)
+        NLP_CACHE[input_bersih] = input_embedding
     skor_kemiripan = util.cos_sim(input_embedding, embeddings_ruangan)[0].cpu().numpy()
     
     # Penalti Tangga Darurat jika user tidak secara spesifik mengetik "tangga"
@@ -112,23 +114,17 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id"):
             if "tangga" in nama_keywords:
                 skor_kemiripan[i] -= 0.50
     
-    # Cari skor maksimum
     max_score = np.max(skor_kemiripan)
+    terbaik_id = None
     
-    # Ambang batas dinaikkan ke 40% karena semantic embeddings menghasilkan skor cosine > 0 untuk banyak hal
-    # Tapi kita ingin yang benar-benar relevan
     if max_score >= 0.40:
-        # Cari semua kandidat yang memiliki skor kemiripan maksimum (atau sangat dekat dengan maks)
         kandidat_indeks = np.where(skor_kemiripan >= max_score - 0.01)[0]
-        
-        terbaik_id = None
         
         if len(kandidat_indeks) == 1:
             terbaik_id = daftar_nama_ruangan[kandidat_indeks[0]]
         else:
-            # Jika lebih dari 1 (nama ruangan sama), tentukan berdasarkan jarak terdekat dari start_node_id
             if start_node_id:
-                import waypoint_graph
+                from app.core import state as waypoint_graph
                 start_room = waypoint_graph.RUANGAN_GRID.get(start_node_id)
                 if start_room:
                     start_floor = start_room.get("floor", "Lantai 1")
@@ -155,11 +151,9 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id"):
                             terbaik_jarak = total_jarak
                             terbaik_id = kandidat_id
                 
-            # Jika tidak ada start_node_id atau gagal menghitung, pilih yang pertama saja
             if not terbaik_id:
                 terbaik_id = daftar_nama_ruangan[kandidat_indeks[0]]
     if terbaik_id:
-        # Berhasil menemukan target
         return {
             "status": "success",
             "target_id": terbaik_id,

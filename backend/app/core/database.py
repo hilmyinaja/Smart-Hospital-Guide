@@ -1,10 +1,19 @@
-# database.py
+import os
 import firebase_admin
 from firebase_admin import credentials, firestore
+from dotenv import load_dotenv
+from loguru import logger
+
+load_dotenv()
 
 if not firebase_admin._apps:
-    cred = credentials.Certificate("serviceAccountKey.json")
-    firebase_admin.initialize_app(cred)
+    cert_path = os.getenv("FIREBASE_CREDENTIALS", "serviceAccountKey.json")
+    try:
+        cred = credentials.Certificate(cert_path)
+        firebase_admin.initialize_app(cred)
+        logger.info(f"Firebase initialized using {cert_path}")
+    except Exception as e:
+        logger.error(f"Failed to initialize Firebase: {e}")
 
 db = firestore.client()
 

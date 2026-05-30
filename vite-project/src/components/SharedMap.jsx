@@ -333,6 +333,11 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
                 );
             })}
 
+            {/* Akhir Static Layer */}
+          </Layer>
+          
+          {/* Layer Animasi Terpisah (SANGAT PENTING UNTUK PERFORMA MOBILE) */}
+          <Layer>
             {/* Garis Rute & Animasi Orang Berjalan */}
             {pathPoints.length > 0 && (
               <>

@@ -139,11 +139,18 @@ export default function App() {
   const speakSteps = (langkahNavigasi) => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
+      window.utterances = []; // HACK: Mencegah Garbage Collection di browser Mobile
       
-      langkahNavigasi.forEach((step, index) => {
+      const playNext = (index) => {
+        if (index >= langkahNavigasi.length) return;
+        
+        const step = langkahNavigasi[index];
         const utterance = new SpeechSynthesisUtterance(step.teks);
+        window.utterances.push(utterance);
+        
         utterance.lang = language === 'en' ? 'en-US' : 'id-ID';
         utterance.rate = 1.15;
+        
         utterance.onstart = () => {
           setActiveStepIndex(index);
           if (step.floor) {
@@ -151,9 +158,9 @@ export default function App() {
           }
         };
 
-        // Reset setelah langkah terakhir selesai dibacakan + 3 detik
-        if (index === langkahNavigasi.length - 1) {
-          utterance.onend = () => {
+        utterance.onend = () => {
+          if (index === langkahNavigasi.length - 1) {
+            // Reset setelah langkah terakhir selesai dibacakan + 10 detik
             setTimeout(() => {
               setSearch("");
               setOutputText("");
@@ -164,11 +171,15 @@ export default function App() {
               setActiveStepIndex(-1);
               setTargetRoomName("");
             }, 10000);
-          };
-        }
+          } else {
+            playNext(index + 1);
+          }
+        };
 
         window.speechSynthesis.speak(utterance);
-      });
+      };
+
+      playNext(0);
     }
   };
 
@@ -177,6 +188,14 @@ export default function App() {
     const searchTarget = typeof overrideTarget === 'string' ? overrideTarget : search;
     
     if (!searchTarget.trim()) return;
+    
+    // HACK MOBILE: Pancing engine suara dengan audio kosong secara sinkron dengan klik tombol
+    if ('speechSynthesis' in window) {
+       const silentUtterance = new SpeechSynthesisUtterance('');
+       silentUtterance.volume = 0;
+       window.speechSynthesis.speak(silentUtterance);
+    }
+
     
     if (!searchLocation) {
       setOutputText(getText('fail_kiosk_first'));

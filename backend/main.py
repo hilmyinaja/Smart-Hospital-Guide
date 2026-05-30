@@ -2,102 +2,87 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-from database import db, listen_to_firestore 
 import threading
-import waypoint_graph
-from nlp_engine import cari_target_ruangan
-from a_star import cari_rute_grid
-from nlp_engine import cari_target_ruangan, latih_ulang_nlp
+from app.core.database import db, listen_to_firestore 
+from app.core import state as waypoint_graph
+from app.services.nlp_service import cari_target_ruangan, latih_ulang_nlp
+from app.services.a_star_service import cari_rute_grid
+from app.models.schemas import RoomModel, RoomUpdateModel
+from loguru import logger
 
-# Model data untuk validasi input ruangan
-class RoomModel(BaseModel):
-    name: str
-    grid_x: int
-    grid_y: int
-    grid_width: int = 1
-    grid_height: int = 1
-    keywords: list[str] = []
+# Lock global untuk mencegah race condition dari Firebase thread pool
+sync_lock = threading.Lock()
 
-# Fungsi jembatan ke firestore
 def sinkronisasi_peta(data):
     """Mengupdate koordinat dan melatih ulang NLP saat database berubah"""
-    print("\n[FIREBASE] Pembaruan denah terdeteksi dari React UI...")
-    
-    data_nlp_baru = {} # Menampung kamus sementara untuk NLP
-    
-    # Variabel sementara agar tidak terjadi race condition saat A* dipanggil bersamaan
-    temp_ruangan = {}
-    temp_grid = {}
-    for item in data:
-        # Gunakan id_dokumen (contoh: "R016") sebagai penanda unik
-        room_id = item.get("id_dokumen") 
-        room_name = item.get("name", "Tanpa Nama")
+    with sync_lock:
+        logger.info("[FIREBASE] Pembaruan denah terdeteksi dari React UI...")
         
-        if room_id and "grid_x" in item and "grid_y" in item:
-            gx = item["grid_x"]
-            gy = item["grid_y"]
-            gw = item.get("grid_width", 1)
-            gh = item.get("grid_height", 1)
+        data_nlp_baru = {}
+        
+        temp_ruangan = {}
+        temp_grid = {}
+        for item in data:
+            room_id = item.get("id_dokumen") 
+            room_name = item.get("name", "Tanpa Nama")
             
-            endpoints = item.get("endpoints", ["bottom"])
-            
-            door_coords = []
-            for ep in endpoints:
-                if ep == "top":
-                    door_coords.append((gx + gw//2, gy))
-                elif ep == "bottom":
-                    door_coords.append((gx + gw//2, gy + gh - 1))
-                elif ep == "left":
-                    door_coords.append((gx, gy + gh//2))
-                elif ep == "right":
-                    door_coords.append((gx + gw - 1, gy + gh//2))
-            
-            floor = item.get("floor", "Lantai 1")
-            
-            # 1. Update Memori Sementara untuk Algoritma Theo
-            temp_ruangan[room_id] = {
-                "x": gx,
-                "y": gy,
-                "w": gw,
-                "h": gh,
-                "door_coords": door_coords,
-                "name": room_name,
-                "floor": floor
-            }
-            
-            # Ambil grid untuk lantai ini (buat baru jika belum ada)
-            if floor not in temp_grid:
-                temp_grid[floor] = [[0 for _ in range(waypoint_graph.GRID_WIDTH)] for _ in range(waypoint_graph.GRID_HEIGHT)]
-            grid = temp_grid[floor]
-            
-            # Tandai area ruangan/kiosk sebagai rintangan (1)
-            for dy in range(gh):
-                for dx in range(gw):
-                    ny = gy + dy
-                    nx = gx + dx
-                    if 0 <= ny < waypoint_graph.GRID_HEIGHT and 0 <= nx < waypoint_graph.GRID_WIDTH:
-                        grid[ny][nx] = 1
-            
-            # 2. Update Memori Kamus NLP
-            kata_kunci = item.get("keywords", [])
-            # Pastikan nama asli ruangan selalu menjadi salah satu keyword untuk NLP
-            if room_name not in kata_kunci:
-                kata_kunci.append(room_name)
-            
-            # NLP juga harus dipetakan menggunakan room_id
-            data_nlp_baru[room_id] = kata_kunci
-            
-            print(f" -> Load: [{room_id}] '{room_name}' (X:{item['grid_x']}, Y:{item['grid_y']})")
+            if room_id and "grid_x" in item and "grid_y" in item:
+                gx = item["grid_x"]
+                gy = item["grid_y"]
+                gw = item.get("grid_width", 1)
+                gh = item.get("grid_height", 1)
+                
+                endpoints = item.get("endpoints", ["bottom"])
+                
+                door_coords = []
+                for ep in endpoints:
+                    if ep == "top":
+                        door_coords.append((gx + gw//2, gy))
+                    elif ep == "bottom":
+                        door_coords.append((gx + gw//2, gy + gh - 1))
+                    elif ep == "left":
+                        door_coords.append((gx, gy + gh//2))
+                    elif ep == "right":
+                        door_coords.append((gx + gw - 1, gy + gh//2))
+                
+                floor = item.get("floor", "Lantai 1")
+                
+                temp_ruangan[room_id] = {
+                    "x": gx,
+                    "y": gy,
+                    "w": gw,
+                    "h": gh,
+                    "door_coords": door_coords,
+                    "name": room_name,
+                    "floor": floor
+                }
+                
+                if floor not in temp_grid:
+                    temp_grid[floor] = [[0 for _ in range(waypoint_graph.GRID_WIDTH)] for _ in range(waypoint_graph.GRID_HEIGHT)]
+                grid = temp_grid[floor]
+                
+                for dy in range(gh):
+                    for dx in range(gw):
+                        ny = gy + dy
+                        nx = gx + dx
+                        if 0 <= ny < waypoint_graph.GRID_HEIGHT and 0 <= nx < waypoint_graph.GRID_WIDTH:
+                            grid[ny][nx] = 1
+                
+                kata_kunci = item.get("keywords", [])
+                if room_name not in kata_kunci:
+                    kata_kunci.append(room_name)
+                
+                data_nlp_baru[room_id] = kata_kunci
+                
+                logger.debug(f" -> Load: [{room_id}] '{room_name}' (X:{item['grid_x']}, Y:{item['grid_y']})")
 
-    # 3. Swap Secara Atomik untuk mencegah Race Condition
-    waypoint_graph.RUANGAN_GRID.clear()
-    waypoint_graph.RUANGAN_GRID.update(temp_ruangan)
-    waypoint_graph.GRID_MAP.clear()
-    waypoint_graph.GRID_MAP.update(temp_grid)
+        waypoint_graph.RUANGAN_GRID.clear()
+        waypoint_graph.RUANGAN_GRID.update(temp_ruangan)
+        waypoint_graph.GRID_MAP.clear()
+        waypoint_graph.GRID_MAP.update(temp_grid)
 
-    # 4. Eksekusi Pelatihan Ulang NLP secara Real-Time
-    latih_ulang_nlp(data_nlp_baru)
-    print("[FIREBASE] Sinkronisasi selesai. Matriks A* dan Model NLP siap digunakan!")
+        latih_ulang_nlp(data_nlp_baru)
+        logger.info("[FIREBASE] Sinkronisasi selesai. Matriks A* dan Model NLP siap digunakan!")
 
 # Jalankan listener di thread terpisah agar tidak mengganggu FastAPI
 threading.Thread(target=listen_to_firestore, args=(sinkronisasi_peta,), daemon=True).start()
@@ -116,8 +101,6 @@ class RequestRute(BaseModel):
     start_node_id: str
     teks_pencarian: str
     language: str = "id"
-
-# Endpoint navigasi
 
 @app.get("/")
 def home():
@@ -150,28 +133,27 @@ def dapatkan_rute(request: RequestRute):
         "langkah_navigasi": hasil_rute["teks_navigasi"]
     }
 
-# Endpoint CRUD untuk manajemen ruangan (Admin)
-# Tambah/update ruangan (POST)
 @app.post("/api/rooms/{room_id}")
 def simpan_ruangan(room_id: str, room: RoomModel):
     try:
-        # Menggunakan .set() untuk membuat atau menimpa dokumen berdasarkan ID (misal: R001)
         db.collection('Rooms').document(room_id).set(room.dict())
         return {"status": "success", "message": f"Ruangan {room_id} berhasil disimpan."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Gagal menyimpan data: {str(e)}")
 
-# Edit koordinat/nama (PATCH)
 @app.patch("/api/rooms/{room_id}")
-def update_ruangan(room_id: str, updates: dict):
+def update_ruangan(room_id: str, updates: RoomUpdateModel):
     try:
-        # Digunakan untuk update parsial, misal saat drag-and-drop hanya koordinat yang berubah
-        db.collection('Rooms').document(room_id).update(updates)
+        update_data = {k: v for k, v in updates.dict().items() if v is not None}
+        if not update_data:
+            return {"status": "success", "message": "Tidak ada data yang diubah."}
+            
+        db.collection('Rooms').document(room_id).update(update_data)
         return {"status": "success", "message": f"Data {room_id} berhasil diperbarui."}
     except Exception as e:
+        logger.error(f"Gagal memperbarui data {room_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Gagal memperbarui data: {str(e)}")
 
-# Hapus ruangan (DELETE)
 @app.delete("/api/rooms/{room_id}")
 def hapus_ruangan(room_id: str):
     try:
