@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot, doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import SharedMap from "../components/SharedMap";
 import { translateName } from "../utils/translator";
@@ -44,6 +44,10 @@ export default function App() {
   const [floor,       setFloor]       = useState("Lantai 1");
   const [floors,      setFloors]      = useState(["Lantai 1"]);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [lockedKiosk, setLockedKiosk] = useState(localStorage.getItem("locked_kiosk_id") || "");
+  const [kioskToLock, setKioskToLock] = useState("");
+  const [isLockConfirmOpen, setIsLockConfirmOpen] = useState(false);
+  const [isUnlockConfirmOpen, setIsUnlockConfirmOpen] = useState(false);
   const [kiosks,      setKiosks]      = useState([]);
   const [rooms,       setRooms]       = useState([]); // STATE BARU: Daftar Ruangan
   const [pathData,    setPathData]    = useState([]);
@@ -71,7 +75,13 @@ export default function App() {
       'are_you_sure_logout': { id: 'Apakah Anda yakin ingin logout?', en: 'Are you sure you want to logout?' },
       'no': { id: 'Tidak', en: 'No' },
       'yes': { id: 'Iya', en: 'Yes' },
-      'back_to_main_floor': { id: 'Kembali ke Lantai Utama', en: 'Back to Main Floor' }
+      'back_to_main_floor': { id: 'Kembali ke Lantai Utama', en: 'Back to Main Floor' },
+      'set_kiosk_placeholder': { id: 'Set Kiosk Perangkat...', en: 'Set Device Kiosk...' },
+      'unlock': { id: 'Buka Kunci', en: 'Unlock' },
+      'confirm_lock_title': { id: 'Konfirmasi Kunci Kiosk', en: 'Confirm Kiosk Lock' },
+      'are_you_sure_lock': { id: 'Apakah Anda yakin ingin mengunci perangkat ini sebagai', en: 'Are you sure you want to lock this device as' },
+      'confirm_unlock_title': { id: 'Konfirmasi Buka Kunci', en: 'Confirm Unlock' },
+      'are_you_sure_unlock': { id: 'Apakah Anda yakin ingin melepas kunci Kiosk perangkat ini?', en: 'Are you sure you want to unlock this device?' }
     };
     return dict[key] ? dict[key][language] : key;
   };
@@ -272,11 +282,65 @@ export default function App() {
   };
   const handleLogoutNo = () => setIsConfirmOpen(false);
 
+  const handleLockYes = async () => {
+    try {
+      await updateDoc(doc(db, "Kiosks", kioskToLock), { isLocked: true });
+      localStorage.setItem("locked_kiosk_id", kioskToLock);
+      setLockedKiosk(kioskToLock);
+      setIsLockConfirmOpen(false);
+      setKioskToLock("");
+    } catch (e) {
+      console.error(e);
+      alert("Gagal mengunci kiosk di database.");
+    }
+  };
+
+  const handleLockNo = () => {
+    setIsLockConfirmOpen(false);
+    setKioskToLock("");
+  };
+
+  const handleUnlockYes = async () => {
+    if (lockedKiosk) {
+      try {
+        await updateDoc(doc(db, "Kiosks", lockedKiosk), { isLocked: false });
+      } catch (e) {
+        console.error("Gagal update DB saat unlock", e);
+      }
+    }
+    localStorage.removeItem("locked_kiosk_id");
+    setLockedKiosk("");
+    setIsUnlockConfirmOpen(false);
+  };
+
+  const handleUnlockNo = () => {
+    setIsUnlockConfirmOpen(false);
+  };
+
   return (
     <div>
       <header className="header">
         <span className="header-logo">Wayfinder</span>
         <div className="header-actions" style={{display: "flex", gap: "10px", alignItems: "center"}}>
+          {lockedKiosk ? (
+            <div style={{display: "flex", gap: "5px", alignItems: "center", background: "white", color: "black", padding: "5px 10px", borderRadius: "5px", fontSize: "14px", fontWeight: "bold"}}>
+              🔒 {kiosks.find(k => k.id === lockedKiosk)?.name ? translateName(kiosks.find(k => k.id === lockedKiosk).name, language) : translateName(lockedKiosk, language)}
+              <button onClick={() => setIsUnlockConfirmOpen(true)} style={{marginLeft: "10px", background: "#ff4d4f", color: "white", border: "none", borderRadius: "3px", cursor: "pointer", padding: "2px 8px", fontSize: "12px"}}>{getText('unlock')}</button>
+            </div>
+          ) : (
+            <select 
+              value="" 
+              onChange={(e) => { setKioskToLock(e.target.value); setIsLockConfirmOpen(true); }}
+              style={{padding: "5px", borderRadius: "5px", border: "1px solid #ccc", background: "white", color: "black", cursor: "pointer"}}
+            >
+              <option value="" disabled>{getText('set_kiosk_placeholder')}</option>
+              {kiosks.map(k => (
+                <option key={k.id} value={k.id} disabled={k.isLocked}>
+                  {translateName(k.name || k.id, language)} {k.isLocked ? (language === 'id' ? '(Sedang Dipakai)' : '(In Use)') : ''}
+                </option>
+              ))}
+            </select>
+          )}
           <button 
             onClick={toggleLanguage} 
             style={{background: "transparent", border: "1px solid white", color: "white", padding: "5px 10px", borderRadius: "5px", cursor: "pointer", fontWeight: "bold"}}
@@ -302,6 +366,32 @@ export default function App() {
             <div className="confirm-modal-actions">
               <button className="confirm-btn no" onClick={handleLogoutNo}>{getText('no')}</button>
               <button className="confirm-btn yes" onClick={handleLogoutYes}>{getText('yes')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isLockConfirmOpen && (
+        <div className="modal-overlay" onClick={handleLockNo}>
+          <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>{getText('confirm_lock_title')}</h3>
+            <p>{getText('are_you_sure_lock')} <strong>{kiosks.find(k => k.id === kioskToLock)?.name ? translateName(kiosks.find(k => k.id === kioskToLock).name, language) : translateName(kioskToLock, language)}</strong>?</p>
+            <div className="confirm-modal-actions">
+              <button className="confirm-btn no" onClick={handleLockNo}>{getText('no')}</button>
+              <button className="confirm-btn yes" onClick={handleLockYes}>{getText('yes')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isUnlockConfirmOpen && (
+        <div className="modal-overlay" onClick={handleUnlockNo}>
+          <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>{getText('confirm_unlock_title')}</h3>
+            <p>{getText('are_you_sure_unlock')}</p>
+            <div className="confirm-modal-actions">
+              <button className="confirm-btn no" onClick={handleUnlockNo}>{getText('no')}</button>
+              <button className="confirm-btn yes" onClick={handleUnlockYes}>{getText('yes')}</button>
             </div>
           </div>
         </div>
