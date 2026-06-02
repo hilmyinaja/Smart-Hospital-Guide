@@ -5,6 +5,7 @@ import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
 import SharedMap from "../components/SharedMap";
 import { translateName } from "../utils/translator";
+import { QRCodeCanvas } from "qrcode.react";
 import "./Main.css";
 
 // ── Icon components ──
@@ -38,6 +39,9 @@ export default function App() {
   const [location,    setLocation]    = useState(localStorage.getItem("locked_kiosk_id") || ""); 
   const [isKioskLocked, setIsKioskLocked] = useState(!!localStorage.getItem("locked_kiosk_id"));
 
+  const [isMobileMode, setIsMobileMode] = useState(false);
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+
   const [floor,       setFloor]       = useState("Lantai 1"); 
   const [floors,      setFloors]      = useState(["Lantai 1"]); 
   const [isLoginOpen, setIsLoginOpen] = useState(false);
@@ -50,6 +54,10 @@ export default function App() {
   const [navigationSteps, setNavigationSteps] = useState([]);
   const [activeStepIndex, setActiveStepIndex] = useState(-1);
   const [language, setLanguage] = useState(localStorage.getItem('language') || 'id');
+  const [isNavFinished, setIsNavFinished] = useState(false);
+  const [countdownValue, setCountdownValue] = useState(10);
+  const [serverIp, setServerIp] = useState("");
+  const [customQrHost, setCustomQrHost] = useState("");
 
   const getText = (key) => {
     const dict = {
@@ -80,11 +88,24 @@ export default function App() {
     localStorage.setItem('language', newLang);
   };
 
-  // ── FITUR LOCK DEVICE SEBAGAI KIOSK FISIK ──
+  // ── FITUR LOCK DEVICE & MOBILE HANDOFF ──
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const lockId = params.get("set_kiosk");
     const unlock = params.get("unlock_kiosk");
+    
+    // Mobile Handoff Params
+    const start = params.get("start");
+    const end = params.get("end");
+    const mobile = params.get("mobile");
+
+    if (mobile === "true" && start && end) {
+      setIsMobileMode(true);
+      setLocation(start);
+      setSearch(end);
+      // Auto-trigger search
+      executeSearch(start, end);
+    }
 
     if (lockId) {
       localStorage.setItem("locked_kiosk_id", lockId);
@@ -173,8 +194,24 @@ export default function App() {
 
   const isMountedRef = useRef(true);
   const resetTimeoutRef = useRef(null);
+  const countdownIntervalRef = useRef(null);
 
   useEffect(() => {
+    let timeoutId;
+    const fetchIp = () => {
+      fetch("/api/ip")
+        .then(res => res.json())
+        .then(data => {
+           setServerIp(data.ip);
+           setCustomQrHost(data.ip);
+        })
+        .catch(err => {
+           console.error("Gagal mendapatkan IP server, mencoba lagi...", err);
+           timeoutId = setTimeout(fetchIp, 2000);
+        });
+    };
+    fetchIp();
+
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
@@ -184,6 +221,12 @@ export default function App() {
       }
       if (resetTimeoutRef.current) {
         clearTimeout(resetTimeoutRef.current);
+      }
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+      }
+      if (timeoutId) {
+        clearTimeout(timeoutId);
       }
     };
   }, []);
@@ -213,11 +256,21 @@ export default function App() {
         
         utterance.onend = () => {
           if (index === langkahNavigasi.length - 1) {
+            setIsNavFinished(true);
+            setCountdownValue(10);
+            
+            if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+            countdownIntervalRef.current = setInterval(() => {
+              setCountdownValue(prev => prev > 0 ? prev - 1 : 0);
+            }, 1000);
+
             // Reset setelah langkah terakhir selesai dibacakan + 10 detik
             resetTimeoutRef.current = setTimeout(() => {
               if (!isMountedRef.current) return;
               setSearch("");
               setOutputText("");
+              
+              if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
               
               if (!isKioskLocked) {
                 setLocation("");
@@ -228,6 +281,7 @@ export default function App() {
               setNavigationSteps([]);
               setActiveStepIndex(-1);
               setTargetRoomName("");
+              setIsNavFinished(false);
             }, 10000);
           } else {
             playNext(index + 1); // Panggil urutan selanjutnya hanya setelah yang ini selesai
@@ -247,6 +301,9 @@ export default function App() {
     
     if (!searchTarget.trim()) return;
     
+    setIsNavFinished(false);
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+
     // HACK MOBILE: Pancing engine suara dengan audio kosong secara sinkron dengan klik tombol
     if ('speechSynthesis' in window) {
        const silentUtterance = new SpeechSynthesisUtterance('');
@@ -350,21 +407,23 @@ export default function App() {
 
   return (
     <div>
-      <header className="header">
-        <span className="header-logo">Wayfinder</span>
-        <div style={{display: "flex", gap: "10px", alignItems: "center"}}>
-          <button 
-            onClick={toggleLanguage} 
-            style={{background: "transparent", border: "1px solid white", color: "white", padding: "5px 10px", borderRadius: "5px", cursor: "pointer", fontWeight: "bold"}}
-          >
-            {language === 'id' ? '🇮🇩 ID' : '🇬🇧 EN'}
-          </button>
-          <button className="header-login-btn Onclick" onClick={() => setIsLoginOpen(true)}>
-            <LoginIcon />
-            {getText('login')}
-          </button>
-        </div>
-      </header>
+      {!isMobileMode && (
+        <header className="header">
+          <span className="header-logo">Wayfinder</span>
+          <div style={{display: "flex", gap: "10px", alignItems: "center"}}>
+            <button 
+              onClick={toggleLanguage} 
+              style={{background: "transparent", border: "1px solid white", color: "white", padding: "5px 10px", borderRadius: "5px", cursor: "pointer", fontWeight: "bold"}}
+            >
+              {language === 'id' ? '🇮🇩 ID' : '🇬🇧 EN'}
+            </button>
+            <button className="header-login-btn Onclick" onClick={() => setIsLoginOpen(true)}>
+              <LoginIcon />
+              {getText('login')}
+            </button>
+          </div>
+        </header>
+      )}
 
       {isLoginOpen && (
         <div className="modal-overlay" onClick={() => setIsLoginOpen(false)}>
@@ -384,124 +443,159 @@ export default function App() {
         </div>
       )}
 
-      <div className="main-layout">
-        <aside className="left-panel">
-          
-          <div className="search-wrapper">
-            <input
-              className="search-input"
-              type="text"
-              placeholder={getText('search_placeholder')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={handleSearchKey}
-            />
-            <div style={{ cursor: "pointer", display: "flex", alignItems: "center" }} onClick={() => executeSearch(location, search)}>
-              <SearchIcon />
+      {isQrModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsQrModalOpen(false)}>
+          <div className="login-modal" onClick={(e) => e.stopPropagation()} style={{ textAlign: "center", width: "300px" }}>
+            <button className="close-btn" onClick={() => setIsQrModalOpen(false)}>×</button>
+            <h2 style={{ fontSize: "16px", marginBottom: "20px" }}>Scan & Go (Satu WiFi)</h2>
+            <div style={{ marginBottom: "15px", textAlign: "left", padding: "0 20px" }}>
+               <label style={{ fontSize: "12px", color: "var(--text-muted)", display: "block", marginBottom: "5px" }}>Alamat IP Kiosk (ubah jika gagal):</label>
+               <input 
+                 type="text" 
+                 value={customQrHost || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? serverIp : window.location.hostname)} 
+                 onChange={(e) => setCustomQrHost(e.target.value)}
+                 style={{ width: "100%", padding: "8px", border: "1px solid var(--border)", borderRadius: "6px", fontSize: "13px" }}
+               />
             </div>
-          </div>
-
-          {/* KIOSK DROPDOWN ATAU LOCKED KIOSK INFO */}
-          {isKioskLocked ? (
-            <div className="dropdown-wrapper" style={{ padding: "12px", background: "#e3f2fd", borderRadius: "8px", border: "1px solid #bbdefb", color: "#0d47a1", fontWeight: "bold", fontSize: "14px", display: "flex", alignItems: "center", gap: "8px" }}>
-              {getText('you_are_here')} {kiosks.find(k => k.id === location)?.name || location}
-            </div>
-          ) : (
-            <div className="dropdown-wrapper">
-              <select
-                className="dropdown-select"
-                value={location}
-                onChange={(e) => {
-                  const newLocation = e.target.value;
-                  setLocation(newLocation);
-                  if (search.trim()) {
-                    executeSearch(newLocation, search);
-                  }
-                }}
-              >
-                <option value="" disabled>{getText('select_kiosk')}</option>
-                {kiosks.map((kiosk) => (
-                  <option key={kiosk.id} value={kiosk.id}>
-                    {translateName(kiosk.name || kiosk.id, language)}
-                  </option>
-                ))}
-              </select>
-              <ChevronIcon />
-            </div>
-          )}
-
-          {/* RUANGAN DROPDOWN */}
-          <div className="dropdown-wrapper" style={{ marginTop: "12px" }}>
-            <select
-              className="dropdown-select"
-              value={(() => {
-                const matchedRoom = rooms.find(r => r.name === search || translateName(r.name, language) === search);
-                return matchedRoom ? matchedRoom.name : "";
-              })()}
-              onChange={(e) => {
-                const rawName = e.target.value;
-                const translatedName = translateName(rawName, language);
-                setSearch(translatedName); 
-                executeSearch(location, rawName);
-              }}
-            >
-              <option value="" disabled>{getText('select_room')}</option>
-              {floors.filter(f => !f.startsWith("submap_")).map((floorName) => (
-                <optgroup key={floorName} label={translateName(floorName, language)}>
-                  {rooms
-                    .filter(room => room.floor === floorName || room.floor.startsWith(`submap_${rooms.find(r=>r.name===room.name)?.id}`))
-                    .map((room) => (
-                    <option key={room.id} value={room.name}>{translateName(room.name, language)}</option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-            <ChevronIcon />
-          </div>
-
-          <div className="floor-group">
-            <div className="dropdown-wrapper">
-              <select
-                className="dropdown-select"
+            <div style={{ background: "white", padding: "16px", borderRadius: "10px", display: "inline-block" }}>
+              <QRCodeCanvas 
                 value={(() => {
-                  if (floor.startsWith("submap_")) {
-                    const parentId = floor.replace("submap_", "");
-                    const parent = rooms.find(r => r.id === parentId);
-                    return parent ? parent.floor : "Lantai 1";
-                  }
-                  return floor;
+                  const host = customQrHost || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? serverIp : window.location.hostname);
+                  const port = window.location.port ? `:${window.location.port}` : "";
+                  return `${window.location.protocol}//${host}${port}/?start=${encodeURIComponent(location)}&end=${encodeURIComponent(search)}&mobile=true`;
                 })()}
-                onChange={(e) => setFloor(e.target.value)}
-              >
-                <option value="" disabled>{getText('select_floor')}</option>
-                {floors.filter(f => !f.startsWith("submap_")).map((f) => (
-                  <option key={f} value={f}>{translateName(f, language)}</option>
-                ))}
-              </select>
-              <ChevronIcon />
+                size={200} 
+              />
             </div>
-            {floor && (
-              <div className="floor-selected-chip">
-                {(() => {
-                  let dFloor = floor;
-                  if (floor.startsWith("submap_")) {
-                    const parentId = floor.replace("submap_", "");
-                    const parent = rooms.find(r => r.id === parentId);
-                    dFloor = parent ? parent.floor : "Lantai 1";
-                  }
-                  return translateName(dFloor, language);
-                })()}
-              </div>
-            )}
+            <p style={{ marginTop: "20px", fontSize: "13px", color: "var(--text-muted)" }}>
+              Pindai menggunakan kamera HP Anda. Pastikan HP dan Kiosk terhubung ke WiFi yang sama.
+            </p>
           </div>
+        </div>
+      )}
+
+      <div className={`main-layout ${isMobileMode ? 'mobile-mode' : ''}`}>
+        <aside className={`left-panel ${isMobileMode ? 'mobile-panel' : ''}`}>
+          
+          {!isMobileMode && (
+            <>
+              <div className="search-wrapper">
+                <input
+                  className="search-input"
+                  type="text"
+                  placeholder={getText('search_placeholder')}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={handleSearchKey}
+                />
+                <div style={{ cursor: "pointer", display: "flex", alignItems: "center" }} onClick={() => executeSearch(location, search)}>
+                  <SearchIcon />
+                </div>
+              </div>
+
+              {/* KIOSK DROPDOWN ATAU LOCKED KIOSK INFO */}
+              {isKioskLocked ? (
+                <div className="dropdown-wrapper" style={{ padding: "12px", background: "#e3f2fd", borderRadius: "8px", border: "1px solid #bbdefb", color: "#0d47a1", fontWeight: "bold", fontSize: "14px", display: "flex", alignItems: "center", gap: "8px" }}>
+                  {getText('you_are_here')} {kiosks.find(k => k.id === location)?.name || location}
+                </div>
+              ) : (
+                <div className="dropdown-wrapper">
+                  <select
+                    className="dropdown-select"
+                    value={location}
+                    onChange={(e) => {
+                      const newLocation = e.target.value;
+                      setLocation(newLocation);
+                      if (search.trim()) {
+                        executeSearch(newLocation, search);
+                      }
+                    }}
+                  >
+                    <option value="" disabled>{getText('select_kiosk')}</option>
+                    {kiosks.map((kiosk) => (
+                      <option key={kiosk.id} value={kiosk.id}>
+                        {translateName(kiosk.name || kiosk.id, language)}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronIcon />
+                </div>
+              )}
+
+              {/* RUANGAN DROPDOWN */}
+              <div className="dropdown-wrapper" style={{ marginTop: "12px" }}>
+                <select
+                  className="dropdown-select"
+                  value={(() => {
+                    const matchedRoom = rooms.find(r => r.name === search || translateName(r.name, language) === search);
+                    return matchedRoom ? matchedRoom.name : "";
+                  })()}
+                  onChange={(e) => {
+                    const rawName = e.target.value;
+                    const translatedName = translateName(rawName, language);
+                    setSearch(translatedName); 
+                    executeSearch(location, rawName);
+                  }}
+                >
+                  <option value="" disabled>{getText('select_room')}</option>
+                  {floors.filter(f => !f.startsWith("submap_")).map((floorName) => (
+                    <optgroup key={floorName} label={translateName(floorName, language)}>
+                      {rooms
+                        .filter(room => room.floor === floorName || room.floor.startsWith(`submap_${rooms.find(r=>r.name===room.name)?.id}`))
+                        .map((room) => (
+                        <option key={room.id} value={room.name}>{translateName(room.name, language)}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+                <ChevronIcon />
+              </div>
+
+              <div className="floor-group">
+                <div className="dropdown-wrapper">
+                  <select
+                    className="dropdown-select"
+                    value={(() => {
+                      if (floor.startsWith("submap_")) {
+                        const parentId = floor.replace("submap_", "");
+                        const parent = rooms.find(r => r.id === parentId);
+                        return parent ? parent.floor : "Lantai 1";
+                      }
+                      return floor;
+                    })()}
+                    onChange={(e) => setFloor(e.target.value)}
+                  >
+                    <option value="" disabled>{getText('select_floor')}</option>
+                    {floors.filter(f => !f.startsWith("submap_")).map((f) => (
+                      <option key={f} value={f}>{translateName(f, language)}</option>
+                    ))}
+                  </select>
+                  <ChevronIcon />
+                </div>
+                {floor && (
+                  <div className="floor-selected-chip">
+                    {(() => {
+                      let dFloor = floor;
+                      if (floor.startsWith("submap_")) {
+                        const parentId = floor.replace("submap_", "");
+                        const parent = rooms.find(r => r.id === parentId);
+                        dFloor = parent ? parent.floor : "Lantai 1";
+                      }
+                      return translateName(dFloor, language);
+                    })()}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
 
           {/* DYNAMIC NAVIGATION TEXT BOX */}
           {(outputText || navigationSteps.length > 0) && (
-            <div className="destination-output-dynamic">
+            <div className={`destination-output-dynamic ${isMobileMode ? 'mobile-nav-box' : ''}`}>
               {navigationSteps.length > 0 ? (
                 <>
-                  <div className="nav-header">
-                    {getText('route_found')} {getText('towards')} {targetRoomName}
+                  <div className="nav-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>{getText('route_found')} {getText('towards')} {targetRoomName}</span>
                   </div>
                   {navigationSteps.map((step, idx) => (
                     <div 
@@ -517,6 +611,24 @@ export default function App() {
                 <div className="nav-step">{outputText}</div>
               )}
             </div>
+          )}
+
+          {isNavFinished && (
+             <div style={{ marginTop: "10px", padding: "10px", background: "#fff3cd", color: "#856404", borderRadius: "8px", fontSize: "14px", fontWeight: "bold", textAlign: "center", border: "1px solid #ffeeba" }}>
+                {language === 'en' 
+                  ? `Navigation complete. The screen will reset in ${countdownValue} seconds.` 
+                  : `Navigasi selesai. Layar akan di-reset dalam ${countdownValue} detik.`}
+             </div>
+          )}
+
+          {!isMobileMode && navigationSteps.length > 0 && (
+            <button 
+              className="show-qr-btn"
+              onClick={() => setIsQrModalOpen(true)}
+              style={{ marginTop: "15px" }}
+            >
+              📱 Tampilkan QR Code Navigasi
+            </button>
           )}
 
         </aside>

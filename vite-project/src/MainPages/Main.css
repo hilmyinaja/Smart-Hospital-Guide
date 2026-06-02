@@ -229,6 +229,51 @@ body {
   flex-direction: column;
 }
 
+/* ── MOBILE HANDOFF MODE ────────────────────────────── */
+.main-layout.mobile-mode {
+  padding: 10px;
+  gap: 10px;
+  height: 100vh;
+  flex-direction: column;
+}
+
+.left-panel.mobile-panel {
+  width: 100%;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  z-index: 10;
+  padding: 15px;
+  background: transparent;
+  pointer-events: none;
+}
+
+.mobile-nav-box {
+  pointer-events: auto;
+  max-height: 40vh;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+  border: none;
+  border-radius: 16px;
+}
+
+.show-qr-btn {
+  width: 100%;
+  margin-top: 15px;
+  padding: 10px;
+  background: var(--blue-primary);
+  color: var(--white);
+  border: none;
+  border-radius: var(--radius);
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.show-qr-btn:hover {
+  background: var(--blue-dark);
+}
+
 .floor-group .dropdown-select {
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;

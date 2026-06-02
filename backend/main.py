@@ -3,6 +3,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 import threading
+import socket
 from app.core.database import db, listen_to_firestore 
 from app.core import state as waypoint_graph
 from app.services.nlp_service import cari_target_ruangan, latih_ulang_nlp
@@ -108,6 +109,17 @@ def home():
         "message": "Server Smart Hospital Backend Aktif!",
         "status": "Bridge Active & Listening to Firestore"
     }
+
+@app.get("/api/ip")
+def get_server_ip():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('10.255.255.255', 1))
+        ip = s.getsockname()[0]
+        s.close()
+        return {"ip": ip}
+    except Exception:
+        return {"ip": "127.0.0.1"}
 
 @app.post("/api/route")
 def dapatkan_rute(request: RequestRute):
