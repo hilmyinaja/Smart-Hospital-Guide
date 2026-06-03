@@ -41,24 +41,24 @@ const LoginIcon = () => (
 
 export default function App() {
   const navigate = useNavigate();
-  const [search,      setSearch]      = useState("");
-  const [outputText,  setOutputText]  = useState("");
-  
+  const [search, setSearch] = useState("");
+  const [outputText, setOutputText] = useState("");
+
   // ── STATE KIOSK LOCK ──
-  const [location,    setLocation]    = useState(localStorage.getItem("locked_kiosk_id") || ""); 
+  const [location, setLocation] = useState(localStorage.getItem("locked_kiosk_id") || "");
   const [isKioskLocked, setIsKioskLocked] = useState(!!localStorage.getItem("locked_kiosk_id"));
 
   const [isMobileMode, setIsMobileMode] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
 
-  const [floor,       setFloor]       = useState("Lantai 1"); 
-  const [floors,      setFloors]      = useState(["Lantai 1"]); 
+  const [floor, setFloor] = useState("Lantai 1");
+  const [floors, setFloors] = useState(["Lantai 1"]);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
-  const [username,    setUsername]    = useState("");
-  const [password,    setPassword]    = useState("");
-  const [kiosks,      setKiosks]      = useState([]);
-  const [rooms,       setRooms]       = useState([]); 
-  const [pathData,    setPathData]    = useState([]);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [kiosks, setKiosks] = useState([]);
+  const [rooms, setRooms] = useState([]);
+  const [pathData, setPathData] = useState([]);
   const [targetRoomName, setTargetRoomName] = useState("");
   const [navigationSteps, setNavigationSteps] = useState([]);
   const [activeStepIndex, setActiveStepIndex] = useState(-1);
@@ -80,26 +80,53 @@ export default function App() {
 
     const recognition = new SpeechRecognition();
     recognition.lang = language === 'en' ? 'en-US' : 'id-ID';
-    recognition.interimResults = false;
+    recognition.interimResults = true;
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
       setIsListening(true);
+      latestTranscriptRef.current = "";
+      if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
     };
 
     recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
+      let transcript = "";
+      for (let i = 0; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+
+      latestTranscriptRef.current = transcript;
       setSearch(transcript);
-      executeSearch(location, transcript);
+
+      if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
+
+      silenceTimeoutRef.current = setTimeout(() => {
+        silenceTimeoutRef.current = null;
+        recognition.stop();
+        if (latestTranscriptRef.current.trim()) {
+          executeSearch(location, latestTranscriptRef.current);
+          latestTranscriptRef.current = "";
+        }
+      }, 3000);
     };
 
     recognition.onerror = (event) => {
       console.error("Speech recognition error", event.error);
       setIsListening(false);
+      if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
+      latestTranscriptRef.current = "";
     };
 
     recognition.onend = () => {
       setIsListening(false);
+      if (silenceTimeoutRef.current) {
+        clearTimeout(silenceTimeoutRef.current);
+        silenceTimeoutRef.current = null;
+        if (latestTranscriptRef.current.trim()) {
+          executeSearch(location, latestTranscriptRef.current);
+          latestTranscriptRef.current = "";
+        }
+      }
     };
 
     recognition.start();
@@ -108,7 +135,7 @@ export default function App() {
   const getText = (key) => {
     const dict = {
       'login': { id: 'Masuk', en: 'Login' },
-      'search_placeholder': { id: 'Cari nama poli atau keluhan Anda...', en: 'Search for a clinic or your symptoms...' },
+      'search_placeholder': { id: 'Cari poli atau keluhan...', en: 'Search clinic or symptoms...' },
       'output_placeholder': { id: 'Keterangan rute akan muncul di sini', en: 'Destination output text will appear here' },
       'select_kiosk': { id: 'Pilih Kiosk Awal', en: 'Select Start Kiosk' },
       'select_room': { id: 'Pilih Ruangan Tujuan', en: 'Select Destination Room' },
@@ -139,7 +166,7 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const lockId = params.get("set_kiosk");
     const unlock = params.get("unlock_kiosk");
-    
+
     // Mobile Handoff Params
     const start = params.get("start");
     const end = params.get("end");
@@ -189,14 +216,14 @@ export default function App() {
         const data = docSnap.data();
         loadedKiosks.push({ id: docSnap.id, ...data });
         if (data.floor) foundFloors.add(data.floor);
-        
+
         const lockedId = localStorage.getItem("locked_kiosk_id");
         if (lockedId && docSnap.id === lockedId && data.floor) {
           floorToSwitch = data.floor;
         }
       });
       setKiosks(loadedKiosks);
-      
+
       setFloors(prev => {
         const combined = new Set([...prev, ...foundFloors]);
         return Array.from(combined).sort();
@@ -241,6 +268,8 @@ export default function App() {
   const isMountedRef = useRef(true);
   const resetTimeoutRef = useRef(null);
   const countdownIntervalRef = useRef(null);
+  const silenceTimeoutRef = useRef(null);
+  const latestTranscriptRef = useRef("");
 
   useEffect(() => {
     let timeoutId;
@@ -248,12 +277,12 @@ export default function App() {
       fetch("/api/ip")
         .then(res => res.json())
         .then(data => {
-           setServerIp(data.ip);
-           setCustomQrHost(data.ip);
+          setServerIp(data.ip);
+          setCustomQrHost(data.ip);
         })
         .catch(err => {
-           console.error("Gagal mendapatkan IP server, mencoba lagi...", err);
-           timeoutId = setTimeout(fetchIp, 2000);
+          console.error("Gagal mendapatkan IP server, mencoba lagi...", err);
+          timeoutId = setTimeout(fetchIp, 2000);
         });
     };
     fetchIp();
@@ -271,6 +300,9 @@ export default function App() {
       if (countdownIntervalRef.current) {
         clearInterval(countdownIntervalRef.current);
       }
+      if (silenceTimeoutRef.current) {
+        clearTimeout(silenceTimeoutRef.current);
+      }
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
@@ -285,26 +317,26 @@ export default function App() {
       const playNext = (index) => {
         if (!isMountedRef.current) return;
         if (index >= langkahNavigasi.length) return;
-        
+
         const step = langkahNavigasi[index];
         const utterance = new SpeechSynthesisUtterance(step.teks);
         window.utterances.push(utterance);
-        
+
         utterance.lang = language === 'en' ? 'en-US' : 'id-ID';
         utterance.rate = 1.15;
-        
+
         utterance.onstart = () => {
           setActiveStepIndex(index);
           if (step.floor) {
             setFloor(step.floor);
           }
         };
-        
+
         utterance.onend = () => {
           if (index === langkahNavigasi.length - 1) {
             setIsNavFinished(true);
             setCountdownValue(10);
-            
+
             if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
             countdownIntervalRef.current = setInterval(() => {
               setCountdownValue(prev => prev > 0 ? prev - 1 : 0);
@@ -315,13 +347,13 @@ export default function App() {
               if (!isMountedRef.current) return;
               setSearch("");
               setOutputText("");
-              
+
               if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-              
+
               if (!isKioskLocked) {
                 setLocation("");
               }
-              
+
               setFloor("Lantai 1");
               setPathData([]);
               setNavigationSteps([]);
@@ -344,21 +376,21 @@ export default function App() {
   const executeSearch = async (overrideLocation, overrideTarget) => {
     const searchLocation = typeof overrideLocation === 'string' ? overrideLocation : location;
     const searchTarget = typeof overrideTarget === 'string' ? overrideTarget : search;
-    
+
     if (!searchTarget.trim()) return;
-    
+
     setIsNavFinished(false);
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current);
 
     // HACK MOBILE: Pancing engine suara dengan audio kosong secara sinkron dengan klik tombol
     if ('speechSynthesis' in window) {
-       window.speechSynthesis.cancel();
-       const silentUtterance = new SpeechSynthesisUtterance('');
-       silentUtterance.volume = 0;
-       window.speechSynthesis.speak(silentUtterance);
+      window.speechSynthesis.cancel();
+      const silentUtterance = new SpeechSynthesisUtterance('');
+      silentUtterance.volume = 0;
+      window.speechSynthesis.speak(silentUtterance);
     }
-    
+
     if (!searchLocation) {
       setOutputText(getText('fail_kiosk_first'));
       return;
@@ -377,19 +409,19 @@ export default function App() {
           language: language
         })
       });
-      
+
       const textResponse = await response.text();
-      
+
       let data;
       try {
-          // Baru coba ubah teks tersebut ke JSON
-          data = JSON.parse(textResponse);
+        // Baru coba ubah teks tersebut ke JSON
+        data = JSON.parse(textResponse);
       } catch (parseError) {
-          // Jika gagal, berarti Python mengirim error atau blank. Tampilkan aslinya!
-          console.error("Server tidak mengembalikan JSON yang valid:", textResponse);
-          throw new Error(`Server Backend Crash/Mati. Cek terminal Python! Respons: ${textResponse.substring(0, 50)}`);
+        // Jika gagal, berarti Python mengirim error atau blank. Tampilkan aslinya!
+        console.error("Server tidak mengembalikan JSON yang valid:", textResponse);
+        throw new Error(`Server Backend Crash/Mati. Cek terminal Python! Respons: ${textResponse.substring(0, 50)}`);
       }
-      
+
       if (!response.ok) {
         setOutputText(`${getText('failed')} ${data.detail || "Terjadi kesalahan"}`);
         setPathData([]);
@@ -401,35 +433,35 @@ export default function App() {
         setPathData(data.jalur_koordinat);
         setNavigationSteps(data.langkah_navigasi);
         setActiveStepIndex(0);
-        
+
         let allText = getText('no_nav_text');
         if (data.langkah_navigasi && data.langkah_navigasi.length > 0) {
-            allText = data.langkah_navigasi.map(l => l.teks).join("\n\n");
-            const finalText = `${getText('route_found')}\n${getText('towards')} ${roomName}\n\n${allText}`;
-            setOutputText(finalText);
-            
-            const isMob = new URLSearchParams(window.location.search).get("mobile") === "true";
-            if (isMob) {
-                if (data.langkah_navigasi[0].floor) setFloor(data.langkah_navigasi[0].floor);
-            } else {
-                speakSteps(data.langkah_navigasi);
-            }
+          allText = data.langkah_navigasi.map(l => l.teks).join("\n\n");
+          const finalText = `${getText('route_found')}\n${getText('towards')} ${roomName}\n\n${allText}`;
+          setOutputText(finalText);
+
+          const isMob = new URLSearchParams(window.location.search).get("mobile") === "true";
+          if (isMob) {
+            if (data.langkah_navigasi[0].floor) setFloor(data.langkah_navigasi[0].floor);
+          } else {
+            speakSteps(data.langkah_navigasi);
+          }
         } else {
-            const fallbackText = `${getText('route_found')} ${getText('towards')} ${roomName}`;
-            setOutputText(fallbackText);
-            
-            if (data.jalur_koordinat && data.jalur_koordinat.length > 0 && data.jalur_koordinat[0].floor) {
-                setFloor(data.jalur_koordinat[0].floor);
-            }
-            
-            const isMob = new URLSearchParams(window.location.search).get("mobile") === "true";
-            if ('speechSynthesis' in window && !isMob) {
-              window.speechSynthesis.cancel();
-              const utterance = new SpeechSynthesisUtterance(fallbackText);
-              utterance.lang = language === 'en' ? 'en-US' : 'id-ID';
-              utterance.rate = 1.15;
-              window.speechSynthesis.speak(utterance);
-            }
+          const fallbackText = `${getText('route_found')} ${getText('towards')} ${roomName}`;
+          setOutputText(fallbackText);
+
+          if (data.jalur_koordinat && data.jalur_koordinat.length > 0 && data.jalur_koordinat[0].floor) {
+            setFloor(data.jalur_koordinat[0].floor);
+          }
+
+          const isMob = new URLSearchParams(window.location.search).get("mobile") === "true";
+          if ('speechSynthesis' in window && !isMob) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(fallbackText);
+            utterance.lang = language === 'en' ? 'en-US' : 'id-ID';
+            utterance.rate = 1.15;
+            window.speechSynthesis.speak(utterance);
+          }
         }
       }
     } catch (error) {
@@ -465,10 +497,10 @@ export default function App() {
       {!isMobileMode && (
         <header className="header">
           <span className="header-logo">Wayfinder</span>
-          <div style={{display: "flex", gap: "10px", alignItems: "center"}}>
-            <button 
-              onClick={toggleLanguage} 
-              style={{background: "transparent", border: "1px solid white", color: "white", padding: "5px 10px", borderRadius: "5px", cursor: "pointer", fontWeight: "bold"}}
+          <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+            <button
+              onClick={toggleLanguage}
+              style={{ background: "transparent", border: "1px solid white", color: "white", padding: "5px 10px", borderRadius: "5px", cursor: "pointer", fontWeight: "bold" }}
             >
               {language === 'id' ? '🇮🇩 ID' : '🇬🇧 EN'}
             </button>
@@ -504,13 +536,13 @@ export default function App() {
             <button className="close-btn" onClick={() => setIsQrModalOpen(false)}>×</button>
             <h2 style={{ fontSize: "16px", marginBottom: "20px" }}>Scan & Go (Satu WiFi)</h2>
             <div style={{ background: "white", padding: "16px", borderRadius: "10px", display: "inline-block" }}>
-              <QRCodeCanvas 
+              <QRCodeCanvas
                 value={(() => {
                   const host = customQrHost || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? serverIp : window.location.hostname);
                   const port = window.location.port ? `:${window.location.port}` : "";
                   return `${window.location.protocol}//${host}${port}/?start=${encodeURIComponent(location)}&end=${encodeURIComponent(search)}&mobile=true`;
                 })()}
-                size={200} 
+                size={200}
               />
             </div>
             <p style={{ marginTop: "20px", fontSize: "13px", color: "var(--text-muted)" }}>
@@ -522,7 +554,7 @@ export default function App() {
 
       <div className={`main-layout ${isMobileMode ? 'mobile-mode' : ''}`}>
         <aside className={`left-panel ${isMobileMode ? 'mobile-panel' : ''}`}>
-          
+
           {!isMobileMode && (
             <>
               <div className="search-wrapper">
@@ -534,7 +566,7 @@ export default function App() {
                   onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={handleSearchKey}
                 />
-                 <div className="mic-btn-wrapper" onClick={startListening} title={language === 'en' ? 'Voice Search' : 'Pencarian Suara'}>
+                <div className="mic-btn-wrapper" onClick={startListening} title={language === 'en' ? 'Voice Search' : 'Pencarian Suara'}>
                   <MicIcon isListening={isListening} />
                 </div>
                 <button type="button" className="search-btn-wrapper" onClick={() => executeSearch(location, search)}>
@@ -582,7 +614,7 @@ export default function App() {
                   onChange={(e) => {
                     const rawName = e.target.value;
                     const translatedName = translateName(rawName, language);
-                    setSearch(translatedName); 
+                    setSearch(translatedName);
                     executeSearch(location, rawName);
                   }}
                 >
@@ -590,10 +622,10 @@ export default function App() {
                   {floors.filter(f => !f.startsWith("submap_")).map((floorName) => (
                     <optgroup key={floorName} label={translateName(floorName, language)}>
                       {rooms
-                        .filter(room => room.floor === floorName || room.floor.startsWith(`submap_${rooms.find(r=>r.name===room.name)?.id}`))
+                        .filter(room => room.floor === floorName || room.floor.startsWith(`submap_${rooms.find(r => r.name === room.name)?.id}`))
                         .map((room) => (
-                        <option key={room.id} value={room.name}>{translateName(room.name, language)}</option>
-                      ))}
+                          <option key={room.id} value={room.name}>{translateName(room.name, language)}</option>
+                        ))}
                     </optgroup>
                   ))}
                 </select>
@@ -647,8 +679,8 @@ export default function App() {
                     <span>{getText('route_found')} {getText('towards')} {targetRoomName}</span>
                   </div>
                   {navigationSteps.map((step, idx) => (
-                    <div 
-                      key={idx} 
+                    <div
+                      key={idx}
                       className={`nav-step ${activeStepIndex === idx ? 'active-step' : ''}`}
                       style={{ display: isMobileMode ? (activeStepIndex === idx ? 'block' : 'none') : 'block' }}
                       ref={(!isMobileMode && activeStepIndex === idx) ? (el) => el && el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }) : null}
@@ -656,10 +688,10 @@ export default function App() {
                       {step.teks}
                     </div>
                   ))}
-                  
+
                   {isMobileMode && navigationSteps.length > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '15px' }}>
-                      <button 
+                      <button
                         onClick={() => {
                           const newIdx = Math.max(0, activeStepIndex - 1);
                           setActiveStepIndex(newIdx);
@@ -673,7 +705,7 @@ export default function App() {
                       <span style={{ alignSelf: 'center', fontWeight: 'bold', color: 'var(--blue-primary)' }}>
                         {activeStepIndex + 1} / {navigationSteps.length}
                       </span>
-                      <button 
+                      <button
                         onClick={() => {
                           const newIdx = Math.min(navigationSteps.length - 1, activeStepIndex + 1);
                           setActiveStepIndex(newIdx);
@@ -694,15 +726,15 @@ export default function App() {
           )}
 
           {isNavFinished && (
-             <div style={{ marginTop: "10px", padding: "10px", background: "#fff3cd", color: "#856404", borderRadius: "8px", fontSize: "14px", fontWeight: "bold", textAlign: "center", border: "1px solid #ffeeba" }}>
-                {language === 'en' 
-                  ? `Navigation complete. The screen will reset in ${countdownValue} seconds.` 
-                  : `Navigasi selesai. Layar akan di-reset dalam ${countdownValue} detik.`}
-             </div>
+            <div style={{ marginTop: "10px", padding: "10px", background: "#fff3cd", color: "#856404", borderRadius: "8px", fontSize: "14px", fontWeight: "bold", textAlign: "center", border: "1px solid #ffeeba" }}>
+              {language === 'en'
+                ? `Navigation complete. The screen will reset in ${countdownValue} seconds.`
+                : `Navigasi selesai. Layar akan di-reset dalam ${countdownValue} detik.`}
+            </div>
           )}
 
           {!isMobileMode && navigationSteps.length > 0 && (
-            <button 
+            <button
               className="show-qr-btn"
               onClick={() => setIsQrModalOpen(true)}
               style={{ marginTop: "15px" }}
@@ -715,29 +747,29 @@ export default function App() {
 
         <main className="map-panel" style={{ position: "relative" }}>
           {floor.startsWith("submap_") && (
-              <button 
-                  onClick={() => {
-                      const parentRoomId = floor.replace("submap_", "");
-                      const parentRoom = rooms.find(r => r.id === parentRoomId);
-                      setFloor(parentRoom?.floor || "Lantai 1");
-                  }}
-                  style={{ position: "absolute", top: "20px", left: "20px", zIndex: 100, padding: "10px 20px", background: "#1A73C8", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", boxShadow: "0 4px 6px rgba(0,0,0,0.1)" }}
-              >
-                  Kembali ke Lantai Utama
-              </button>
+            <button
+              onClick={() => {
+                const parentRoomId = floor.replace("submap_", "");
+                const parentRoom = rooms.find(r => r.id === parentRoomId);
+                setFloor(parentRoom?.floor || "Lantai 1");
+              }}
+              style={{ position: "absolute", top: "20px", left: "20px", zIndex: 100, padding: "10px 20px", background: "#1A73C8", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", boxShadow: "0 4px 6px rgba(0,0,0,0.1)" }}
+            >
+              Kembali ke Lantai Utama
+            </button>
           )}
           <TransformWrapper initialScale={1} minScale={0.05} maxScale={10} centerOnInit={true} limitToBounds={false} wheel={{ step: 0.015 }}>
             <TransformComponent wrapperStyle={{ width: "100%", height: "100%", cursor: "grab" }} contentStyle={{ width: "100%", height: "100vh" }}>
               <div className="map-content" style={{ width: "100%", height: "100%" }}>
-                <SharedMap 
-                  path={pathData} 
-                  activePath={activePath} 
-                  currentFloor={floor} 
+                <SharedMap
+                  path={pathData}
+                  activePath={activePath}
+                  currentFloor={floor}
                   language={language}
                   onRoomClick={(room) => {
-                      if (floors.includes(`submap_${room.id}`)) {
-                          setFloor(`submap_${room.id}`);
-                      }
+                    if (floors.includes(`submap_${room.id}`)) {
+                      setFloor(`submap_${room.id}`);
+                    }
                   }}
                   showGrid={false}
                   showBorder={true}
