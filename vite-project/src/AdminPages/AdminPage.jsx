@@ -441,9 +441,9 @@ export default function App() {
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={handleSearchKey}
             />
-            <div className="search-btn-wrapper" onClick={() => executeSearch(location, search)}>
+            <button type="button" className="search-btn-wrapper" onClick={() => executeSearch(location, search)}>
               <SearchIcon />
-            </div>
+            </button>
           </div>
 
           {/* KIOSK DROPDOWN */}

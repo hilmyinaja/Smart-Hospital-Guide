@@ -535,9 +535,9 @@ export default function App() {
                  <div className="mic-btn-wrapper" onClick={startListening} title={language === 'en' ? 'Voice Search' : 'Pencarian Suara'}>
                   <MicIcon isListening={isListening} />
                 </div>
-                <div className="search-btn-wrapper" onClick={() => executeSearch(location, search)}>
+                <button type="button" className="search-btn-wrapper" onClick={() => executeSearch(location, search)}>
                   <SearchIcon />
-                </div>
+                </button>
               </div>
 
               {/* KIOSK DROPDOWN ATAU LOCKED KIOSK INFO */}

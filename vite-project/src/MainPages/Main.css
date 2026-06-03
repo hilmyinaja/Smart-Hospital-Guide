@@ -116,6 +116,10 @@ body {
 }
 
 .search-btn-wrapper {
+  background: transparent;
+  border: none;
+  padding: 0;
+  outline: none;
   position: absolute;
   right: 6px;
   top: 50%;

@@ -231,11 +231,14 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
 
     const anim = new Konva.Animation((frame) => {
       if (!lineRef.current) return;
+
       const dashOffset = (frame.time / 20) % 20; 
       lineRef.current.dashOffset(-dashOffset);
 
+      const isMoving = (frame.time / 1000) * WALK_SPEED < totalPathLength;
+
       if (personRef.current && activePathPoints.length >= 4 && totalPathLength > 0) {
-        const distance = ((frame.time / 1000) * WALK_SPEED) % totalPathLength;
+        const distance = Math.min((frame.time / 1000) * WALK_SPEED, totalPathLength);
         const { x, y, angle } = getPointAtDistance(activePathPoints, distance);
         
         personRef.current.x(x);
@@ -243,7 +246,7 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
         personRef.current.rotation(angle);
         
         if (leftFootRef.current && rightFootRef.current) {
-            const footSwing = Math.sin(frame.time * 0.015) * 8; 
+            const footSwing = isMoving ? Math.sin(frame.time * 0.015) * 8 : 0; 
             leftFootRef.current.x(footSwing);
             rightFootRef.current.x(-footSwing); 
         }
