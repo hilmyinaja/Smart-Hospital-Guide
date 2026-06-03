@@ -349,9 +349,11 @@ export default function App() {
     
     setIsNavFinished(false);
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current);
 
     // HACK MOBILE: Pancing engine suara dengan audio kosong secara sinkron dengan klik tombol
     if ('speechSynthesis' in window) {
+       window.speechSynthesis.cancel();
        const silentUtterance = new SpeechSynthesisUtterance('');
        silentUtterance.volume = 0;
        window.speechSynthesis.speak(silentUtterance);

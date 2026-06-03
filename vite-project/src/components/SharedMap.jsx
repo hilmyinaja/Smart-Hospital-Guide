@@ -227,7 +227,11 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
   useEffect(() => {
     if (!lineRef.current) return;
     const totalPathLength = getTotalPathLength(activePathPoints);
-    const WALK_SPEED = 70; 
+    
+    // Sesuaikan kecepatan dengan panjang lintasan (target ~2.5 detik per segmen)
+    // Beri batas minimal kecepatan 50 agar tidak terlalu lambat pada lintasan pendek
+    const WALK_SPEED = Math.max(50, totalPathLength / 2.5); 
+    const legSwingSpeed = 0.015 * (WALK_SPEED / 70);
 
     const anim = new Konva.Animation((frame) => {
       if (!lineRef.current) return;
@@ -246,7 +250,7 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
         personRef.current.rotation(angle);
         
         if (leftFootRef.current && rightFootRef.current) {
-            const footSwing = isMoving ? Math.sin(frame.time * 0.015) * 8 : 0; 
+            const footSwing = isMoving ? Math.sin(frame.time * legSwingSpeed) * 8 : 0; 
             leftFootRef.current.x(footSwing);
             rightFootRef.current.x(-footSwing); 
         }
