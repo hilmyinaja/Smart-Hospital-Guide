@@ -405,7 +405,13 @@ export default function App() {
             allText = data.langkah_navigasi.map(l => l.teks).join("\n\n");
             const finalText = `${getText('route_found')}\n${getText('towards')} ${roomName}\n\n${allText}`;
             setOutputText(finalText);
-            speakSteps(data.langkah_navigasi);
+            
+            const isMob = new URLSearchParams(window.location.search).get("mobile") === "true";
+            if (isMob) {
+                if (data.langkah_navigasi[0].floor) setFloor(data.langkah_navigasi[0].floor);
+            } else {
+                speakSteps(data.langkah_navigasi);
+            }
         } else {
             const fallbackText = `${getText('route_found')} ${getText('towards')} ${roomName}`;
             setOutputText(fallbackText);
@@ -414,7 +420,8 @@ export default function App() {
                 setFloor(data.jalur_koordinat[0].floor);
             }
             
-            if ('speechSynthesis' in window) {
+            const isMob = new URLSearchParams(window.location.search).get("mobile") === "true";
+            if ('speechSynthesis' in window && !isMob) {
               window.speechSynthesis.cancel();
               const utterance = new SpeechSynthesisUtterance(fallbackText);
               utterance.lang = language === 'en' ? 'en-US' : 'id-ID';
@@ -494,15 +501,6 @@ export default function App() {
           <div className="login-modal" onClick={(e) => e.stopPropagation()} style={{ textAlign: "center", width: "300px" }}>
             <button className="close-btn" onClick={() => setIsQrModalOpen(false)}>×</button>
             <h2 style={{ fontSize: "16px", marginBottom: "20px" }}>Scan & Go (Satu WiFi)</h2>
-            <div style={{ marginBottom: "15px", textAlign: "left", padding: "0 20px" }}>
-               <label style={{ fontSize: "12px", color: "var(--text-muted)", display: "block", marginBottom: "5px" }}>Alamat IP Kiosk (ubah jika gagal):</label>
-               <input 
-                 type="text" 
-                 value={customQrHost || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? serverIp : window.location.hostname)} 
-                 onChange={(e) => setCustomQrHost(e.target.value)}
-                 style={{ width: "100%", padding: "8px", border: "1px solid var(--border)", borderRadius: "6px", fontSize: "13px" }}
-               />
-            </div>
             <div style={{ background: "white", padding: "16px", borderRadius: "10px", display: "inline-block" }}>
               <QRCodeCanvas 
                 value={(() => {
@@ -650,11 +648,42 @@ export default function App() {
                     <div 
                       key={idx} 
                       className={`nav-step ${activeStepIndex === idx ? 'active-step' : ''}`}
-                      ref={activeStepIndex === idx ? (el) => el && el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }) : null}
+                      style={{ display: isMobileMode ? (activeStepIndex === idx ? 'block' : 'none') : 'block' }}
+                      ref={(!isMobileMode && activeStepIndex === idx) ? (el) => el && el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }) : null}
                     >
                       {step.teks}
                     </div>
                   ))}
+                  
+                  {isMobileMode && navigationSteps.length > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '15px' }}>
+                      <button 
+                        onClick={() => {
+                          const newIdx = Math.max(0, activeStepIndex - 1);
+                          setActiveStepIndex(newIdx);
+                          if (navigationSteps[newIdx]?.floor) setFloor(navigationSteps[newIdx].floor);
+                        }}
+                        disabled={activeStepIndex === 0}
+                        style={{ padding: '8px 15px', borderRadius: '8px', border: 'none', background: activeStepIndex === 0 ? '#ccc' : 'var(--blue-primary)', color: 'white', fontWeight: 'bold' }}
+                      >
+                        {language === 'en' ? 'Prev' : 'Mundur'}
+                      </button>
+                      <span style={{ alignSelf: 'center', fontWeight: 'bold', color: 'var(--blue-primary)' }}>
+                        {activeStepIndex + 1} / {navigationSteps.length}
+                      </span>
+                      <button 
+                        onClick={() => {
+                          const newIdx = Math.min(navigationSteps.length - 1, activeStepIndex + 1);
+                          setActiveStepIndex(newIdx);
+                          if (navigationSteps[newIdx]?.floor) setFloor(navigationSteps[newIdx].floor);
+                        }}
+                        disabled={activeStepIndex === navigationSteps.length - 1}
+                        style={{ padding: '8px 15px', borderRadius: '8px', border: 'none', background: activeStepIndex === navigationSteps.length - 1 ? '#ccc' : 'var(--blue-primary)', color: 'white', fontWeight: 'bold' }}
+                      >
+                        {language === 'en' ? 'Next' : 'Maju'}
+                      </button>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="nav-step">{outputText}</div>
