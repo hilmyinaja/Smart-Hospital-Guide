@@ -26,7 +26,7 @@ Sebelum menjalankan apapun, *backend* membutuhkan akses ke *database* Firebase A
 
 3. Masuk ke folder Frontend dan instal dependensi Javascript:
    ```bash
-   cd vite-project
+   cd frontend
    npm install
    ```
 
@@ -36,9 +36,9 @@ Berkat skrip otomatis yang telah disesuaikan dengan semua sistem operasi (Mac, L
 
 1. Buka terminal Anda.
 2. **Wajib:** Pastikan *Virtual Environment* Python sudah dalam posisi **aktif** (lihat cara aktivasi di atas).
-3. Masuk ke folder `vite-project` lalu jalankan skrip *dev*:
+3. Masuk ke folder `frontend` lalu jalankan skrip *dev*:
    ```bash
-   cd vite-project
+   cd frontend
    npm run dev
    ```
 
