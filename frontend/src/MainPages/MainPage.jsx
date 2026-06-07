@@ -557,23 +557,6 @@ export default function App() {
 
           {!isMobileMode && (
             <>
-              <div className="search-wrapper">
-                <input
-                  className="search-input"
-                  type="text"
-                  placeholder={getText('search_placeholder')}
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  onKeyDown={handleSearchKey}
-                />
-                <div className="mic-btn-wrapper" onClick={startListening} title={language === 'en' ? 'Voice Search' : 'Pencarian Suara'}>
-                  <MicIcon isListening={isListening} />
-                </div>
-                <button type="button" className="search-btn-wrapper" onClick={() => executeSearch(location, search)}>
-                  <SearchIcon />
-                </button>
-              </div>
-
               {/* KIOSK DROPDOWN ATAU LOCKED KIOSK INFO */}
               {isKioskLocked ? (
                 <div className="dropdown-wrapper" style={{ padding: "12px", background: "#e3f2fd", borderRadius: "8px", border: "1px solid #bbdefb", color: "#0d47a1", fontWeight: "bold", fontSize: "14px", display: "flex", alignItems: "center", gap: "8px" }}>
@@ -602,6 +585,23 @@ export default function App() {
                   <ChevronIcon />
                 </div>
               )}
+
+              <div className="search-wrapper" style={{ marginTop: "12px" }}>
+                <input
+                  className="search-input"
+                  type="text"
+                  placeholder={getText('search_placeholder')}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={handleSearchKey}
+                />
+                <div className="mic-btn-wrapper" onClick={startListening} title={language === 'en' ? 'Voice Search' : 'Pencarian Suara'}>
+                  <MicIcon isListening={isListening} />
+                </div>
+                <button type="button" className="search-btn-wrapper" onClick={() => executeSearch(location, search)}>
+                  <SearchIcon />
+                </button>
+              </div>
 
               {/* RUANGAN DROPDOWN */}
               <div className="dropdown-wrapper" style={{ marginTop: "12px" }}>

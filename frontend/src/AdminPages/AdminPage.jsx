@@ -59,7 +59,7 @@ export default function App() {
   const getText = (key) => {
     const dict = {
       'logout': { id: 'Keluar', en: 'Logout' },
-      'search_placeholder': { id: 'Cari nama poli atau keluhan Anda...', en: 'Search for a clinic or your symptoms...' },
+      'search_placeholder': { id: 'Cari poli atau keluhan...', en: 'Search clinic or symptoms...' },
       'output_placeholder': { id: 'Keterangan rute akan muncul di sini', en: 'Destination output text will appear here' },
       'select_kiosk': { id: 'Pilih Kiosk Awal', en: 'Select Start Kiosk' },
       'select_room': { id: 'Pilih Ruangan Tujuan', en: 'Select Destination Room' },
@@ -432,20 +432,6 @@ export default function App() {
 
       <div className="main-layout">
         <aside className="left-panel">
-          <div className="search-wrapper">
-            <input
-              className="search-input"
-              type="text"
-              placeholder={getText('search_placeholder')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={handleSearchKey}
-            />
-            <button type="button" className="search-btn-wrapper" onClick={() => executeSearch(location, search)}>
-              <SearchIcon />
-            </button>
-          </div>
-
           {/* KIOSK DROPDOWN */}
           <div className="dropdown-wrapper">
             <select
@@ -467,6 +453,20 @@ export default function App() {
               ))}
             </select>
             <ChevronIcon />
+          </div>
+
+          <div className="search-wrapper" style={{ marginTop: "12px" }}>
+            <input
+              className="search-input"
+              type="text"
+              placeholder={getText('search_placeholder')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={handleSearchKey}
+            />
+            <button type="button" className="search-btn-wrapper" onClick={() => executeSearch(location, search)}>
+              <SearchIcon />
+            </button>
           </div>
 
           {/* RUANGAN DROPDOWN (BARU) */}
