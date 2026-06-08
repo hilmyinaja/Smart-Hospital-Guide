@@ -55,6 +55,20 @@ export default function App() {
   const [navigationSteps, setNavigationSteps] = useState([]);
   const [activeStepIndex, setActiveStepIndex] = useState(-1);
   const [language, setLanguage] = useState(localStorage.getItem('language') || 'id');
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    return localStorage.getItem('theme') === 'dark';
+  });
+
+  useEffect(() => {
+    document.body.classList.toggle('dark-mode', isDarkMode);
+  }, [isDarkMode]);
+
+  const toggleTheme = () => {
+    const newTheme = !isDarkMode ? 'dark' : 'light';
+    setIsDarkMode(!isDarkMode);
+    localStorage.setItem('theme', newTheme);
+    document.body.classList.toggle('dark-mode', newTheme === 'dark');
+  };
 
   const getText = (key) => {
     const dict = {
@@ -357,7 +371,7 @@ export default function App() {
         <span className="header-logo">Wayfinder</span>
         <div className="header-actions" style={{display: "flex", gap: "10px", alignItems: "center"}}>
           {lockedKiosk ? (
-            <div style={{display: "flex", gap: "5px", alignItems: "center", background: "white", color: "black", padding: "5px 10px", borderRadius: "5px", fontSize: "14px", fontWeight: "bold"}}>
+            <div style={{display: "flex", gap: "5px", alignItems: "center", background: "var(--white)", color: "var(--text-main)", padding: "5px 10px", borderRadius: "5px", fontSize: "14px", fontWeight: "bold"}}>
               🔒 {kiosks.find(k => k.id === lockedKiosk)?.name ? translateName(kiosks.find(k => k.id === lockedKiosk).name, language) : translateName(lockedKiosk, language)}
               <button onClick={() => setIsUnlockConfirmOpen(true)} style={{marginLeft: "10px", background: "#ff4d4f", color: "white", border: "none", borderRadius: "3px", cursor: "pointer", padding: "2px 8px", fontSize: "12px"}}>{getText('unlock')}</button>
             </div>
@@ -365,7 +379,7 @@ export default function App() {
             <select 
               value="" 
               onChange={(e) => { setKioskToLock(e.target.value); setIsLockConfirmOpen(true); }}
-              style={{padding: "5px", borderRadius: "5px", border: "1px solid #ccc", background: "white", color: "black", cursor: "pointer"}}
+              style={{padding: "5px", borderRadius: "5px", border: "1px solid var(--border)", background: "var(--white)", color: "var(--text-main)", cursor: "pointer"}}
             >
               <option value="" disabled>{getText('set_kiosk_placeholder')}</option>
               {kiosks.map(k => (
@@ -376,8 +390,16 @@ export default function App() {
             </select>
           )}
           <button 
+            onClick={toggleTheme} 
+            className="theme-toggle"
+            title={isDarkMode ? (language === 'id' ? 'Mode Terang' : 'Light Mode') : (language === 'id' ? 'Mode Gelap' : 'Dark Mode')}
+            style={{background: "transparent", border: "1px solid var(--border)", color: "var(--white)", padding: "5px 10px", borderRadius: "5px", cursor: "pointer", fontWeight: "bold"}}
+          >
+            {isDarkMode ? "☀️" : "🌙"}
+          </button>
+          <button 
             onClick={toggleLanguage} 
-            style={{background: "transparent", border: "1px solid white", color: "white", padding: "5px 10px", borderRadius: "5px", cursor: "pointer", fontWeight: "bold"}}
+            style={{background: "transparent", border: "1px solid var(--border)", color: "var(--white)", padding: "5px 10px", borderRadius: "5px", cursor: "pointer", fontWeight: "bold"}}
           >
             {language === 'id' ? '🇮🇩 ID' : '🇬🇧 EN'}
           </button>
@@ -533,14 +555,16 @@ export default function App() {
               <div className="map-content" style={{ width: "100%", height: "100%" }}>
                 <SharedMap 
                   path={pathData} 
-                  activePath={null}
+                  activePath={activePath} 
                   currentFloor={floor} 
-                  language={language}
                   onRoomClick={(room) => {
                       if (floors.includes(`submap_${room.id}`)) {
                           setFloor(`submap_${room.id}`);
                       }
                   }}
+                  showBorder={true}
+                  language={language}
+                  isDarkMode={isDarkMode}
                 />
               </div>
             </TransformComponent>

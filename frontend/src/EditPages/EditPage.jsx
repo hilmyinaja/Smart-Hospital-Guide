@@ -7,7 +7,7 @@ import { db } from "../firebase";
 import { translateName } from "../utils/translator";
 import "./Edit.css";
 
-const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggingElement, GRID_SIZE, originalElements, language }) => {
+const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggingElement, GRID_SIZE, originalElements, language, isDarkMode }) => {
   const shapeRef = useRef();
   const trRef = useRef();
 
@@ -49,32 +49,24 @@ const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggin
   const maxFontSizeHeight = shapeProps.height / 2.5;
   const dynamicFontSize = Math.max(6, Math.min(14, maxFontSizeWidth, maxFontSizeHeight));
 
-  // ── LOGIKA WARNA DINAMIS BERDASARKAN STATUS EDIT ──
   const getVisualColors = useCallback(() => {
-    const DEFAULT_COLORS = { fill: "#f8f9fa", stroke: "#dae0e5", text: "#495057" }; 
-    const KIOSK_COLORS = { fill: "#2196F3", stroke: "#0D47A1", text: "#FFFFFF" }; 
-    
-    if (shapeProps.type === 'kiosk') return KIOSK_COLORS;
+    if (shapeProps.type === 'kiosk') return { fill: "#2196F3", stroke: "#0D47A1", text: "#FFFFFF" }; 
 
     const original = originalElements.find(el => el.id === shapeProps.id);
-
-    if (!original) {
-        return { fill: "#d4edda", stroke: "#c3e6cb", text: "#155724" }; 
-    }
+    if (!original) return { fill: isDarkMode ? "#064e3b" : "#d4edda", stroke: isDarkMode ? "#065f46" : "#c3e6cb", text: isDarkMode ? "#d1fae5" : "#155724" }; 
 
     const posChanged = Math.abs(original.x - shapeProps.x) > 0.1 || Math.abs(original.y - shapeProps.y) > 0.1;
     const sizeChanged = Math.abs(original.width - shapeProps.width) > 0.1 || Math.abs(original.height - shapeProps.height) > 0.1;
 
     if (posChanged || sizeChanged) {
-        return { fill: "#fff3cd", stroke: "#ffeeba", text: "#856404" }; 
+        return { fill: isDarkMode ? "#3f3f00" : "#fff3cd", stroke: isDarkMode ? "#666600" : "#ffeeba", text: isDarkMode ? "#fff" : "#856404" }; 
     }
 
-    return DEFAULT_COLORS;
-  }, [shapeProps, originalElements]);
+    return { fill: isDarkMode ? "#1e293b" : "#f8f9fa", stroke: isDarkMode ? "#334155" : "#ced4da", text: isDarkMode ? "#f8fafc" : "#495057" }; 
+  }, [shapeProps, originalElements, isDarkMode]);
 
   const visualColors = getVisualColors();
 
-  // Render penanda endpoint 
   const renderEndpoints = () => {
     if (shapeProps.type !== 'room') return null;
     const endpoints = shapeProps.endpoints || ['bottom'];
@@ -177,7 +169,6 @@ export default function EditPage() {
   const [mapSize, setMapSize] = useState({ width: 2000, height: 1500 });
   const [originalElements, setOriginalElements] = useState([]);
   
-  // ── STATE UNDO / REDO ──
   const [history, setHistory] = useState([]);
   const [historyStep, setHistoryStep] = useState(-1);
 
@@ -190,6 +181,20 @@ export default function EditPage() {
   const [floors, setFloors] = useState(["Lantai 1"]);
   const [activeEditFloor, setActiveEditFloor] = useState("Lantai 1");
   const [language, setLanguage] = useState(localStorage.getItem('language') || 'id');
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    return localStorage.getItem('theme') === 'dark';
+  });
+
+  useEffect(() => {
+    document.body.classList.toggle('dark-mode', isDarkMode);
+  }, [isDarkMode]);
+
+  const toggleTheme = () => {
+    const newTheme = !isDarkMode ? 'dark' : 'light';
+    setIsDarkMode(!isDarkMode);
+    localStorage.setItem('theme', newTheme);
+    document.body.classList.toggle('dark-mode', newTheme === 'dark');
+  };
 
   const getText = (key) => {
     const dict = {
@@ -261,8 +266,6 @@ export default function EditPage() {
       height: maxY + 1000
     };
   }, [placedElements, activeEditFloor, mapSize.width, mapSize.height]);
-
-
 
   const saveHistory = useCallback((newElements) => {
     let newHistory = history.slice(0, historyStep + 1);
@@ -546,8 +549,9 @@ export default function EditPage() {
   const drawGrid = () => {
     const lines = [];
     const { width, height } = calculatedMapSize;
-    for (let i = 0; i < width / GRID_SIZE; i++) lines.push(<Line key={`v${i}`} points={[Math.round(i * GRID_SIZE), 0, Math.round(i * GRID_SIZE), height]} stroke="#9e9e9e" strokeWidth={1} />);
-    for (let j = 0; j < height / GRID_SIZE; j++) lines.push(<Line key={`h${j}`} points={[0, Math.round(j * GRID_SIZE), width, Math.round(j * GRID_SIZE)]} stroke="#9e9e9e" strokeWidth={1} />);
+    const gridColor = isDarkMode ? "#334155" : "#9e9e9e";
+    for (let i = 0; i < width / GRID_SIZE; i++) lines.push(<Line key={`v${i}`} points={[Math.round(i * GRID_SIZE), 0, Math.round(i * GRID_SIZE), height]} stroke={gridColor} strokeWidth={1} />);
+    for (let j = 0; j < height / GRID_SIZE; j++) lines.push(<Line key={`h${j}`} points={[0, Math.round(j * GRID_SIZE), width, Math.round(j * GRID_SIZE)]} stroke={gridColor} strokeWidth={1} />);
     return lines;
   };
 
@@ -555,9 +559,17 @@ export default function EditPage() {
     <div className="edit-page-container">
       <header className="edit-page-header">
         <span className="edit-page-logo">Wayfinder - {getText('edit_mode')}</span>
+          <button 
+            onClick={toggleTheme} 
+            className="theme-toggle"
+            title={isDarkMode ? (language === 'id' ? 'Mode Terang' : 'Light Mode') : (language === 'id' ? 'Mode Gelap' : 'Dark Mode')}
+            style={{background: "transparent", border: "1px solid var(--border)", color: "var(--white)", padding: "5px 10px", borderRadius: "5px", cursor: "pointer", fontWeight: "bold", marginLeft: "15px"}}
+          >
+            {isDarkMode ? "☀️" : "🌙"}
+          </button>
         <button 
           onClick={toggleLanguage} 
-          style={{background: "transparent", border: "1px solid white", color: "white", padding: "5px 10px", borderRadius: "5px", cursor: "pointer", fontWeight: "bold", marginLeft: "15px"}}
+          style={{background: "transparent", border: "1px solid var(--border)", color: "var(--white)", padding: "5px 10px", borderRadius: "5px", cursor: "pointer", fontWeight: "bold", marginLeft: "15px"}}
         >
           {language === 'id' ? '🇮🇩 ID' : '🇬🇧 EN'}
         </button>
@@ -613,7 +625,7 @@ export default function EditPage() {
         <main className="edit-page-map" ref={mapRef} onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}>
           <TransformWrapper ref={transformRef} panning={{ disabled: isDraggingElement }} initialScale={1} minScale={0.05} maxScale={10} limitToBounds={false} wheel={{ step: 0.015 }}>
             <TransformComponent wrapperStyle={{ width: "100%", height: "100%", cursor: isDraggingElement ? "grabbing" : "grab" }}>
-              <div className="map-content" style={{ width: calculatedMapSize.width, height: calculatedMapSize.height, background: "#e0e0e0" }}>
+              <div className="map-content" style={{ width: calculatedMapSize.width, height: calculatedMapSize.height, background: isDarkMode ? "#0f172a" : "#e0e0e0" }}>
                 <Stage width={calculatedMapSize.width} height={calculatedMapSize.height} onMouseDown={checkDeselect} onTouchStart={checkDeselect}>
                   <Layer>
                     <Rect id="bg-grid" x={0} y={0} width={calculatedMapSize.width} height={calculatedMapSize.height} fill="transparent" />
@@ -638,6 +650,7 @@ export default function EditPage() {
                             }}
                             originalElements={originalElements} 
                             language={language}
+                            isDarkMode={isDarkMode}
                         />
                     ))}
                   </Layer>
@@ -648,10 +661,10 @@ export default function EditPage() {
         </main>
 
         <aside className="edit-page-right-panel">
-          <div style={{ background: "#ffffff", padding: "12px", borderRadius: "6px", border: "1px solid #cce5ff", marginBottom: "15px", boxShadow: "0 2px 4px rgba(0,0,0,0.03)" }}>
-            <h4 style={{ margin: "0 0 10px 0", fontSize: "13px", color: "#0056b3", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ background: "var(--white)", padding: "12px", borderRadius: "6px", border: "1px solid var(--border)", marginBottom: "15px", boxShadow: "0 2px 4px rgba(0,0,0,0.03)" }}>
+            <h4 style={{ margin: "0 0 10px 0", fontSize: "13px", color: "var(--blue-primary)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span>🏢 {getText('floor_management')}</span>
-              <span style={{ fontSize: "10px", background: "#e8f4f8", padding: "2px 6px", borderRadius: "10px", color: "#0d47a1" }}>{floors.length} {getText('floors_count')}</span>
+              <span style={{ fontSize: "10px", background: "var(--bg)", padding: "2px 6px", borderRadius: "10px", color: "var(--blue-dark)" }}>{floors.length} {getText('floors_count')}</span>
             </h4>
             <select 
               value={activeEditFloor} 
@@ -659,7 +672,7 @@ export default function EditPage() {
                 setActiveEditFloor(e.target.value);
                 setSelectedId(null);
               }}
-              style={{ width: "100%", padding: "8px", borderRadius: "4px", border: "1px solid #b8daff", marginBottom: "10px", fontSize: "13px", fontWeight: "bold", color: "#0056b3", background: "#f8fbff", cursor: "pointer" }}
+              style={{ width: "100%", padding: "8px", borderRadius: "4px", border: "1px solid var(--border)", marginBottom: "10px", fontSize: "13px", fontWeight: "bold", color: "var(--blue-primary)", background: "var(--bg)", cursor: "pointer" }}
             >
               {floors.map(f => <option key={f} value={f}>{translateName(f, language)}</option>)}
             </select>
@@ -674,7 +687,7 @@ export default function EditPage() {
               <button 
                   onClick={handleUndo}
                   disabled={historyStep <= 0}
-                  style={{ flex: 1, padding: "8px", fontSize: "12px", background: historyStep <= 0 ? "#f1f3f5" : "#ffffff", color: historyStep <= 0 ? "#adb5bd" : "#495057", border: "1px solid #ced4da", borderRadius: "4px", cursor: historyStep <= 0 ? "not-allowed" : "pointer", fontWeight: "bold" }}
+                  style={{ flex: 1, padding: "8px", fontSize: "12px", background: historyStep <= 0 ? (isDarkMode ? "#334155" : "#f1f3f5") : "var(--white)", color: historyStep <= 0 ? (isDarkMode ? "#64748b" : "#adb5bd") : "var(--text-main)", border: "1px solid var(--border)", borderRadius: "4px", cursor: historyStep <= 0 ? "not-allowed" : "pointer", fontWeight: "bold" }}
                   title="Undo (Ctrl+Z)"
               >
                   ↶ {getText('undo')}
@@ -682,7 +695,7 @@ export default function EditPage() {
               <button 
                   onClick={handleRedo}
                   disabled={historyStep >= history.length - 1}
-                  style={{ flex: 1, padding: "8px", fontSize: "12px", background: historyStep >= history.length - 1 ? "#f1f3f5" : "#ffffff", color: historyStep >= history.length - 1 ? "#adb5bd" : "#495057", border: "1px solid #ced4da", borderRadius: "4px", cursor: historyStep >= history.length - 1 ? "not-allowed" : "pointer", fontWeight: "bold" }}
+                  style={{ flex: 1, padding: "8px", fontSize: "12px", background: historyStep >= history.length - 1 ? (isDarkMode ? "#334155" : "#f1f3f5") : "var(--white)", color: historyStep >= history.length - 1 ? (isDarkMode ? "#64748b" : "#adb5bd") : "var(--text-main)", border: "1px solid var(--border)", borderRadius: "4px", cursor: historyStep >= history.length - 1 ? "not-allowed" : "pointer", fontWeight: "bold" }}
                   title="Redo (Ctrl+Y)"
               >
                   {getText('redo')} ↷
@@ -691,7 +704,7 @@ export default function EditPage() {
 
           <h3>{getText('edit_panel')} - {translateName(activeEditFloor, language)}</h3>
           <div className="edit-tools">
-            <p style={{fontSize: "12px", color: "#666"}}>
+            <p style={{fontSize: "12px", color: "var(--text-muted)"}}>
               {selectedId ? `${getText('selected')}: ${translateName(placedElements.find(el=>el.id === selectedId)?.name || "Kiosk", language)}` : getText('no_element_selected')}
             </p>
             <button 
@@ -740,10 +753,10 @@ export default function EditPage() {
                            {getText('enter_submap')}
                        </button>
                        
-                       <div className="endpoint-controls" style={{background: "#f9f9f9", padding: "10px", borderRadius: "5px", border: "1px solid #ddd"}}>
+                       <div className="endpoint-controls" style={{background: isDarkMode ? "#334155" : "#f9f9f9", padding: "10px", borderRadius: "5px", border: "1px solid var(--border)"}}>
                        <h4 style={{margin: "0 0 10px 0", fontSize: "14px", color: "#B71C1C"}}>{getText('active_endpoint_side')}</h4>
-                       <p style={{fontSize: "11px", color: "#666", marginBottom: "6px"}}>{getText('change_manual_hint')}</p>
-                       <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", background: "#fff", padding: "8px", borderRadius: "4px", border: "1px solid #eee"}}>
+                       <p style={{fontSize: "11px", color: "var(--text-muted)", marginBottom: "6px"}}>{getText('change_manual_hint')}</p>
+                       <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", background: "var(--bg)", padding: "8px", borderRadius: "4px", border: "1px solid var(--border)"}}>
                            {['top', 'bottom', 'left', 'right'].map(side => {
                                const labels = {top: getText('top'), bottom: getText('bottom'), left: getText('left'), right: getText('right')};
                                const isChecked = (room.endpoints || []).includes(side);
@@ -769,10 +782,10 @@ export default function EditPage() {
             })()}
           </div>
 
-          <hr style={{margin: "20px 0", border: "0.5px solid #ddd"}} />
+          <hr style={{margin: "20px 0", border: "0.5px solid var(--border)"}} />
 
           <h3>{getText('template_elements')}</h3>
-          <p style={{fontSize: "11px", color: "#666", marginTop: "-5px", marginBottom: "15px"}}>{getText('template_hint')}</p>
+          <p style={{fontSize: "11px", color: "var(--text-muted)", marginTop: "-5px", marginBottom: "15px"}}>{getText('template_hint')}</p>
           
           <div className="dnd-zone" style={{display: "flex", flexDirection: "column", gap: "10px"}}>
             {[
@@ -816,7 +829,7 @@ export default function EditPage() {
               </div>
             ))}
 
-            <div style={{margin: "10px 0", borderTop: "1px solid #eee"}}></div>
+            <div style={{margin: "10px 0", borderTop: "1px solid var(--border)"}}></div>
 
             <div 
               draggable 

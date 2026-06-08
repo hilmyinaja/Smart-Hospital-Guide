@@ -52,7 +52,7 @@ function getPointAtDistance(pathPoints, distance) {
   return { x: lastX, y: lastY, angle: 0 };
 }
 
-export default function SharedMap({ path = [], activePath = null, currentFloor = "Lantai 1", onRoomClick, showGrid = true, showBorder = false, language = "id" }) {
+export default function SharedMap({ path = [], activePath = null, currentFloor = "Lantai 1", onRoomClick, showGrid = true, showBorder = false, language = "id", isDarkMode = false }) {
   const [rooms, setRooms] = useState([]);
   const [kiosks, setKiosks] = useState([]);
   const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
@@ -266,17 +266,18 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
   const drawGrid = () => {
     const lines = [];
     const { width, height } = calculatedMapSize;
+    const gridColor = isDarkMode ? "#334155" : "#e0e0e0";
     for (let i = 0; i < width / GRID_SIZE; i++) {
-      lines.push(<Line key={`v${i}`} points={[Math.round(i * GRID_SIZE), 0, Math.round(i * GRID_SIZE), height]} stroke="#e0e0e0" strokeWidth={1} listening={false} perfectDrawEnabled={false} />);
+      lines.push(<Line key={`v${i}`} points={[Math.round(i * GRID_SIZE), 0, Math.round(i * GRID_SIZE), height]} stroke={gridColor} strokeWidth={1} listening={false} perfectDrawEnabled={false} />);
     }
     for (let j = 0; j < height / GRID_SIZE; j++) {
-      lines.push(<Line key={`h${j}`} points={[0, Math.round(j * GRID_SIZE), width, Math.round(j * GRID_SIZE)]} stroke="#e0e0e0" strokeWidth={1} listening={false} perfectDrawEnabled={false} />);
+      lines.push(<Line key={`h${j}`} points={[0, Math.round(j * GRID_SIZE), width, Math.round(j * GRID_SIZE)]} stroke={gridColor} strokeWidth={1} listening={false} perfectDrawEnabled={false} />);
     }
     return lines;
   };
 
   return (
-    <div ref={containerRef} style={{ width: "100%", height: "100%", background: "#f5f5f5" }}>
+    <div ref={containerRef} style={{ width: "100%", height: "100%", background: isDarkMode ? "#0f172a" : "#f5f5f5" }}>
       {mapSize.width > 0 && mapSize.height > 0 && (
         <Stage width={mapSize.width} height={mapSize.height}>
           <Layer>
@@ -290,9 +291,9 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
                   y={mapBounds.y} 
                   width={mapBounds.width} 
                   height={mapBounds.height} 
-                  fill="#ffffff" 
-                  stroke="#1a73c8" 
-                  strokeWidth={2.5} 
+                  fill={isDarkMode ? "#0f172a" : "#ffffff"} 
+                  stroke={isDarkMode ? "#3b82f6" : "#1a73c8"} 
+                  strokeWidth={isDarkMode ? 1.5 : 2.5} 
                   cornerRadius={16} 
                   shadowColor="rgba(26, 115, 200, 0.08)"
                   shadowBlur={10}
@@ -322,12 +323,11 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
                       onMouseEnter={(e) => { if (onRoomClick) { e.target.getStage().container().style.cursor = 'pointer'; } }}
                       onMouseLeave={(e) => { if (onRoomClick) { e.target.getStage().container().style.cursor = 'default'; } }}
                   >
-                    <Rect x={room.x} y={room.y} width={room.width} height={room.height} fill="#f8f9fa" stroke="#dae0e5" strokeWidth={2} perfectDrawEnabled={false} shadowForStrokeEnabled={false} />
-                    
+                    <Rect x={room.x} y={room.y} width={room.width} height={room.height} fill={isDarkMode ? "#1e293b" : "#f8f9fa"} stroke={isDarkMode ? "#334155" : "#dae0e5"} strokeWidth={2} perfectDrawEnabled={false} shadowForStrokeEnabled={false} />
                     <Text 
                         text={textContent} 
                         x={room.x} y={room.y} width={room.width} height={room.height} 
-                        fontSize={fontSize} fontStyle="bold" fill="#495057" 
+                        fontSize={fontSize} fontStyle="bold" fill={isDarkMode ? "#f8fafc" : "#495057"} 
                         align="center" verticalAlign="middle" padding={5} 
                         wrap="word" ellipsis={false} 
                         perfectDrawEnabled={false}

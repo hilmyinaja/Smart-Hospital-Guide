@@ -271,7 +271,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 
 .confirm-modal p {
   margin: 0 0 28px 0;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.95rem;
   line-height: 1.6;
 }
@@ -302,14 +302,14 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 }
 
 .confirm-btn.no:hover {
-  background: #e2e8f0;
+  background: var(--border);
   color: #0f172a;
   transform: translateY(-1px);
 }
 
 .confirm-btn.yes {
   background: linear-gradient(135deg, var(--blue-primary) 0%, var(--blue-dark) 100%);
-  color: white;
+  color: var(--white);
   box-shadow: 0 4px 10px rgba(26, 115, 200, 0.2);
 }
 

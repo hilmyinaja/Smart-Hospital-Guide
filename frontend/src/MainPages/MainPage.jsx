@@ -79,7 +79,11 @@ export default function App() {
   const [kiosks, setKiosks] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [pathData, setPathData] = useState([]);
+  const [outputLines, setOutputLines] = useState([]);
   const [targetRoomName, setTargetRoomName] = useState("");
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    return localStorage.getItem('theme') === 'dark';
+  });
   const [navigationSteps, setNavigationSteps] = useState([]);
   const [activeStepIndex, setActiveStepIndex] = useState(-1);
   const [language, setLanguage] = useState(localStorage.getItem('language') || 'id');
@@ -88,6 +92,10 @@ export default function App() {
   const [serverIp, setServerIp] = useState("");
   const [customQrHost, setCustomQrHost] = useState("");
   const [isListening, setIsListening] = useState(false);
+
+  useEffect(() => {
+    document.body.classList.toggle("dark-mode", isDarkMode);
+  }, [isDarkMode]);
 
   const startListening = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -529,6 +537,17 @@ export default function App() {
           <span className="header-logo">Wayfinder</span>
           <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
             <button
+              onClick={() => {
+                const newMode = !isDarkMode;
+                setIsDarkMode(newMode);
+                localStorage.setItem('theme', newMode ? 'dark' : 'light');
+              }}
+              style={{ background: "transparent", border: "1px solid white", color: "white", padding: "5px 10px", borderRadius: "5px", cursor: "pointer", fontWeight: "bold" }}
+              title={isDarkMode ? "Light Mode" : "Dark Mode"}
+            >
+              {isDarkMode ? '☀️' : '🌙'}
+            </button>
+            <button
               onClick={toggleLanguage}
               style={{ background: "transparent", border: "1px solid white", color: "white", padding: "5px 10px", borderRadius: "5px", cursor: "pointer", fontWeight: "bold" }}
             >
@@ -638,6 +657,27 @@ export default function App() {
       )}
 
       <div className={`main-layout ${isMobileMode ? 'mobile-mode' : ''}`}>
+        {isMobileMode && (
+          <div style={{ position: "absolute", top: "15px", right: "15px", zIndex: 1000, display: "flex", gap: "8px" }}>
+            <button
+              onClick={() => {
+                const newMode = !isDarkMode;
+                setIsDarkMode(newMode);
+                localStorage.setItem('theme', newMode ? 'dark' : 'light');
+              }}
+              style={{ background: "var(--white)", border: "1px solid var(--border)", color: "var(--text-main)", padding: "8px 12px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold", boxShadow: "var(--shadow-md)" }}
+              title={isDarkMode ? "Light Mode" : "Dark Mode"}
+            >
+              {isDarkMode ? '☀️' : '🌙'}
+            </button>
+            <button
+              onClick={toggleLanguage}
+              style={{ background: "var(--white)", border: "1px solid var(--border)", color: "var(--text-main)", padding: "8px 12px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold", boxShadow: "var(--shadow-md)" }}
+            >
+              {language === 'id' ? '🇮🇩 ID' : '🇬🇧 EN'}
+            </button>
+          </div>
+        )}
         <aside className={`left-panel ${isMobileMode ? 'mobile-panel' : ''}`}>
 
           {!isMobileMode && (
@@ -655,7 +695,7 @@ export default function App() {
               <div className="route-planner-inputs">
                 {/* KIOSK DROPDOWN ATAU LOCKED KIOSK INFO */}
                 {isKioskLocked ? (
-                  <div className="dropdown-wrapper kiosk-input" style={{ padding: "12px", background: "#f8f9fa", borderRadius: "8px", border: "1.5px solid #c8d4e0", color: "#495057", fontWeight: "600", fontSize: "14px", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <div className="dropdown-wrapper kiosk-input" style={{ padding: "12px", background: "var(--white)", borderRadius: "8px", border: "1.5px solid var(--border)", color: "var(--text-main)", fontWeight: "600", fontSize: "14px", display: "flex", alignItems: "center", gap: "8px" }}>
                     {getText('you_are_here')} {kiosks.find(k => k.id === location)?.name || location}
                   </div>
                 ) : (
@@ -663,6 +703,7 @@ export default function App() {
                     <select
                       className="dropdown-select route-select"
                       value={location}
+                      required
                       onChange={(e) => {
                         const newLocation = e.target.value;
                         setLocation(newLocation);
@@ -712,6 +753,7 @@ export default function App() {
                   
                   {/* Invisible Dropdown Over Chevron */}
                   <select
+                    className="dropdown-select route-select"
                     style={{
                       opacity: 0, position: "absolute", top: 0, left: 0, width: "100%", height: "100%", cursor: "pointer", zIndex: 2, clipPath: "inset(0 0 0 calc(100% - 40px))"
                     }}
@@ -747,6 +789,28 @@ export default function App() {
                   <ChevronIcon />
                 </div>
               </div>
+            </div>
+            
+            {/* QUICK ACTIONS MOVED OUTSIDE TIMELINE CONTAINER */}
+            <div className="quick-actions" style={{ marginBottom: "15px", padding: "0 10px" }}>
+              <button className="quick-action-btn" onClick={() => { setSearch("IGD"); executeSearch(location, "IGD"); }}>
+                <span>🚨</span> {language === 'id' ? 'IGD' : 'ER'}
+              </button>
+              <button className="quick-action-btn" onClick={() => { setSearch("Toilet"); executeSearch(location, "Toilet"); }}>
+                <span>🚻</span> Toilet
+              </button>
+              <button className="quick-action-btn" onClick={() => { setSearch("Apotek"); executeSearch(location, "Apotek"); }}>
+                <span>💊</span> {language === 'id' ? 'Apotek' : 'Pharmacy'}
+              </button>
+              <button className="quick-action-btn" onClick={() => { setSearch("Mushola"); executeSearch(location, "Mushola"); }}>
+                <span>🕌</span> {language === 'id' ? 'Mushola' : 'Prayer Room'}
+              </button>
+              <button className="quick-action-btn" onClick={() => { setSearch("Tangga Darurat"); executeSearch(location, "Tangga Darurat"); }}>
+                <span>🏃</span> {language === 'id' ? 'Tangga Darurat' : 'Emergency Stairs'}
+              </button>
+              <button className="quick-action-btn" onClick={() => { setSearch("Pusat Informasi"); executeSearch(location, "Pusat Informasi"); }}>
+                <span>ℹ️</span> {language === 'id' ? 'Pusat Informasi' : 'Information Center'}
+              </button>
             </div>
 
             <div className="floor-group">
@@ -843,7 +907,7 @@ export default function App() {
           )}
 
           {isNavFinished && (
-            <div style={{ marginTop: "10px", padding: "10px", background: "#fff3cd", color: "#856404", borderRadius: "8px", fontSize: "14px", fontWeight: "bold", textAlign: "center", border: "1px solid #ffeeba" }}>
+            <div style={{ position: "fixed", top: "20px", left: "50%", transform: "translateX(-50%)", zIndex: 9999, padding: "12px 24px", background: "#fff3cd", color: "#856404", borderRadius: "8px", fontSize: "16px", fontWeight: "bold", textAlign: "center", border: "1px solid #ffeeba", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}>
               {language === 'en'
                 ? `Navigation complete. The screen will reset in ${countdownValue} seconds.`
                 : `Navigasi selesai. Layar akan di-reset dalam ${countdownValue} detik.`}
@@ -884,6 +948,7 @@ export default function App() {
                   currentFloor={floor}
                   language={language}
                   selectedKiosk={location}
+                  isDarkMode={isDarkMode}
                   onRoomClick={(room) => {
                     if (floors.includes(`submap_${room.id}`)) {
                       setFloor(`submap_${room.id}`);

@@ -1,0 +1,41 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Space+Grotesk:wght@500;600&display=swap');
+
+:root {
+  --blue-primary: #1a73c8;
+  --blue-dark:    #1560b0;
+  --blue-light:   #e8f1fb;
+  --border:       #c8d4e0;
+  --text-main:    #1a2533;
+  --text-muted:   #8a97a8;
+  --bg:           #f4f7fa;
+  --white:        #ffffff;
+  --shadow-sm:    0 1px 4px rgba(26,115,200,0.07);
+  --shadow-md:    0 4px 16px rgba(26,115,200,0.13);
+  --radius:       10px;
+  --radius-lg:    14px;
+}
+
+body.dark-mode {
+  --blue-primary: #3b82f6; 
+  --blue-dark:    #60a5fa;
+  --blue-light:   #1e293b; 
+  --border:       #334155;
+  --text-main:    #f8fafc;
+  --text-muted:   #94a3b8;
+  --bg:           #0f172a;
+  --white:        #1e293b; 
+  --shadow-sm:    0 1px 4px rgba(0,0,0,0.4);
+  --shadow-md:    0 4px 16px rgba(0,0,0,0.5);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text-main);
+}
