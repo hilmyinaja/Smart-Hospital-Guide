@@ -226,10 +226,12 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
 
   useEffect(() => {
     if (!lineRef.current) return;
-    const totalPathLength = getTotalPathLength(activePathPoints);
     
-    // Sesuaikan kecepatan dengan panjang lintasan (target ~2.5 detik per segmen)
-    // Beri batas minimal kecepatan 50 agar tidak terlalu lambat pada lintasan pendek
+    let totalPathLength = 0;
+    if (activePathPoints.length >= 4) {
+      totalPathLength = getTotalPathLength(activePathPoints);
+    }
+    
     const WALK_SPEED = Math.max(50, totalPathLength / 2.5); 
     const legSwingSpeed = 0.015 * (WALK_SPEED / 70);
 

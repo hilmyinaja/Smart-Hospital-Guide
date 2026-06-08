@@ -16,17 +16,18 @@ NLP_CACHE = {}
 
 # Pengetahuan dasar asisten agar lebih pintar
 KAMUS_SINONIM = {
-    "ugd": "igd", "emergency": "igd", "darurat": "igd", "kecelakaan": "igd",
-    "wc": "toilet", "kamar mandi": "toilet", "kencing": "toilet", "berak": "toilet", "buang air": "toilet",
-    "bayar": "kasir", "uang": "kasir", "pembayaran": "kasir", "tagihan": "kasir",
-    "obat": "farmasi", "apotek": "farmasi", "apotik": "farmasi", "resep": "farmasi",
-    "rontgen": "radiologi", "xray": "radiologi", "scan": "radiologi", "mri": "radiologi", "usg": "radiologi",
-    "kandungan": "poli", "gigi": "poli", "mata": "poli", "periksa": "poli", "dokter": "poli", "konsultasi": "poli", "kontrol": "poli",
-    "sholat": "mushola", "masjid": "mushola", "ibadah": "mushola", "sembahyang": "mushola", "prayer": "mushola", "mosque": "mushola",
-    "makan": "kantin", "minum": "kantin", "lapar": "kantin", "haus": "kantin", "jajan": "kantin", "eat": "kantin", "drink": "kantin", "food": "kantin", "canteen": "kantin", "cafeteria": "kantin",
+    "ugd": "igd", "emergency": "igd", "darurat": "igd", "kecelakaan": "igd", "sekarat": "igd", "luka": "igd",
+    "wc": "toilet", "kamar mandi": "toilet", "kencing": "toilet", "berak": "toilet", "buang air": "toilet", "pipis": "toilet", "pup": "toilet", "bab": "toilet", "bak": "toilet",
+    "bayar": "kasir", "uang": "kasir", "pembayaran": "kasir", "tagihan": "kasir", "lunasi": "kasir", "administrasi": "kasir",
+    "obat": "farmasi", "apotek": "farmasi", "apotik": "farmasi", "resep": "farmasi", "tebus": "farmasi",
+    "rontgen": "radiologi", "xray": "radiologi", "scan": "radiologi", "mri": "radiologi", "usg": "radiologi", "ct": "radiologi",
+    "kandungan": "poli", "gigi": "poli", "mata": "poli", "periksa": "poli", "dokter": "poli", "konsultasi": "poli", "kontrol": "poli", "pusing": "poli", "sakit": "poli", "demam": "poli", "berobat": "poli",
+    "sholat": "mushola", "salat": "mushola", "masjid": "mushola", "ibadah": "mushola", "sembahyang": "mushola", "prayer": "mushola", "mosque": "mushola", "berdoa": "mushola", "musholla": "mushola", "musala": "mushola",
+    "makan": "kantin", "minum": "kantin", "lapar": "kantin", "haus": "kantin", "jajan": "kantin", "eat": "kantin", "drink": "kantin", "food": "kantin", "canteen": "kantin", "cafeteria": "kantin", "ngopi": "kantin", "sarapan": "kantin",
     "menginap": "rawat inap", "besuk": "rawat inap", "jenguk": "rawat inap", "opname": "rawat inap", "bangsal": "rawat inap", "inpatient": "rawat inap", "ward": "rawat inap", "visit": "rawat inap",
     "checkup": "mcu", "cek kesehatan": "mcu", "medical check up": "mcu",
-    "dokter": "poli", "doctor": "poli", "clinic": "poli",
+    "operasi": "bedah", "kritis": "icu", "meninggal": "kamar jenazah", "mati": "kamar jenazah", "hamil": "kandungan", "melahirkan": "kandungan",
+    "doctor": "poli", "clinic": "poli",
     "room": "ruang", "door": "pintu", "stairs": "tangga"
 }
 
@@ -43,7 +44,8 @@ def bersihkan_teks(teks_kotor):
     # Kata tugas yang tidak relevan (ID & EN)
     stopwords = [
         "mau", "ke", "di", "mana", "tolong", "antar", "cari", "ruang", "tempat", "saya", "ingin", "tanya", "mas", "mbak", "kasih", "tau", "arah", "jalan", "buat", "ambil",
-        "want", "to", "go", "where", "please", "take", "me", "find", "room", "place", "i", "ask", "show", "way", "direction", "get", "looking", "for"
+        "tunjukkan", "bantuin", "dong", "aku", "nyari", "gimana", "caranya", "menuju", "cara", "pergi", "bisa", "tolongin", "dong",
+        "want", "to", "go", "where", "please", "take", "me", "find", "room", "place", "i", "ask", "show", "way", "direction", "get", "looking", "for", "how", "can"
     ]
     kata_akhir = [kata for kata in teks.split() if kata not in stopwords]
     
