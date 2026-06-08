@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { collection, onSnapshot } from "firebase/firestore";
-import { db } from "../firebase";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { db, auth } from "../firebase";
 import SharedMap from "../components/SharedMap";
 import { translateName } from "../utils/translator";
 import { QRCodeCanvas } from "qrcode.react";
@@ -151,7 +152,7 @@ export default function App() {
       'towards': { id: 'Menuju:', en: 'Towards:' },
       'no_nav_text': { id: 'Teks navigasi tidak tersedia.', en: 'Navigation text is not available.' },
       'admin_login_title': { id: 'HALAMAN LOGIN ADMIN', en: 'ADMIN LOGIN PAGE' },
-      'username': { id: 'Nama Pengguna', en: 'Username' },
+      'username': { id: 'Email Pengguna', en: 'Email' },
       'password': { id: 'Kata Sandi', en: 'Password' },
       'login_btn': { id: 'MASUK', en: 'LOGIN' }
     };
@@ -487,16 +488,17 @@ export default function App() {
     }
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     const u = username.trim();
     const p = password.trim();
-    if ((u === "admin" && p === "admin") || (u === "admin" && p === "admin123")) {
+    try {
+      await signInWithEmailAndPassword(auth, u, p);
       setIsLoginOpen(false);
       setUsername("");
       setPassword("");
       setErrorMsg("");
       navigate("/admin");
-    } else {
+    } catch (error) {
       setErrorMsg("akun tidak valid, silahkan coba lagi!");
       setIsShaking(true);
       setTimeout(() => setIsShaking(false), 500);
@@ -559,7 +561,7 @@ export default function App() {
                   </svg>
                   <input 
                     type="text" 
-                    placeholder="Contoh: admin" 
+                    placeholder="Contoh: admin@email.com" 
                     value={username} 
                     onChange={(e) => setUsername(e.target.value)} 
                     onKeyDown={(e) => e.key === "Enter" && handleLogin()} 
