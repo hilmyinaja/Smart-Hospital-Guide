@@ -653,10 +653,30 @@ export default function App() {
               )}
 
               {/* SEARCH & ROOM DROPDOWN */}
-              <div className="dropdown-wrapper" style={{ marginTop: "12px" }}>
+              <div className="search-wrapper" style={{ marginTop: "12px", position: "relative" }}>
+                <input
+                  className="search-input"
+                  style={{ paddingRight: "74px", width: "100%" }}
+                  type="text"
+                  placeholder={isListening ? (language === 'en' ? 'Listening...' : 'Mendengarkan...') : getText('search_placeholder')}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      executeSearch(location, search);
+                    }
+                  }}
+                />
+                
+                <div className="mic-btn-wrapper" onClick={startListening} title={language === 'en' ? 'Voice Search' : 'Pencarian Suara'}>
+                  <MicIcon isListening={isListening} />
+                </div>
+                
+                {/* Invisible Dropdown Over Chevron */}
                 <select
-                  className="dropdown-select"
-                  style={{ paddingRight: "74px" }}
+                  style={{
+                    opacity: 0, position: "absolute", top: 0, left: 0, width: "100%", height: "100%", cursor: "pointer", zIndex: 2, clipPath: "inset(0 0 0 calc(100% - 40px))"
+                  }}
                   value={(() => {
                     const matchedRoom = rooms.find(r => r.name === search || translateName(r.name, language) === search);
                     return matchedRoom ? matchedRoom.name : "";
@@ -667,14 +687,7 @@ export default function App() {
                     executeSearch(location, rawName);
                   }}
                 >
-                  <option value="" disabled style={{ color: "#1a2533" }}>
-                    {(() => {
-                      if (isListening && !search) return language === 'en' ? 'Listening...' : 'Mendengarkan...';
-                      const matchedRoom = rooms.find(r => r.name === search || translateName(r.name, language) === search);
-                      if (search && !matchedRoom) return `🗣️ ${search}`;
-                      return getText('search_placeholder');
-                    })()}
-                  </option>
+                  <option value="" disabled>{getText('select_room') || getText('search_placeholder')}</option>
                   {floors.filter(f => !f.startsWith("submap_")).map((floorName) => (
                     <optgroup key={floorName} label={translateName(floorName, language)}>
                       {rooms
@@ -693,9 +706,6 @@ export default function App() {
                     </optgroup>
                   ))}
                 </select>
-                <div className="mic-btn-wrapper" onClick={startListening} title={language === 'en' ? 'Voice Search' : 'Pencarian Suara'} style={{ right: "36px" }}>
-                  <MicIcon isListening={isListening} />
-                </div>
                 <ChevronIcon />
               </div>
 

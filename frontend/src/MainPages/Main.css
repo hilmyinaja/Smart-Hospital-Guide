@@ -110,7 +110,7 @@ body {
 .search-input::placeholder { color: var(--text-muted); }
 .destination-output::placeholder { color: var(--text-muted); }
 
-.search-input:focus {
+.search-wrapper:focus-within .search-input {
   border-color: var(--blue-primary);
   box-shadow: 0 0 0 3px rgba(26,115,200,0.12);
 }

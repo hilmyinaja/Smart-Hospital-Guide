@@ -476,9 +476,26 @@ export default function App() {
           </div>
 
           {/* SEARCH & ROOM DROPDOWN */}
-          <div className="dropdown-wrapper" style={{ marginTop: "12px" }}>
+          <div className="search-wrapper" style={{ marginTop: "12px", position: "relative" }}>
+            <input
+              className="search-input"
+              style={{ width: "100%" }}
+              type="text"
+              placeholder={getText('search_placeholder')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  executeSearch(location, search);
+                }
+              }}
+            />
+            
+            {/* Invisible Dropdown Over Chevron */}
             <select
-              className="dropdown-select"
+              style={{
+                opacity: 0, position: "absolute", top: 0, left: 0, width: "100%", height: "100%", cursor: "pointer", zIndex: 2, clipPath: "inset(0 0 0 calc(100% - 40px))"
+              }}
               value={(() => {
                 const matchedRoom = rooms.find(r => r.name === search || translateName(r.name, language) === search);
                 return matchedRoom ? matchedRoom.name : "";
@@ -489,7 +506,7 @@ export default function App() {
                 executeSearch(location, rawName);
               }}
             >
-              <option value="" disabled>{getText('search_placeholder')}</option>
+              <option value="" disabled>{getText('select_room') || getText('search_placeholder')}</option>
               {floors.filter(f => !f.startsWith("submap_")).map((floorName) => (
                 <optgroup key={floorName} label={translateName(floorName, language)}>
                   {rooms
