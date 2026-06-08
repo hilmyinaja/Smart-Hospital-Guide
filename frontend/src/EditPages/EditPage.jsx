@@ -43,14 +43,11 @@ const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggin
   // ── RUMUS BARU: AUTO SHRINK FONT ──
   const textContent = translateName(shapeProps.name || (shapeProps.type === 'kiosk' ? 'Kiosk' : 'Tanpa Nama'), language);
   const longestWordLen = Math.max(...textContent.split(' ').map(w => w.length), 1);
-  const dynamicFontSize = Math.max(
-    8, 
-    Math.min(shapeProps.width / 3, shapeProps.height / 2.5, 15)
-  );
+  const actualUsableWidth = Math.max(10, shapeProps.width - 12);
   
-  const minRequiredWidth = (longestWordLen * dynamicFontSize * 0.8) + 10;
-  const virtualWidth = Math.max(shapeProps.width, minRequiredWidth);
-  const virtualX = shapeProps.x - (virtualWidth - shapeProps.width) / 2;
+  const maxFontSizeWidth = actualUsableWidth / (longestWordLen * 0.85);
+  const maxFontSizeHeight = shapeProps.height / 2.5;
+  const dynamicFontSize = Math.max(6, Math.min(14, maxFontSizeWidth, maxFontSizeHeight));
 
   // ── LOGIKA WARNA DINAMIS BERDASARKAN STATUS EDIT ──
   const getVisualColors = useCallback(() => {
@@ -146,9 +143,9 @@ const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggin
       />
       <Text
         text={textContent}
-        x={virtualX}
+        x={shapeProps.x}
         y={shapeProps.y}
-        width={virtualWidth}
+        width={shapeProps.width}
         height={shapeProps.height}
         fontSize={dynamicFontSize}
         fontStyle="bold"

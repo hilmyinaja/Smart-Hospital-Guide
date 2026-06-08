@@ -305,14 +305,12 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
               .map((room) => {
                 const textContent = translateName(room.name || "Tanpa Nama", language);
                 const longestWordLen = Math.max(...textContent.split(' ').map(w => w.length), 1);
+                const actualUsableWidth = Math.max(10, room.width - 12);
                 
-                // Capped readable font size
-                const fontSize = Math.max(8, Math.min(room.width / 3, room.height / 2.5, 15));
-                
-                // Calculate minimum width required for the longest word so it doesn't break
-                const minRequiredWidth = (longestWordLen * fontSize * 0.8) + 10;
-                const virtualWidth = Math.max(room.width, minRequiredWidth);
-                const virtualX = room.x - (virtualWidth - room.width) / 2;
+                // Calculate font size so the longest word fits perfectly inside the inner box width
+                const maxFontSizeWidth = actualUsableWidth / (longestWordLen * 0.85);
+                const maxFontSizeHeight = room.height / 2.5;
+                const fontSize = Math.max(6, Math.min(14, maxFontSizeWidth, maxFontSizeHeight));
                 
                 return (
                   <Group 
@@ -326,7 +324,7 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
                     
                     <Text 
                         text={textContent} 
-                        x={virtualX} y={room.y} width={virtualWidth} height={room.height} 
+                        x={room.x} y={room.y} width={room.width} height={room.height} 
                         fontSize={fontSize} fontStyle="bold" fill="#495057" 
                         align="center" verticalAlign="middle" padding={5} 
                         wrap="word" ellipsis={false} 
@@ -343,14 +341,12 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
               .map((kiosk) => {
                 const textContent = translateName(kiosk.name || "Kiosk", language);
                 const longestWordLen = Math.max(...textContent.split(' ').map(w => w.length), 1);
+                const actualUsableWidth = Math.max(10, kiosk.width - 12);
                 
-                // Capped readable font size
-                const fontSize = Math.max(8, Math.min(kiosk.width / 3, kiosk.height / 2.5, 14));
-                
-                // Calculate minimum width required for the longest word so it doesn't break
-                const minRequiredWidth = (longestWordLen * fontSize * 0.8) + 10;
-                const virtualWidth = Math.max(kiosk.width, minRequiredWidth);
-                const virtualX = kiosk.x - (virtualWidth - kiosk.width) / 2;
+                // Calculate font size so the longest word fits perfectly inside the inner box width
+                const maxFontSizeWidth = actualUsableWidth / (longestWordLen * 0.85);
+                const maxFontSizeHeight = kiosk.height / 2.5;
+                const fontSize = Math.max(6, Math.min(14, maxFontSizeWidth, maxFontSizeHeight));
                 
                 return (
                   <React.Fragment key={kiosk.id}>
@@ -358,7 +354,7 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
                     
                     <Text 
                         text={textContent} 
-                        x={virtualX} y={kiosk.y} width={virtualWidth} height={kiosk.height} 
+                        x={kiosk.x} y={kiosk.y} width={kiosk.width} height={kiosk.height} 
                         fontSize={fontSize} fontStyle="bold" fill="#ffffff" 
                         align="center" verticalAlign="middle" padding={5} 
                         wrap="word" ellipsis={false} 
