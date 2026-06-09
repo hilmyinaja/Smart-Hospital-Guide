@@ -606,20 +606,14 @@ export default function App() {
                 return floor === f;
               })();
               
-              let shortName = translateName(f, language);
-              // Extract short format (e.g., "1" instead of "Lantai 1")
-              if (language === 'id') {
-                shortName = shortName.replace("Lantai ", "").replace("Basement", "B");
-              } else {
-                shortName = shortName.replace("Floor ", "").replace("Basement", "B");
-              }
+              let shortName = f.replace("Lantai ", "").replace("Basement", "B");
 
               return (
                 <button
                   key={f}
                   className={`scrubber-btn ${isActive ? 'active' : ''}`}
                   onClick={() => setFloor(f)}
-                  title={translateName(f, language)}
+                  title={f}
                 >
                   {shortName}
                 </button>
