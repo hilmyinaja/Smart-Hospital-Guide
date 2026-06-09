@@ -623,7 +623,7 @@ export default function EditPage() {
 
       <div className="edit-page-layout">
         <main className="edit-page-map" ref={mapRef} onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}>
-          <TransformWrapper ref={transformRef} panning={{ disabled: isDraggingElement }} initialScale={1} minScale={0.05} maxScale={10} limitToBounds={false} wheel={{ step: 0.015 }}>
+          <TransformWrapper ref={transformRef} panning={{ disabled: isDraggingElement }} initialScale={1} minScale={0.05} maxScale={10} limitToBounds={false} wheel={{ step: 0.002, smooth: true }}>
             <TransformComponent wrapperStyle={{ width: "100%", height: "100%", cursor: isDraggingElement ? "grabbing" : "grab" }}>
               <div className="map-content" style={{ width: calculatedMapSize.width, height: calculatedMapSize.height, background: isDarkMode ? "#0f172a" : "#e0e0e0" }}>
                 <Stage width={calculatedMapSize.width} height={calculatedMapSize.height} onMouseDown={checkDeselect} onTouchStart={checkDeselect}>
