@@ -81,11 +81,23 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id"):
 
     from app.core import state as waypoint_graph
 
+    input_bersih = bersihkan_teks(input_pengunjung)
+
     # EXACT MATCH CHECK
     exact_matches = []
     input_lower = input_pengunjung.lower().strip()
     for r_id, room in waypoint_graph.RUANGAN_GRID.items():
-        if input_lower == room.get("name", "").lower().strip() or input_pengunjung == r_id:
+        room_name_lower = room.get("name", "").lower().strip()
+        room_keywords = [k.lower().strip() for k in room.get("keywords", [])]
+        
+        # 1. Match Exact ID or Exact Name
+        if input_lower == room_name_lower or input_pengunjung == r_id or input_bersih == room_name_lower:
+            exact_matches.append(r_id)
+        # 2. Match Exact Keyword
+        elif input_lower in room_keywords or input_bersih in room_keywords:
+            exact_matches.append(r_id)
+        # 3. Match Exact Acronym in parenthesis (e.g., "(igd)")
+        elif f"({input_lower})" in room_name_lower or f"({input_bersih})" in room_name_lower:
             exact_matches.append(r_id)
             
     if exact_matches:
@@ -111,7 +123,6 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id"):
                     return {"status": "success", "target_id": terbaik_id, "confidence_score": 1.0}
             return {"status": "success", "target_id": exact_matches[0], "confidence_score": 1.0}
 
-    input_bersih = bersihkan_teks(input_pengunjung)
     if not input_bersih:
          pesan = "Mohon masukkan tujuan yang lebih spesifik." if language == "id" else "Please enter a more specific destination."
          return {"status": "error", "pesan": pesan}
