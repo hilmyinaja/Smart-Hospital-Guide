@@ -535,7 +535,7 @@ export default function App() {
       setErrorMsg("");
       navigate("/admin");
     } catch (error) {
-      setErrorMsg("akun tidak valid, silahkan coba lagi!");
+      setErrorMsg("Akun tidak valid, silahkan coba lagi!");
       setIsShaking(true);
       setTimeout(() => setIsShaking(false), 500);
     }
@@ -757,11 +757,6 @@ export default function App() {
                       onChange={(e) => {
                         const val = e.target.value;
                         setSearch(val);
-                        // Auto-trigger search if it exactly matches a room name
-                        const matchedRoom = rooms.find(r => r.name.toLowerCase() === val.toLowerCase() || translateName(r.name, language).toLowerCase() === val.toLowerCase());
-                        if (matchedRoom && location) {
-                          executeSearch(location, matchedRoom.name);
-                        }
                       }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
