@@ -50,7 +50,12 @@ const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggin
   const dynamicFontSize = Math.max(6, Math.min(14, maxFontSizeWidth, maxFontSizeHeight));
 
   const getVisualColors = useCallback(() => {
-    if (shapeProps.type === 'kiosk') return { fill: "#2196F3", stroke: "#0D47A1", text: "#FFFFFF" };
+    if (shapeProps.type === 'kiosk') {
+      if (shapeProps.name?.toLowerCase().includes('pintu')) {
+        return { fill: "#4CAF50", stroke: "#2E7D32", text: "#FFFFFF" };
+      }
+      return { fill: "#2196F3", stroke: "#0D47A1", text: "#FFFFFF" };
+    }
 
     const original = originalElements.find(el => el.id === shapeProps.id);
     if (!original) return { fill: isDarkMode ? "#064e3b" : "#d4edda", stroke: isDarkMode ? "#065f46" : "#c3e6cb", text: isDarkMode ? "#d1fae5" : "#155724" };
@@ -490,7 +495,7 @@ export default function EditPage() {
       let newElements = [...placedElements];
       let newId;
 
-      if (dragData.type === "new-kiosk") {
+      if (dragData.type === "new-kiosk" || dragData.type === "new-entrance") {
         newId = generateNextKioskId();
         newElements.push({
           id: newId, type: 'kiosk', floor: activeEditFloor,
@@ -861,6 +866,38 @@ export default function EditPage() {
             >
               <p style={{ color: "white", padding: "2px", fontSize: "10px", textAlign: "center", fontWeight: "bold" }}>
                 {getText('drag_kiosk')}
+              </p>
+            </div>
+
+            <div style={{ margin: "10px 0", borderTop: "1px solid var(--border)" }}></div>
+
+            <div
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData("text/plain", JSON.stringify({
+                  type: "new-entrance",
+                  defaultName: "Pintu Masuk Utama",
+                  defaultGridWidth: 2,
+                  defaultGridHeight: 2
+                }));
+              }}
+              onClick={() => {
+                const newId = generateNextKioskId();
+                const newElements = [...placedElements, {
+                  id: newId, type: 'kiosk', floor: activeEditFloor,
+                  x: 200, y: 240, width: GRID_SIZE * 2, height: GRID_SIZE * 2,
+                  name: "Pintu Masuk Utama"
+                }];
+                setPlacedElements(newElements);
+                saveHistory(newElements);
+              }}
+              style={{
+                width: GRID_SIZE * 2, height: GRID_SIZE * 2, background: "#4CAF50", border: "1px solid #2E7D32",
+                cursor: "grab", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto"
+              }}
+            >
+              <p style={{ color: "white", padding: "2px", fontSize: "10px", textAlign: "center", fontWeight: "bold" }}>
+                Pintu Masuk
               </p>
             </div>
           </div>

@@ -736,7 +736,7 @@ export default function App() {
                         }}
                       >
                         <option value="" disabled>{getText('select_kiosk')}</option>
-                        {kiosks.map((kiosk) => (
+                        {kiosks.filter(k => !k.name?.toLowerCase().includes('pintu')).map((kiosk) => (
                           <option key={kiosk.id} value={kiosk.id}>
                             {translateName(kiosk.name || kiosk.id, language)}
                           </option>
@@ -821,20 +821,26 @@ export default function App() {
                   {language === 'id' ? 'Pencarian Cepat' : 'Quick Searches'}
                 </p>
                 <div className="quick-actions">
+                  <button className="quick-action-btn" onClick={() => { setSearch("Pintu Masuk"); executeSearch(location, "Pintu Masuk"); }}>
+                    <span>🚪</span> {language === 'id' ? 'Pintu Masuk' : 'Entrance'}
+                  </button>
                   <button className="quick-action-btn" onClick={() => { setSearch("IGD"); executeSearch(location, "IGD"); }}>
                     <span>🚨</span> {language === 'id' ? 'IGD' : 'ER'}
                   </button>
                   <button className="quick-action-btn" onClick={() => { setSearch("Toilet"); executeSearch(location, "Toilet"); }}>
                     <span>🚻</span> Toilet
                   </button>
-                  <button className="quick-action-btn" onClick={() => { setSearch("Apotek"); executeSearch(location, "Apotek"); }}>
-                    <span>💊</span> {language === 'id' ? 'Apotek' : 'Pharmacy'}
+                  <button className="quick-action-btn" onClick={() => { setSearch("Farmasi"); executeSearch(location, "Farmasi"); }}>
+                    <span>💊</span> {language === 'id' ? 'Farmasi' : 'Pharmacy'}
                   </button>
                   <button className="quick-action-btn" onClick={() => { setSearch("Mushola"); executeSearch(location, "Mushola"); }}>
                     <span>🕌</span> {language === 'id' ? 'Mushola' : 'Prayer Room'}
                   </button>
                   <button className="quick-action-btn" onClick={() => { setSearch("Tangga Darurat"); executeSearch(location, "Tangga Darurat"); }}>
                     <span>🏃</span> {language === 'id' ? 'Tangga Darurat' : 'Emergency Stairs'}
+                  </button>
+                  <button className="quick-action-btn" onClick={() => { setSearch("Lift"); executeSearch(location, "Lift"); }}>
+                    <span>🛗</span> {language === 'id' ? 'Lift' : 'Elevator'}
                   </button>
                   <button className="quick-action-btn" onClick={() => { setSearch("Pusat Informasi"); executeSearch(location, "Pusat Informasi"); }}>
                     <span>ℹ️</span> {language === 'id' ? 'Pusat Informasi' : 'Information Center'}

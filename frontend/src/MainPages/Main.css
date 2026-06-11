@@ -877,7 +877,7 @@ body.dark-mode .scrubber-btn:hover {
 /* --- QUICK ACTIONS SECTION --- */
 .quick-actions-section {
   overflow: hidden;
-  max-height: 200px;
+  max-height: 350px;
   opacity: 1;
   transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1),
               opacity 0.25s ease,
@@ -909,28 +909,34 @@ body.dark-mode .scrubber-btn:hover {
 }
 
 .quick-actions {
-  display: flex;
-  gap: 7px;
-  flex-wrap: wrap;
-  justify-content: flex-start;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
 }
 
 .quick-action-btn {
   background: var(--white);
   border: 1px solid var(--border);
   color: var(--text-main);
-  padding: 6px 13px;
-  border-radius: 20px;
-  font-size: 12.5px;
+  padding: 8px 6px;
+  border-radius: 12px;
+  font-size: 11.5px;
   font-family: 'DM Sans', sans-serif;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: var(--shadow-sm);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 5px;
-  white-space: nowrap;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.quick-action-btn span {
+  font-size: 18px;
 }
 
 .quick-action-btn:hover {

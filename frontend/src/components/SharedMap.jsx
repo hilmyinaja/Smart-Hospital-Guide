@@ -339,11 +339,15 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
                   );
                 })}
 
-              {/* Render Kiosks tetap biru */}
+              {/* Render Kiosks (biru) dan Pintu Masuk (hijau) */}
               {kiosks
                 .filter((kiosk) => kiosk.floor === currentFloor)
                 .map((kiosk) => {
                   const textContent = translateName(kiosk.name || "Kiosk", language);
+                  const isPintu = kiosk.name?.toLowerCase().includes('pintu');
+                  const fillCol = isPintu ? "#4CAF50" : "#2196F3";
+                  const strokeCol = isPintu ? "#2E7D32" : "#0D47A1";
+                  
                   const longestWordLen = Math.max(...textContent.split(' ').map(w => w.length), 1);
                   const actualUsableWidth = Math.max(10, kiosk.width - 12);
 
@@ -354,7 +358,7 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
 
                   return (
                     <React.Fragment key={kiosk.id}>
-                      <Rect x={kiosk.x} y={kiosk.y} width={kiosk.width} height={kiosk.height} fill="#2196F3" stroke="#0D47A1" strokeWidth={2} perfectDrawEnabled={false} shadowForStrokeEnabled={false} listening={false} />
+                      <Rect x={kiosk.x} y={kiosk.y} width={kiosk.width} height={kiosk.height} fill={fillCol} stroke={strokeCol} strokeWidth={2} perfectDrawEnabled={false} shadowForStrokeEnabled={false} listening={false} />
 
                       <Text
                         text={textContent}
