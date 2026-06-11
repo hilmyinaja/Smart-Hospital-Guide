@@ -597,7 +597,7 @@ export default function App() {
               <h2>{getText('admin_login_title')}</h2>
               <p className="login-subtitle">Silahkan masukkan akun administrator Anda</p>
             </div>
-            
+
             {errorMsg && (
               <div className="login-error-alert animate-fade-in">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -608,7 +608,7 @@ export default function App() {
                 <span>{errorMsg}</span>
               </div>
             )}
-            
+
             <div className="login-form-body">
               <div className="modern-input-group">
                 <label>{getText('username')}</label>
@@ -617,16 +617,16 @@ export default function App() {
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                     <circle cx="12" cy="7" r="4"></circle>
                   </svg>
-                  <input 
-                    type="text" 
-                    placeholder="Contoh: admin@email.com" 
-                    value={username} 
-                    onChange={(e) => setUsername(e.target.value)} 
-                    onKeyDown={(e) => e.key === "Enter" && handleLogin()} 
+                  <input
+                    type="text"
+                    placeholder="Contoh: admin@email.com"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleLogin()}
                   />
                 </div>
               </div>
-              
+
               <div className="modern-input-group">
                 <label>{getText('password')}</label>
                 <div className="input-with-icon">
@@ -634,16 +634,16 @@ export default function App() {
                     <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
                     <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                   </svg>
-                  <input 
-                    type="password" 
-                    placeholder="••••••••" 
-                    value={password} 
-                    onChange={(e) => setPassword(e.target.value)} 
-                    onKeyDown={(e) => e.key === "Enter" && handleLogin()} 
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleLogin()}
                   />
                 </div>
               </div>
-              
+
               <button className="modern-submit-btn" onClick={handleLogin}>
                 <span>{getText('login_btn')}</span>
                 <svg className="btn-arrow" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -706,141 +706,141 @@ export default function App() {
           {!isMobileMode && (
             <>
               <div className="route-planner-container">
-              <div className="route-planner-timeline">
-                <div className="timeline-icon-target">
-                  <TargetIcon />
-                </div>
-                <div className="timeline-line"></div>
-                <div className="timeline-icon-pin">
-                  <PinIcon />
-                </div>
-              </div>
-              <div className="route-planner-inputs">
-                {/* KIOSK DROPDOWN ATAU LOCKED KIOSK INFO */}
-                {isKioskLocked ? (
-                  <div className="dropdown-wrapper kiosk-input" style={{ padding: "12px", background: "var(--white)", borderRadius: "8px", border: "1.5px solid var(--border)", color: "var(--text-main)", fontWeight: "600", fontSize: "14px", display: "flex", alignItems: "center", gap: "8px" }}>
-                    {getText('you_are_here')} {kiosks.find(k => k.id === location)?.name || location}
+                <div className="route-planner-timeline">
+                  <div className="timeline-icon-target">
+                    <TargetIcon />
                   </div>
-                ) : (
-                  <div className="dropdown-wrapper kiosk-input">
-                    <select
-                      className="dropdown-select route-select"
-                      value={location}
-                      required
+                  <div className="timeline-line"></div>
+                  <div className="timeline-icon-pin">
+                    <PinIcon />
+                  </div>
+                </div>
+                <div className="route-planner-inputs">
+                  {/* KIOSK DROPDOWN ATAU LOCKED KIOSK INFO */}
+                  {isKioskLocked ? (
+                    <div className="dropdown-wrapper kiosk-input" style={{ padding: "12px", background: "var(--white)", borderRadius: "8px", border: "1.5px solid var(--border)", color: "var(--text-main)", fontWeight: "600", fontSize: "14px", display: "flex", alignItems: "center", gap: "8px" }}>
+                      {getText('you_are_here')} {kiosks.find(k => k.id === location)?.name || location}
+                    </div>
+                  ) : (
+                    <div className="dropdown-wrapper kiosk-input">
+                      <select
+                        className="dropdown-select route-select"
+                        value={location}
+                        required
+                        onChange={(e) => {
+                          const newLocation = e.target.value;
+                          setLocation(newLocation);
+                          if (search.trim()) {
+                            executeSearch(newLocation, search);
+                          }
+                        }}
+                      >
+                        <option value="" disabled>{getText('select_kiosk')}</option>
+                        {kiosks.map((kiosk) => (
+                          <option key={kiosk.id} value={kiosk.id}>
+                            {translateName(kiosk.name || kiosk.id, language)}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronIcon />
+                    </div>
+                  )}
+
+                  {/* SEARCH & ROOM DROPDOWN */}
+                  <div className="search-wrapper destination-input" style={{ position: "relative" }}>
+                    <input
+                      className="search-input route-search"
+                      style={{ paddingRight: "74px", width: "100%" }}
+                      type="text"
+                      placeholder={isListening ? (language === 'en' ? 'Listening...' : 'Mendengarkan...') : getText('search_placeholder')}
+                      value={search}
                       onChange={(e) => {
-                        const newLocation = e.target.value;
-                        setLocation(newLocation);
-                        if (search.trim()) {
-                          executeSearch(newLocation, search);
+                        const val = e.target.value;
+                        setSearch(val);
+                        // Auto-trigger search if it exactly matches a room name
+                        const matchedRoom = rooms.find(r => r.name.toLowerCase() === val.toLowerCase() || translateName(r.name, language).toLowerCase() === val.toLowerCase());
+                        if (matchedRoom && location) {
+                          executeSearch(location, matchedRoom.name);
                         }
                       }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          executeSearch(location, search);
+                        }
+                      }}
+                    />
+
+                    <div className="mic-btn-wrapper" onClick={startListening} title={language === 'en' ? 'Voice Search' : 'Pencarian Suara'}>
+                      <MicIcon isListening={isListening} />
+                    </div>
+
+                    {/* Invisible Dropdown Over Chevron */}
+                    <select
+                      className="dropdown-select route-select"
+                      style={{
+                        opacity: 0, position: "absolute", top: 0, left: 0, width: "100%", height: "100%", cursor: "pointer", zIndex: 2, clipPath: "inset(0 0 0 calc(100% - 40px))"
+                      }}
+                      value={(() => {
+                        const matchedRoom = rooms.find(r => r.name === search || translateName(r.name, language) === search);
+                        return matchedRoom ? matchedRoom.name : "";
+                      })()}
+                      onChange={(e) => {
+                        const rawName = e.target.value;
+                        setSearch(rawName);
+                        executeSearch(location, rawName);
+                      }}
                     >
-                      <option value="" disabled>{getText('select_kiosk')}</option>
-                      {kiosks.map((kiosk) => (
-                        <option key={kiosk.id} value={kiosk.id}>
-                          {translateName(kiosk.name || kiosk.id, language)}
-                        </option>
+                      <option value="" disabled>{getText('select_room') || getText('search_placeholder')}</option>
+                      {floors.filter(f => !f.startsWith("submap_")).map((floorName) => (
+                        <optgroup key={floorName} label={translateName(floorName, language)}>
+                          {rooms
+                            .filter(room => {
+                              if (room.floor === floorName) return true;
+                              if (room.floor.startsWith("submap_")) {
+                                const parentId = room.floor.replace("submap_", "");
+                                const parentRoom = rooms.find(r => r.id === parentId);
+                                return parentRoom && parentRoom.floor === floorName;
+                              }
+                              return false;
+                            })
+                            .map((room) => (
+                              <option key={room.id} value={room.name}>{translateName(room.name, language)}</option>
+                            ))}
+                        </optgroup>
                       ))}
                     </select>
                     <ChevronIcon />
                   </div>
-                )}
-
-                {/* SEARCH & ROOM DROPDOWN */}
-                <div className="search-wrapper destination-input" style={{ position: "relative" }}>
-                  <input
-                    className="search-input route-search"
-                    style={{ paddingRight: "74px", width: "100%" }}
-                    type="text"
-                    placeholder={isListening ? (language === 'en' ? 'Listening...' : 'Mendengarkan...') : getText('search_placeholder')}
-                    value={search}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setSearch(val);
-                      // Auto-trigger search if it exactly matches a room name
-                      const matchedRoom = rooms.find(r => r.name.toLowerCase() === val.toLowerCase() || translateName(r.name, language).toLowerCase() === val.toLowerCase());
-                      if (matchedRoom && location) {
-                        executeSearch(location, matchedRoom.name);
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        executeSearch(location, search);
-                      }
-                    }}
-                  />
-                  
-                  <div className="mic-btn-wrapper" onClick={startListening} title={language === 'en' ? 'Voice Search' : 'Pencarian Suara'}>
-                    <MicIcon isListening={isListening} />
-                  </div>
-                  
-                  {/* Invisible Dropdown Over Chevron */}
-                  <select
-                    className="dropdown-select route-select"
-                    style={{
-                      opacity: 0, position: "absolute", top: 0, left: 0, width: "100%", height: "100%", cursor: "pointer", zIndex: 2, clipPath: "inset(0 0 0 calc(100% - 40px))"
-                    }}
-                    value={(() => {
-                      const matchedRoom = rooms.find(r => r.name === search || translateName(r.name, language) === search);
-                      return matchedRoom ? matchedRoom.name : "";
-                    })()}
-                    onChange={(e) => {
-                      const rawName = e.target.value;
-                      setSearch(rawName);
-                      executeSearch(location, rawName);
-                    }}
-                  >
-                    <option value="" disabled>{getText('select_room') || getText('search_placeholder')}</option>
-                    {floors.filter(f => !f.startsWith("submap_")).map((floorName) => (
-                      <optgroup key={floorName} label={translateName(floorName, language)}>
-                        {rooms
-                          .filter(room => {
-                            if (room.floor === floorName) return true;
-                            if (room.floor.startsWith("submap_")) {
-                              const parentId = room.floor.replace("submap_", "");
-                              const parentRoom = rooms.find(r => r.id === parentId);
-                              return parentRoom && parentRoom.floor === floorName;
-                            }
-                            return false;
-                          })
-                          .map((room) => (
-                            <option key={room.id} value={room.name}>{translateName(room.name, language)}</option>
-                          ))}
-                      </optgroup>
-                    ))}
-                  </select>
-                  <ChevronIcon />
                 </div>
               </div>
-            </div>
-            
-            {/* QUICK ACTIONS MOVED OUTSIDE TIMELINE CONTAINER */}
-            <div style={{ padding: "0 10px", marginTop: "10px", marginBottom: "10px" }}>
-              <p style={{ fontSize: "13px", color: "var(--text-main)", margin: 0, fontWeight: "700", letterSpacing: "0.5px", textTransform: "uppercase", display: "flex", alignItems: "center", gap: "6px" }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-                {language === 'id' ? 'Pencarian Cepat' : 'Quick Searches'}
-              </p>
-            </div>
-            <div className="quick-actions" style={{ marginBottom: "15px", padding: "0 10px" }}>
-              <button className="quick-action-btn" onClick={() => { setSearch("IGD"); executeSearch(location, "IGD"); }}>
-                <span>🚨</span> {language === 'id' ? 'IGD' : 'ER'}
-              </button>
-              <button className="quick-action-btn" onClick={() => { setSearch("Toilet"); executeSearch(location, "Toilet"); }}>
-                <span>🚻</span> Toilet
-              </button>
-              <button className="quick-action-btn" onClick={() => { setSearch("Apotek"); executeSearch(location, "Apotek"); }}>
-                <span>💊</span> {language === 'id' ? 'Apotek' : 'Pharmacy'}
-              </button>
-              <button className="quick-action-btn" onClick={() => { setSearch("Mushola"); executeSearch(location, "Mushola"); }}>
-                <span>🕌</span> {language === 'id' ? 'Mushola' : 'Prayer Room'}
-              </button>
-              <button className="quick-action-btn" onClick={() => { setSearch("Tangga Darurat"); executeSearch(location, "Tangga Darurat"); }}>
-                <span>🏃</span> {language === 'id' ? 'Tangga Darurat' : 'Emergency Stairs'}
-              </button>
-              <button className="quick-action-btn" onClick={() => { setSearch("Pusat Informasi"); executeSearch(location, "Pusat Informasi"); }}>
-                <span>ℹ️</span> {language === 'id' ? 'Pusat Informasi' : 'Information Center'}
-              </button>
-            </div>
+
+              {/* QUICK ACTIONS — hanya tampil saat belum ada tujuan dipilih */}
+              <div className={`quick-actions-section${search.trim() ? ' quick-actions-hidden' : ''}`}>
+                <p className="quick-actions-label">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                  {language === 'id' ? 'Pencarian Cepat' : 'Quick Searches'}
+                </p>
+                <div className="quick-actions">
+                  <button className="quick-action-btn" onClick={() => { setSearch("IGD"); executeSearch(location, "IGD"); }}>
+                    <span>🚨</span> {language === 'id' ? 'IGD' : 'ER'}
+                  </button>
+                  <button className="quick-action-btn" onClick={() => { setSearch("Toilet"); executeSearch(location, "Toilet"); }}>
+                    <span>🚻</span> Toilet
+                  </button>
+                  <button className="quick-action-btn" onClick={() => { setSearch("Apotek"); executeSearch(location, "Apotek"); }}>
+                    <span>💊</span> {language === 'id' ? 'Apotek' : 'Pharmacy'}
+                  </button>
+                  <button className="quick-action-btn" onClick={() => { setSearch("Mushola"); executeSearch(location, "Mushola"); }}>
+                    <span>🕌</span> {language === 'id' ? 'Mushola' : 'Prayer Room'}
+                  </button>
+                  <button className="quick-action-btn" onClick={() => { setSearch("Tangga Darurat"); executeSearch(location, "Tangga Darurat"); }}>
+                    <span>🏃</span> {language === 'id' ? 'Tangga Darurat' : 'Emergency Stairs'}
+                  </button>
+                  <button className="quick-action-btn" onClick={() => { setSearch("Pusat Informasi"); executeSearch(location, "Pusat Informasi"); }}>
+                    <span>ℹ️</span> {language === 'id' ? 'Pusat Informasi' : 'Information Center'}
+                  </button>
+                </div>
+              </div>
 
 
             </>
@@ -931,15 +931,15 @@ export default function App() {
                 setIsNavFinished(false);
                 setSearch("");
               }}
-              style={{ 
-                marginTop: "10px", 
-                width: "100%", 
-                padding: "12px", 
-                background: isDarkMode ? "rgba(239, 68, 68, 0.15)" : "#e74c3c", 
-                color: isDarkMode ? "#ef4444" : "white", 
-                border: isDarkMode ? "1px solid rgba(239, 68, 68, 0.3)" : "none", 
-                borderRadius: "8px", 
-                cursor: "pointer", 
+              style={{
+                marginTop: "10px",
+                width: "100%",
+                padding: "12px",
+                background: isDarkMode ? "rgba(239, 68, 68, 0.15)" : "#e74c3c",
+                color: isDarkMode ? "#ef4444" : "white",
+                border: isDarkMode ? "1px solid rgba(239, 68, 68, 0.3)" : "none",
+                borderRadius: "8px",
+                cursor: "pointer",
                 fontWeight: "bold",
                 display: "flex",
                 justifyContent: "center",
@@ -954,7 +954,7 @@ export default function App() {
         </aside>
 
         <main className="map-panel" style={{ position: "relative" }}>
-          
+
           {/* VERTICAL FLOOR SCRUBBER (OPTION 1) */}
           <div className="vertical-scrubber-wrapper">
             {floors.filter(f => {
@@ -972,7 +972,7 @@ export default function App() {
                 }
                 return floor === f;
               })();
-              
+
               let shortName = f.replace("Lantai ", "").replace("Basement", "B");
 
               return (

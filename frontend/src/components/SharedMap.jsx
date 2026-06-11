@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Stage, Layer, Rect, Text, Line, Group, Circle } from "react-konva";
 import Konva from "konva";
 import { collection, onSnapshot } from "firebase/firestore";
-import { db } from "../firebase"; 
+import { db } from "../firebase";
 import { translateName } from "../utils/translator";
 
 function getTotalPathLength(pathPoints) {
@@ -29,7 +29,7 @@ function getPointAtDistance(pathPoints, distance) {
     const dx = x2 - x1;
     const dy = y2 - y1;
     const segLen = Math.sqrt(dx * dx + dy * dy);
-    
+
     if (currentDist + segLen >= distance) {
       const ratio = (distance - currentDist) / segLen;
       const x = x1 + dx * ratio;
@@ -39,10 +39,10 @@ function getPointAtDistance(pathPoints, distance) {
     }
     currentDist += segLen;
   }
-  
+
   const lastX = pathPoints[pathPoints.length - 2];
   const lastY = pathPoints[pathPoints.length - 1];
-  
+
   if (pathPoints.length >= 4) {
     const dx = pathPoints[pathPoints.length - 2] - pathPoints[pathPoints.length - 4];
     const dy = pathPoints[pathPoints.length - 1] - pathPoints[pathPoints.length - 3];
@@ -61,8 +61,8 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
   const personRef = useRef(null);
   const leftFootRef = useRef(null);
   const rightFootRef = useRef(null);
-  
-  const GRID_SIZE = 25; 
+
+  const GRID_SIZE = 25;
 
   const mapBounds = useMemo(() => {
     let minX = Infinity;
@@ -111,18 +111,18 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
     const scaleX = availableWidth / mapBounds.width;
     const scaleY = availableHeight / mapBounds.height;
     const scale = Math.min(scaleX, scaleY, 2); // Limit maximum scale to 2x to avoid excessive stretching
-    
+
     // Center the map bounds in the stage
     const x = (mapSize.width - mapBounds.width * scale) / 2 - mapBounds.x * scale;
     const y = (mapSize.height - mapBounds.height * scale) / 2 - mapBounds.y * scale;
-    
+
     return { scale, x, y };
   }, [mapBounds, mapSize]);
 
   const calculatedMapSize = useMemo(() => {
     let maxX = mapSize.width || 2000;
     let maxY = mapSize.height || 1500;
-    
+
     rooms.forEach(room => {
       if (room.floor === currentFloor) {
         const right = room.x + room.width;
@@ -131,7 +131,7 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
         if (bottom > maxY) maxY = bottom;
       }
     });
-    
+
     kiosks.forEach(kiosk => {
       if (kiosk.floor === currentFloor) {
         const right = kiosk.x + kiosk.width;
@@ -153,13 +153,13 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
     const updateSize = () => {
       if (containerRef.current) {
         setMapSize({
-          width: containerRef.current.clientWidth || 2000, 
+          width: containerRef.current.clientWidth || 2000,
           height: containerRef.current.clientHeight || 1500,
         });
       }
     };
-    
-    setTimeout(updateSize, 100); 
+
+    setTimeout(updateSize, 100);
     window.addEventListener("resize", updateSize);
     return () => window.removeEventListener("resize", updateSize);
   }, []);
@@ -171,7 +171,7 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
         const data = docSnap.data();
         loadedRooms.push({
           id: docSnap.id,
-          floor: data.floor || "Lantai 1", 
+          floor: data.floor || "Lantai 1",
           name: data.name || "Tanpa Nama",
           x: (data.grid_x || 0) * GRID_SIZE,
           y: (data.grid_y || 0) * GRID_SIZE,
@@ -226,39 +226,41 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
 
   useEffect(() => {
     if (!lineRef.current) return;
-    
+
     let totalPathLength = 0;
     if (activePathPoints.length >= 4) {
       totalPathLength = getTotalPathLength(activePathPoints);
     }
-    
-    const WALK_SPEED = Math.max(50, totalPathLength / 2.5); 
-    const legSwingSpeed = 0.015 * (WALK_SPEED / 70);
+
+    // Kecepatan jalan: semakin kecil angka = semakin lambat
+    // totalPathLength / X  → orang menempuh seluruh jalur dalam X detik
+    const WALK_SPEED = Math.max(15, totalPathLength / 5);
+    const LEG_SWING_FREQ = 0.006; // frekuensi ayunan kaki
 
     const anim = new Konva.Animation((frame) => {
       if (!lineRef.current) return;
 
-      const dashOffset = (frame.time / 20) % 20; 
+      // Animasi garis putus-putus bergerak
+      const dashOffset = (frame.time / 25) % 20;
       lineRef.current.dashOffset(-dashOffset);
-
-      const isMoving = (frame.time / 1000) * WALK_SPEED < totalPathLength;
 
       if (personRef.current && activePathPoints.length >= 4 && totalPathLength > 0) {
         const distance = Math.min((frame.time / 1000) * WALK_SPEED, totalPathLength);
+        const isMoving = distance < totalPathLength;
         const { x, y, angle } = getPointAtDistance(activePathPoints, distance);
-        
+
         personRef.current.x(x);
         personRef.current.y(y);
         personRef.current.rotation(angle);
-        
+
         if (leftFootRef.current && rightFootRef.current) {
-            const footSwing = isMoving ? Math.sin(frame.time * legSwingSpeed) * 8 : 0; 
-            leftFootRef.current.x(footSwing);
-            rightFootRef.current.x(-footSwing); 
+          const footSwing = isMoving ? Math.sin(frame.time * LEG_SWING_FREQ) * 8 : 0;
+          leftFootRef.current.x(footSwing);
+          rightFootRef.current.x(-footSwing);
         }
       }
     }, lineRef.current.getLayer());
-    
+
     anim.start();
     return () => anim.stop();
   }, [activePathPoints]);
@@ -286,91 +288,91 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
 
               {/* Visual Bounding Box (Warp/Wrap line) */}
               {showBorder && mapBounds && (
-                <Rect 
-                  x={mapBounds.x} 
-                  y={mapBounds.y} 
-                  width={mapBounds.width} 
-                  height={mapBounds.height} 
-                  fill={isDarkMode ? "#0f172a" : "#ffffff"} 
-                  stroke={isDarkMode ? "#3b82f6" : "#1a73c8"} 
-                  strokeWidth={isDarkMode ? 1.5 : 2.5} 
-                  cornerRadius={16} 
+                <Rect
+                  x={mapBounds.x}
+                  y={mapBounds.y}
+                  width={mapBounds.width}
+                  height={mapBounds.height}
+                  fill={isDarkMode ? "#0f172a" : "#ffffff"}
+                  stroke={isDarkMode ? "#3b82f6" : "#1a73c8"}
+                  strokeWidth={isDarkMode ? 1.5 : 2.5}
+                  cornerRadius={16}
                   shadowColor="rgba(26, 115, 200, 0.08)"
                   shadowBlur={10}
                   shadowOffset={{ x: 0, y: 4 }}
                   listening={false}
                 />
               )}
-            
-            {/* Render Ruangan bersih senada background (Tanpa Endpoint) */}
-            {rooms
-              .filter((room) => room.floor === currentFloor)
-              .map((room) => {
-                const textContent = translateName(room.name || "Tanpa Nama", language);
-                const longestWordLen = Math.max(...textContent.split(' ').map(w => w.length), 1);
-                const actualUsableWidth = Math.max(10, room.width - 12);
-                
-                // Calculate font size so the longest word fits perfectly inside the inner box width
-                const maxFontSizeWidth = actualUsableWidth / (longestWordLen * 0.85);
-                const maxFontSizeHeight = room.height / 2.5;
-                const fontSize = Math.max(6, Math.min(14, maxFontSizeWidth, maxFontSizeHeight));
-                
-                return (
-                  <Group 
+
+              {/* Render Ruangan bersih senada background (Tanpa Endpoint) */}
+              {rooms
+                .filter((room) => room.floor === currentFloor)
+                .map((room) => {
+                  const textContent = translateName(room.name || "Tanpa Nama", language);
+                  const longestWordLen = Math.max(...textContent.split(' ').map(w => w.length), 1);
+                  const actualUsableWidth = Math.max(10, room.width - 12);
+
+                  // Calculate font size so the longest word fits perfectly inside the inner box width
+                  const maxFontSizeWidth = actualUsableWidth / (longestWordLen * 0.85);
+                  const maxFontSizeHeight = room.height / 2.5;
+                  const fontSize = Math.max(6, Math.min(14, maxFontSizeWidth, maxFontSizeHeight));
+
+                  return (
+                    <Group
                       key={room.id}
                       onClick={() => onRoomClick && onRoomClick(room)}
                       onTap={() => onRoomClick && onRoomClick(room)}
                       onMouseEnter={(e) => { if (onRoomClick) { e.target.getStage().container().style.cursor = 'pointer'; } }}
                       onMouseLeave={(e) => { if (onRoomClick) { e.target.getStage().container().style.cursor = 'default'; } }}
-                  >
-                    <Rect x={room.x} y={room.y} width={room.width} height={room.height} fill={isDarkMode ? "#1e293b" : "#f8f9fa"} stroke={isDarkMode ? "#334155" : "#dae0e5"} strokeWidth={2} perfectDrawEnabled={false} shadowForStrokeEnabled={false} />
-                    <Text 
-                        text={textContent} 
-                        x={room.x} y={room.y} width={room.width} height={room.height} 
-                        fontSize={fontSize} fontStyle="bold" fill={isDarkMode ? "#f8fafc" : "#495057"} 
-                        align="center" verticalAlign="middle" padding={5} 
-                        wrap="word" ellipsis={false} 
+                    >
+                      <Rect x={room.x} y={room.y} width={room.width} height={room.height} fill={isDarkMode ? "#1e293b" : "#f8f9fa"} stroke={isDarkMode ? "#334155" : "#dae0e5"} strokeWidth={2} perfectDrawEnabled={false} shadowForStrokeEnabled={false} />
+                      <Text
+                        text={textContent}
+                        x={room.x} y={room.y} width={room.width} height={room.height}
+                        fontSize={fontSize} fontStyle="bold" fill={isDarkMode ? "#f8fafc" : "#495057"}
+                        align="center" verticalAlign="middle" padding={5}
+                        wrap="word" ellipsis={false}
                         perfectDrawEnabled={false}
                         listening={false}
-                    />
-                  </Group>
-                );
-            })}
+                      />
+                    </Group>
+                  );
+                })}
 
-            {/* Render Kiosks tetap biru */}
-            {kiosks
-              .filter((kiosk) => kiosk.floor === currentFloor)
-              .map((kiosk) => {
-                const textContent = translateName(kiosk.name || "Kiosk", language);
-                const longestWordLen = Math.max(...textContent.split(' ').map(w => w.length), 1);
-                const actualUsableWidth = Math.max(10, kiosk.width - 12);
-                
-                // Calculate font size so the longest word fits perfectly inside the inner box width
-                const maxFontSizeWidth = actualUsableWidth / (longestWordLen * 0.85);
-                const maxFontSizeHeight = kiosk.height / 2.5;
-                const fontSize = Math.max(6, Math.min(14, maxFontSizeWidth, maxFontSizeHeight));
-                
-                return (
-                  <React.Fragment key={kiosk.id}>
-                    <Rect x={kiosk.x} y={kiosk.y} width={kiosk.width} height={kiosk.height} fill="#2196F3" stroke="#0D47A1" strokeWidth={2} perfectDrawEnabled={false} shadowForStrokeEnabled={false} listening={false} />
-                    
-                    <Text 
-                        text={textContent} 
-                        x={kiosk.x} y={kiosk.y} width={kiosk.width} height={kiosk.height} 
-                        fontSize={fontSize} fontStyle="bold" fill="#ffffff" 
-                        align="center" verticalAlign="middle" padding={5} 
-                        wrap="word" ellipsis={false} 
+              {/* Render Kiosks tetap biru */}
+              {kiosks
+                .filter((kiosk) => kiosk.floor === currentFloor)
+                .map((kiosk) => {
+                  const textContent = translateName(kiosk.name || "Kiosk", language);
+                  const longestWordLen = Math.max(...textContent.split(' ').map(w => w.length), 1);
+                  const actualUsableWidth = Math.max(10, kiosk.width - 12);
+
+                  // Calculate font size so the longest word fits perfectly inside the inner box width
+                  const maxFontSizeWidth = actualUsableWidth / (longestWordLen * 0.85);
+                  const maxFontSizeHeight = kiosk.height / 2.5;
+                  const fontSize = Math.max(6, Math.min(14, maxFontSizeWidth, maxFontSizeHeight));
+
+                  return (
+                    <React.Fragment key={kiosk.id}>
+                      <Rect x={kiosk.x} y={kiosk.y} width={kiosk.width} height={kiosk.height} fill="#2196F3" stroke="#0D47A1" strokeWidth={2} perfectDrawEnabled={false} shadowForStrokeEnabled={false} listening={false} />
+
+                      <Text
+                        text={textContent}
+                        x={kiosk.x} y={kiosk.y} width={kiosk.width} height={kiosk.height}
+                        fontSize={fontSize} fontStyle="bold" fill="#ffffff"
+                        align="center" verticalAlign="middle" padding={5}
+                        wrap="word" ellipsis={false}
                         perfectDrawEnabled={false}
                         listening={false}
-                    />
-                  </React.Fragment>
-                );
-            })}
+                      />
+                    </React.Fragment>
+                  );
+                })}
 
-            {/* Akhir Static Layer */}
+              {/* Akhir Static Layer */}
             </Group>
           </Layer>
-          
+
           {/* Layer Animasi Terpisah (SANGAT PENTING UNTUK PERFORMA MOBILE) */}
           <Layer>
             <Group scaleX={scaleAndOffset.scale} scaleY={scaleAndOffset.scale} x={scaleAndOffset.x} y={scaleAndOffset.y}>
@@ -379,7 +381,7 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
                 <>
                   {/* Rute keseluruhan (redup) */}
                   <Line points={pathPoints} stroke="rgba(255, 0, 0, 0.2)" strokeWidth={5} lineCap="round" lineJoin="round" tension={0} />
-                  
+
                   {/* Rute aktif & Animasi */}
                   {activePathPoints.length > 0 && (
                     <>

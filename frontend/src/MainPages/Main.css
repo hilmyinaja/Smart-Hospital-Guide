@@ -874,35 +874,71 @@ body.dark-mode .scrubber-btn:hover {
   outline: none;
 }
 
-/* --- QUICK ACTIONS --- */
+/* --- QUICK ACTIONS SECTION --- */
+.quick-actions-section {
+  overflow: hidden;
+  max-height: 200px;
+  opacity: 1;
+  transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.25s ease,
+              margin 0.3s ease;
+  margin-top: 4px;
+  margin-bottom: 2px;
+}
+
+.quick-actions-section.quick-actions-hidden {
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.quick-actions-label {
+  font-size: 11px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 2px;
+}
+
 .quick-actions {
   display: flex;
-  gap: 10px;
-  margin-top: 15px;
-  justify-content: center;
+  gap: 7px;
   flex-wrap: wrap;
+  justify-content: flex-start;
 }
 
 .quick-action-btn {
   background: var(--white);
   border: 1px solid var(--border);
   color: var(--text-main);
-  padding: 8px 16px;
+  padding: 6px 13px;
   border-radius: 20px;
-  font-size: 14px;
+  font-size: 12.5px;
+  font-family: 'DM Sans', sans-serif;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: var(--shadow-sm);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+  white-space: nowrap;
 }
 
 .quick-action-btn:hover {
   border-color: var(--blue-primary);
   color: var(--blue-primary);
   background: var(--blue-light);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(26,115,200,0.12);
 }
 
 .route-planner-inputs .dropdown-wrapper:focus-within .dropdown-select.route-select,
