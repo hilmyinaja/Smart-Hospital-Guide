@@ -16,30 +16,81 @@ NLP_CACHE = {}
 
 # Pengetahuan dasar asisten agar lebih pintar
 KAMUS_SINONIM = {
-    "ugd": "igd", "emergency": "igd", "darurat": "igd", "kecelakaan": "igd", "sekarat": "igd", "luka": "igd", "pendarahan": "igd", "kritis": "igd", "parah": "igd",
-    "wc": "toilet", "kamar mandi": "toilet", "kencing": "toilet", "berak": "toilet", "buang air": "toilet", "pipis": "toilet", "pup": "toilet", "bab": "toilet", "bak": "toilet", "restroom": "toilet", "washroom": "toilet",
-    "bayar": "kasir", "uang": "kasir", "pembayaran": "kasir", "tagihan": "kasir", "lunasi": "kasir", "administrasi": "kasir", "payment": "kasir", "bill": "kasir", "cashier": "kasir",
-    "obat": "farmasi", "apotek": "farmasi", "apotik": "farmasi", "resep": "farmasi", "tebus": "farmasi", "pharmacy": "farmasi", "medicine": "farmasi",
-    "rontgen": "radiologi", "xray": "radiologi", "scan": "radiologi", "mri": "radiologi", "usg": "radiologi", "ct": "radiologi", "radiology": "radiologi",
-    "kandungan": "poli kandungan", "hamil": "poli kandungan", "melahirkan": "poli kandungan", "bayi": "poli anak", "anak": "poli anak",
-    "gigi": "poli gigi", "cabut gigi": "poli gigi", "tambal gigi": "poli gigi",
-    "mata": "poli mata", "kacamata": "poli mata", "rabun": "poli mata",
-    "periksa": "poli", "dokter": "poli", "konsultasi": "poli", "kontrol": "poli", "pusing": "poli", "sakit": "poli", "demam": "poli", "berobat": "poli", "check up": "poli",
-    "sholat": "mushola", "salat": "mushola", "masjid": "mushola", "ibadah": "mushola", "sembahyang": "mushola", "prayer": "mushola", "mosque": "mushola", "berdoa": "mushola", "musholla": "mushola", "musala": "mushola",
-    "makan": "kantin", "minum": "kantin", "lapar": "kantin", "haus": "kantin", "jajan": "kantin", "eat": "kantin", "drink": "kantin", "food": "kantin", "canteen": "kantin", "cafeteria": "kantin", "ngopi": "kantin", "sarapan": "kantin",
-    "menginap": "rawat inap", "besuk": "rawat inap", "jenguk": "rawat inap", "opname": "rawat inap", "bangsal": "rawat inap", "inpatient": "rawat inap", "ward": "rawat inap", "visit": "rawat inap", "kamar": "rawat inap",
-    "checkup": "mcu", "cek kesehatan": "mcu", "medical check up": "mcu",
-    "operasi": "bedah", "meninggal": "kamar jenazah", "mati": "kamar jenazah", "jenazah": "kamar jenazah", "mayat": "kamar jenazah", "morgue": "kamar jenazah",
-    "doctor": "poli", "clinic": "poli", "poliklinik": "poli",
-    "room": "ruang", "door": "pintu", "stairs": "tangga",
+    # IGD & Darurat
+    "ugd": "igd", "emergency": "igd", "darurat": "igd", "kecelakaan": "igd", "sekarat": "igd", "luka": "igd", "pendarahan": "igd", "kritis": "igd", "parah": "igd", "tabrakan": "igd", "pingsan": "igd", "luka bakar": "igd", "keracunan": "igd", "sesak napas berat": "igd", "serangan jantung": "igd",
+
+    # Toilet
+    "wc": "toilet", "kamar mandi": "toilet", "kencing": "toilet", "berak": "toilet", "buang air": "toilet", "pipis": "toilet", "pup": "toilet", "bab": "toilet", "bak": "toilet", "restroom": "toilet", "washroom": "toilet", "wastafel": "toilet",
+
+    # Administrasi & Keuangan
+    "bayar": "kasir", "uang": "kasir", "pembayaran": "kasir", "tagihan": "kasir", "lunasi": "kasir", "administrasi": "kasir", "payment": "kasir", "bill": "kasir", "cashier": "kasir", "bpjs": "pendaftaran", "asuransi": "pendaftaran",
     "daftar": "pendaftaran", "antri": "pendaftaran", "registrasi": "pendaftaran", "loket": "pendaftaran", "nomor": "pendaftaran", "antrian": "pendaftaran", "registration": "pendaftaran",
-    "parkir": "parkiran", "motor": "parkiran", "mobil": "parkiran", "kendaraan": "parkiran", "parking": "parkiran",
-    "darah": "laboratorium", "lab": "laboratorium", "tes": "laboratorium", "test": "laboratorium", "sampel": "laboratorium",
-    "batuk": "poli", "pilek": "poli", "flu": "poli", "sesak": "poli", "mual": "poli", "muntah": "poli", "diare": "poli", "mencret": "poli",
-    "kaki": "poli ortopedi", "tangan": "poli ortopedi", "tulang": "poli ortopedi", "patah": "igd", "jatuh": "igd",
-    "jantung": "poli jantung", "dada": "poli jantung", "sesak nafas": "poli jantung",
-    "kulit": "poli kulit", "gatal": "poli kulit", "panu": "poli kulit", "jerawat": "poli kulit",
-    "tht": "poli tht", "telinga": "poli tht", "hidung": "poli tht", "tenggorokan": "poli tht"
+
+    # Farmasi & Obat
+    "obat": "farmasi", "apotek": "farmasi", "apotik": "farmasi", "resep": "farmasi", "tebus": "farmasi", "pharmacy": "farmasi", "medicine": "farmasi", "ambil obat": "farmasi", "sirup": "farmasi", "pil": "farmasi",
+
+    # Radiologi & Imaging
+    "rontgen": "radiologi", "xray": "radiologi", "scan": "radiologi", "mri": "radiologi", "usg": "radiologi", "ct": "radiologi", "radiology": "radiologi", "foto": "radiologi", "sinar x": "radiologi",
+
+    # Laboratorium
+    "darah": "laboratorium", "lab": "laboratorium", "tes": "laboratorium", "test": "laboratorium", "sampel": "laboratorium", "urine": "laboratorium", "urin": "laboratorium", "cek darah": "laboratorium", "swab": "laboratorium", "pcr": "laboratorium",
+
+    # Rawat Inap & Fasilitas
+    "menginap": "rawat inap", "besuk": "rawat inap", "jenguk": "rawat inap", "opname": "rawat inap", "bangsal": "rawat inap", "inpatient": "rawat inap", "ward": "rawat inap", "visit": "rawat inap", "kamar": "rawat inap", "ruang rawat": "rawat inap", "vip": "rawat inap", "vvip": "rawat inap",
+    "icu": "icu", "nicu": "nicu", "picu": "picu", "hcu": "icu", "perawatan intensif": "icu", "koma": "icu",
+
+    # Operasi & Kamar Jenazah
+    "operasi": "ruang operasi", "bedah": "ruang operasi", "ok": "ruang operasi", "pembedahan": "ruang operasi", "caesar": "ruang operasi",
+    "meninggal": "kamar jenazah", "mati": "kamar jenazah", "jenazah": "kamar jenazah", "mayat": "kamar jenazah", "morgue": "kamar jenazah", "kremasi": "kamar jenazah",
+
+    # MCU (Medical Check Up)
+    "checkup": "mcu", "cek kesehatan": "mcu", "medical check up": "mcu", "screening": "mcu", "tes kesehatan": "mcu", "medical": "mcu",
+
+    # Fasilitas Umum
+    "sholat": "mushola", "salat": "mushola", "masjid": "mushola", "ibadah": "mushola", "sembahyang": "mushola", "prayer": "mushola", "mosque": "mushola", "berdoa": "mushola", "musholla": "mushola", "musala": "mushola",
+    "makan": "kantin", "minum": "kantin", "lapar": "kantin", "haus": "kantin", "jajan": "kantin", "eat": "kantin", "drink": "kantin", "food": "kantin", "canteen": "kantin", "cafeteria": "kantin", "ngopi": "kantin", "sarapan": "kantin", "kopi": "kantin", "snack": "kantin", "restoran": "kantin",
+    "parkir": "parkiran", "motor": "parkiran", "mobil": "parkiran", "kendaraan": "parkiran", "parking": "parkiran", "basement": "parkiran", "valet": "parkiran",
+    "taman": "taman", "garden": "taman", "udara segar": "taman", "merokok": "taman",
+    "informasi": "pusat informasi", "info": "pusat informasi", "cs": "pusat informasi", "customer service": "pusat informasi", "satpam": "pusat informasi", "security": "pusat informasi", "resepsionis": "pusat informasi",
+    "atm": "atm", "tarik tunai": "atm", "ambil uang": "atm", "bank": "atm",
+    "tunggu": "ruang tunggu", "menunggu": "ruang tunggu", "duduk": "ruang tunggu", "istirahat": "ruang tunggu",
+
+    # Navigasi & Bangunan
+    "room": "ruang", "door": "pintu", "stairs": "tangga", "naik": "lift", "turun": "lift", "elevator": "lift", "eskalator": "tangga", "keluar": "pintu keluar", "exit": "pintu keluar", "masuk": "pintu masuk", "entrance": "pintu masuk",
+
+    # Poliklinik & Spesialisasi
+    "periksa": "poli", "dokter": "poli", "konsultasi": "poli", "kontrol": "poli", "pusing": "poli", "sakit": "poli", "demam": "poli", "berobat": "poli", "check up": "poli", "doctor": "poli", "clinic": "poli", "poliklinik": "poli", "rawat jalan": "poli",
+    
+    # Keluhan Umum -> Poli Umum / Penyakit Dalam
+    "batuk": "poli umum", "pilek": "poli umum", "flu": "poli umum", "mual": "poli umum", "muntah": "poli umum", "diare": "poli umum", "mencret": "poli umum", "masuk angin": "poli umum", "meriang": "poli umum", "lemas": "poli penyakit dalam", "lambung": "poli penyakit dalam", "maag": "poli penyakit dalam", "asam urat": "poli penyakit dalam", "diabetes": "poli penyakit dalam", "gula darah": "poli penyakit dalam", "kolesterol": "poli penyakit dalam", "hipertensi": "poli penyakit dalam", "tensi": "poli penyakit dalam",
+
+    # Poli Kandungan (Obgyn) & Anak
+    "kandungan": "poli kandungan", "hamil": "poli kandungan", "melahirkan": "poli kandungan", "usg kandungan": "poli kandungan", "ibu hamil": "poli kandungan", "keguguran": "poli kandungan", "bersalin": "poli kandungan", "bidan": "poli kandungan", "obgyn": "poli kandungan",
+    "bayi": "poli anak", "anak": "poli anak", "balita": "poli anak", "imunisasi": "poli anak", "vaksin anak": "poli anak", "tumbuh kembang": "poli anak", "pediatri": "poli anak",
+
+    # Poli Gigi & Mulut
+    "gigi": "poli gigi", "cabut gigi": "poli gigi", "tambal gigi": "poli gigi", "kawat gigi": "poli gigi", "behel": "poli gigi", "karang gigi": "poli gigi", "sakit gigi": "poli gigi", "gusi": "poli gigi", "sariawan": "poli gigi", "mulut": "poli gigi",
+
+    # Poli Mata & THT
+    "mata": "poli mata", "kacamata": "poli mata", "rabun": "poli mata", "katarak": "poli mata", "minus": "poli mata", "silinder": "poli mata", "buta": "poli mata", "sakit mata": "poli mata",
+    "tht": "poli tht", "telinga": "poli tht", "hidung": "poli tht", "tenggorokan": "poli tht", "amandel": "poli tht", "budek": "poli tht", "tuli": "poli tht", "sinusitis": "poli tht", "mimisan": "poli tht",
+
+    # Poli Jantung & Saraf
+    "jantung": "poli jantung", "dada": "poli jantung", "sesak nafas": "poli jantung", "kardiologi": "poli jantung", "debar": "poli jantung", "ring jantung": "poli jantung",
+    "saraf": "poli saraf", "syaraf": "poli saraf", "stroke": "poli saraf", "lumpuh": "poli saraf", "kesemutan": "poli saraf", "kejang": "poli saraf", "epilepsi": "poli saraf", "neurologi": "poli saraf", "parkinson": "poli saraf", "vertigo": "poli saraf", "sakit kepala": "poli saraf", "migrain": "poli saraf",
+
+    # Poli Ortopedi (Tulang) & Rehab Medik
+    "kaki": "poli ortopedi", "tangan": "poli ortopedi", "tulang": "poli ortopedi", "patah": "poli ortopedi", "retak": "poli ortopedi", "sendi": "poli ortopedi", "keseleo": "poli ortopedi", "otot": "poli ortopedi", "saraf terjepit": "poli ortopedi", "hnp": "poli ortopedi", "rematik": "poli ortopedi",
+    "fisioterapi": "rehabilitasi medik", "terapi": "rehabilitasi medik", "rehab": "rehabilitasi medik", "pijat": "rehabilitasi medik",
+
+    # Poli Kulit, Kelamin, & Kecantikan
+    "kulit": "poli kulit", "gatal": "poli kulit", "panu": "poli kulit", "jerawat": "poli kulit", "alergi": "poli kulit", "kadas": "poli kulit", "kurap": "poli kulit", "kelamin": "poli kulit", "sipilis": "poli kulit", "kecantikan": "poli kulit", "skincare": "poli kulit",
+
+    # Poli Paru
+    "paru": "poli paru", "tbc": "poli paru", "asma": "poli paru", "bronkitis": "poli paru", "batuk berdarah": "poli paru", "flek paru": "poli paru",
+
+    # Poli Jiwa / Psikiatri
+    "jiwa": "poli jiwa", "psikiater": "poli jiwa", "psikolog": "poli jiwa", "stres": "poli jiwa", "depresi": "poli jiwa", "gila": "poli jiwa", "mental": "poli jiwa", "cemas": "poli jiwa", "insomnia": "poli jiwa", "susah tidur": "poli jiwa"
 }
 
 # Fungsi pembersihan teks untuk NLP
@@ -96,6 +147,7 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
 
     # EXACT & WORD INTERSECTION MATCH CHECK
     perfect_matches = []
+    keyword_perfect_matches = []
     substring_matches = []
     intersection_matches = []
     
@@ -126,9 +178,13 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
                 mapping_kunci_ke_id[teks_bersih].append(r_id)
                 room_words.update(teks_bersih.split())
                 
+                # Exact Keyword Match
+                if input_bersih == teks_bersih:
+                    if r_id not in perfect_matches and r_id not in keyword_perfect_matches:
+                        keyword_perfect_matches.append(r_id)
                 # Substring utuh
-                if input_bersih and input_bersih in teks_bersih:
-                    if r_id not in perfect_matches and r_id not in substring_matches:
+                elif input_bersih and input_bersih in teks_bersih:
+                    if r_id not in perfect_matches and r_id not in keyword_perfect_matches and r_id not in substring_matches:
                         substring_matches.append(r_id)
         
         # 2. Word Intersection (Irisan Kata Baku)
@@ -140,6 +196,8 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
 
     if perfect_matches:
         exact_matches = perfect_matches
+    elif keyword_perfect_matches:
+        exact_matches = keyword_perfect_matches
     elif substring_matches:
         exact_matches = substring_matches
     else:
