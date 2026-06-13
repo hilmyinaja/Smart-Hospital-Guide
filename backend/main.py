@@ -77,6 +77,17 @@ def sinkronisasi_peta(data):
                 
                 logger.debug(f" -> Load: [{room_id}] '{room_name}' (X:{item['grid_x']}, Y:{item['grid_y']})")
 
+        # Append parent room names to submap nodes for better NLP matching
+        for room_id, room in temp_ruangan.items():
+            if room["floor"].startswith("submap_"):
+                parent_id = room["floor"].replace("submap_", "")
+                parent_room = temp_ruangan.get(parent_id)
+                if parent_room:
+                    parent_name = parent_room["name"]
+                    kunci = data_nlp_baru.get(room_id, [])
+                    # Append the combination (e.g., "Pintu Masuk Poli Gigi")
+                    kunci.append(f"{room['name']} {parent_name}")
+
         waypoint_graph.RUANGAN_GRID.clear()
         waypoint_graph.RUANGAN_GRID.update(temp_ruangan)
         waypoint_graph.GRID_MAP.clear()
@@ -102,6 +113,7 @@ class RequestRute(BaseModel):
     start_node_id: str
     teks_pencarian: str
     language: str = "id"
+    current_floor: str = None
 
 @app.get("/")
 def home():
@@ -123,7 +135,7 @@ def get_server_ip():
 
 @app.post("/api/route")
 def dapatkan_rute(request: RequestRute):
-    hasil_nlp = cari_target_ruangan(request.teks_pencarian, request.start_node_id, request.language)
+    hasil_nlp = cari_target_ruangan(request.teks_pencarian, request.start_node_id, request.language, request.current_floor)
     if hasil_nlp["status"] == "error":
         raise HTTPException(status_code=400, detail=hasil_nlp["pesan"])
         

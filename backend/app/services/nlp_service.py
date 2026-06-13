@@ -85,7 +85,7 @@ def latih_ulang_nlp(data_kamus_baru):
 
     print(f"[NLP] Model berhasil dilatih ulang! ({len(daftar_nama_ruangan)} Ruangan Aktif)")
 
-def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id"):
+def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", current_floor=None):
     if embeddings_ruangan is None or not daftar_nama_ruangan:
         pesan = "Sistem sedang memuat data peta, mohon tunggu." if language == "id" else "System is loading map data, please wait."
         return {"status": "error", "pesan": pesan}
@@ -158,6 +158,14 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id"):
         if len(exact_matches) == 1:
             return {"status": "success", "target_id": exact_matches[0], "confidence_score": 1.0}
         else:
+            from app.core import state as waypoint_graph
+            # Prioritize current_floor if given
+            if current_floor:
+                for m_id in exact_matches:
+                    m_room = waypoint_graph.RUANGAN_GRID.get(m_id)
+                    if m_room and m_room.get("floor") == current_floor:
+                        return {"status": "success", "target_id": m_id, "confidence_score": 1.0}
+            
             if start_node_id:
                 start_room = waypoint_graph.RUANGAN_GRID.get(start_node_id)
                 if start_room:
@@ -222,8 +230,16 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id"):
         if len(kandidat_indeks) == 1:
             terbaik_id = daftar_nama_ruangan[kandidat_indeks[0]]
         else:
+            from app.core import state as waypoint_graph
+            # Prioritize current_floor if given
+            if current_floor:
+                for idx in kandidat_indeks:
+                    kandidat_id = daftar_nama_ruangan[idx]
+                    kandidat_room = waypoint_graph.RUANGAN_GRID.get(kandidat_id)
+                    if kandidat_room and kandidat_room.get("floor") == current_floor:
+                        return {"status": "success", "target_id": kandidat_id, "confidence_score": float(max_score)}
+
             if start_node_id:
-                from app.core import state as waypoint_graph
                 start_room = waypoint_graph.RUANGAN_GRID.get(start_node_id)
                 if start_room:
                     start_floor = start_room.get("floor", "Lantai 1")

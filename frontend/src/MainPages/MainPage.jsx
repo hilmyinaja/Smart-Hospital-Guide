@@ -446,7 +446,8 @@ export default function App() {
         body: JSON.stringify({
           start_node_id: searchLocation,
           teks_pencarian: searchTarget.trim(),
-          language: currentLang
+          language: currentLang,
+          current_floor: floor
         })
       });
 
