@@ -301,6 +301,8 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
                   shadowBlur={10}
                   shadowOffset={{ x: 0, y: 4 }}
                   listening={false}
+                  perfectDrawEnabled={false}
+                  shadowForStrokeEnabled={false}
                 />
               )}
 

@@ -185,13 +185,19 @@ export default function App() {
     return dict[key] ? dict[key][language] : key;
   };
 
-  const toggleLanguage = () => {
-    const newLang = language === 'id' ? 'en' : 'id';
+  const handleLanguageChange = (e) => {
+    const newLang = e.target.value;
     setLanguage(newLang);
     localStorage.setItem('language', newLang);
 
+    const translatedSearch = search ? translateName(search, newLang) : search;
+    if (search) setSearch(translatedSearch);
+    if (targetRoomName) setTargetRoomName(translateName(targetRoomName, newLang));
+
     if (navigationSteps.length > 0 && !isNavFinished) {
-      executeSearch(location, search, newLang, activeStepIndex >= 0 ? activeStepIndex : 0);
+      executeSearch(location, translatedSearch, newLang, activeStepIndex >= 0 ? activeStepIndex : 0);
+    } else if (outputText) {
+      setOutputText(""); // Clear stale output text
     }
   };
 
@@ -469,7 +475,7 @@ export default function App() {
         setNavigationSteps([]);
         setActiveStepIndex(-1);
       } else {
-        const roomName = translateName(data.data_target.nama_ruangan, language);
+        const roomName = translateName(data.data_target.nama_ruangan, currentLang);
         setTargetRoomName(roomName);
         setSearch(roomName); // Update dropdown to show the translated room name
         setPathData(data.jalur_koordinat);
@@ -559,23 +565,29 @@ export default function App() {
         <header className="header">
           <span className="header-logo">Wayfinder</span>
           <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-            <button
-              onClick={() => {
-                const newMode = !isDarkMode;
-                setIsDarkMode(newMode);
-                localStorage.setItem('theme', newMode ? 'dark' : 'light');
-              }}
-              style={{ background: "transparent", border: "1px solid white", color: "white", padding: "5px 10px", borderRadius: "5px", cursor: "pointer", fontWeight: "bold" }}
-              title={isDarkMode ? "Light Mode" : "Dark Mode"}
+            <label className="theme-switch" title={isDarkMode ? "Light Mode" : "Dark Mode"}>
+              <input 
+                type="checkbox" 
+                checked={isDarkMode} 
+                onChange={() => {
+                  const newMode = !isDarkMode;
+                  setIsDarkMode(newMode);
+                  localStorage.setItem('theme', newMode ? 'dark' : 'light');
+                }} 
+              />
+              <span className="slider">
+                <span className="slider-icon">🌙</span>
+                <span className="slider-icon">☀️</span>
+              </span>
+            </label>
+            <select
+              value={language}
+              onChange={handleLanguageChange}
+              style={{ background: "transparent", border: "1px solid white", color: "white", padding: "5px 10px", borderRadius: "5px", cursor: "pointer", fontWeight: "bold", outline: "none" }}
             >
-              {isDarkMode ? '☀️' : '🌙'}
-            </button>
-            <button
-              onClick={toggleLanguage}
-              style={{ background: "transparent", border: "1px solid white", color: "white", padding: "5px 10px", borderRadius: "5px", cursor: "pointer", fontWeight: "bold" }}
-            >
-              {language === 'id' ? '🇮🇩 ID' : '🇬🇧 EN'}
-            </button>
+              <option value="id" style={{color: "black"}}>🇮🇩 ID</option>
+              <option value="en" style={{color: "black"}}>🇬🇧 EN</option>
+            </select>
             <button className="header-login-btn Onclick" onClick={() => { setIsLoginOpen(true); setErrorMsg(""); setUsername(""); setPassword(""); }}>
               <LoginIcon />
               <span>{getText('login')}</span>
@@ -661,7 +673,6 @@ export default function App() {
         <div className="modal-overlay" onClick={() => setIsQrModalOpen(false)}>
           <div className="login-modal" onClick={(e) => e.stopPropagation()} style={{ textAlign: "center", width: "300px" }}>
             <button className="close-btn" onClick={() => setIsQrModalOpen(false)}>×</button>
-            <h2 style={{ fontSize: "16px", marginBottom: "20px" }}>Scan & Go (Satu WiFi)</h2>
             <div style={{ background: "white", padding: "16px", borderRadius: "10px", display: "inline-block" }}>
               <QRCodeCanvas
                 value={(() => {
@@ -683,23 +694,29 @@ export default function App() {
       <div className={`main-layout ${isMobileMode ? 'mobile-mode' : ''}`}>
         {isMobileMode && (
           <div style={{ position: "absolute", top: "15px", right: "15px", zIndex: 1000, display: "flex", gap: "8px" }}>
-            <button
-              onClick={() => {
-                const newMode = !isDarkMode;
-                setIsDarkMode(newMode);
-                localStorage.setItem('theme', newMode ? 'dark' : 'light');
-              }}
-              style={{ background: "var(--white)", border: "1px solid var(--border)", color: "var(--text-main)", padding: "8px 12px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold", boxShadow: "var(--shadow-md)" }}
-              title={isDarkMode ? "Light Mode" : "Dark Mode"}
+            <label className="theme-switch" title={isDarkMode ? "Light Mode" : "Dark Mode"}>
+              <input 
+                type="checkbox" 
+                checked={isDarkMode} 
+                onChange={() => {
+                  const newMode = !isDarkMode;
+                  setIsDarkMode(newMode);
+                  localStorage.setItem('theme', newMode ? 'dark' : 'light');
+                }} 
+              />
+              <span className="slider">
+                <span className="slider-icon">🌙</span>
+                <span className="slider-icon">☀️</span>
+              </span>
+            </label>
+            <select
+              value={language}
+              onChange={handleLanguageChange}
+              style={{ background: "var(--white)", border: "1px solid var(--border)", color: "var(--text-main)", padding: "8px 12px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold", boxShadow: "var(--shadow-md)", outline: "none" }}
             >
-              {isDarkMode ? '☀️' : '🌙'}
-            </button>
-            <button
-              onClick={toggleLanguage}
-              style={{ background: "var(--white)", border: "1px solid var(--border)", color: "var(--text-main)", padding: "8px 12px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold", boxShadow: "var(--shadow-md)" }}
-            >
-              {language === 'id' ? '🇮🇩 ID' : '🇬🇧 EN'}
-            </button>
+              <option value="id" style={{color: "black"}}>🇮🇩 ID</option>
+              <option value="en" style={{color: "black"}}>🇬🇧 EN</option>
+            </select>
           </div>
         )}
         <aside className={`left-panel ${isMobileMode ? 'mobile-panel' : ''}`}>
@@ -936,7 +953,7 @@ export default function App() {
             </button>
           )}
 
-          {navigationSteps.length > 0 && (
+          {!isMobileMode && navigationSteps.length > 0 && (
             <button
               onClick={() => {
                 if ('speechSynthesis' in window) window.speechSynthesis.cancel();

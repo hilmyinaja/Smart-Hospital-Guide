@@ -243,8 +243,8 @@ export default function EditPage() {
     return dict[key] ? dict[key][language] : key;
   };
 
-  const toggleLanguage = () => {
-    const newLang = language === 'id' ? 'en' : 'id';
+  const handleLanguageChange = (e) => {
+    const newLang = e.target.value;
     setLanguage(newLang);
     localStorage.setItem('language', newLang);
   };
@@ -566,20 +566,21 @@ export default function EditPage() {
         <span className="edit-page-logo">Wayfinder - {getText('edit_mode')}</span>
 
         <div className="header-actions" style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-          <button
-            onClick={toggleTheme}
-            className="theme-toggle"
-            title={isDarkMode ? (language === 'id' ? 'Mode Terang' : 'Light Mode') : (language === 'id' ? 'Mode Gelap' : 'Dark Mode')}
-            style={{ background: "transparent", border: "1px solid var(--border)", color: "var(--white)", padding: "5px 10px", borderRadius: "5px", cursor: "pointer", fontWeight: "bold" }}
+          <label className="theme-switch" title={isDarkMode ? (language === 'id' ? 'Mode Terang' : 'Light Mode') : (language === 'id' ? 'Mode Gelap' : 'Dark Mode')}>
+            <input type="checkbox" checked={isDarkMode} onChange={toggleTheme} />
+            <span className="slider">
+              <span className="slider-icon">🌙</span>
+              <span className="slider-icon">☀️</span>
+            </span>
+          </label>
+          <select
+            value={language}
+            onChange={handleLanguageChange}
+            style={{ background: "transparent", border: "1px solid var(--border)", color: "var(--white)", padding: "5px 10px", borderRadius: "5px", cursor: "pointer", fontWeight: "bold", outline: "none" }}
           >
-            {isDarkMode ? "☀️" : "🌙"}
-          </button>
-          <button
-            onClick={toggleLanguage}
-            style={{ background: "transparent", border: "1px solid var(--border)", color: "var(--white)", padding: "5px 10px", borderRadius: "5px", cursor: "pointer", fontWeight: "bold" }}
-          >
-            {language === 'id' ? '🇮🇩 ID' : '🇬🇧 EN'}
-          </button>
+            <option value="id" style={{color: "black"}}>🇮🇩 ID</option>
+            <option value="en" style={{color: "black"}}>🇬🇧 EN</option>
+          </select>
 
           {activeEditFloor.startsWith("submap_") && (
             <button
@@ -876,7 +877,7 @@ export default function EditPage() {
               onDragStart={(e) => {
                 e.dataTransfer.setData("text/plain", JSON.stringify({
                   type: "new-entrance",
-                  defaultName: "Pintu Masuk Utama",
+                  defaultName: language === 'id' ? "Pintu Masuk Utama" : "Main Entrance",
                   defaultGridWidth: 2,
                   defaultGridHeight: 2
                 }));
@@ -886,7 +887,7 @@ export default function EditPage() {
                 const newElements = [...placedElements, {
                   id: newId, type: 'kiosk', floor: activeEditFloor,
                   x: 200, y: 240, width: GRID_SIZE * 2, height: GRID_SIZE * 2,
-                  name: "Pintu Masuk Utama"
+                  name: language === 'id' ? "Pintu Masuk Utama" : "Main Entrance"
                 }];
                 setPlacedElements(newElements);
                 saveHistory(newElements);
@@ -897,7 +898,7 @@ export default function EditPage() {
               }}
             >
               <p style={{ color: "white", padding: "2px", fontSize: "10px", textAlign: "center", fontWeight: "bold" }}>
-                Pintu Masuk
+                {language === 'id' ? 'Pintu Masuk' : 'Entrance'}
               </p>
             </div>
           </div>

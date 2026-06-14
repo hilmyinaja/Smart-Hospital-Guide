@@ -113,10 +113,20 @@ export default function App() {
     return dict[key] ? dict[key][language] : key;
   };
 
-  const toggleLanguage = () => {
-    const newLang = language === 'id' ? 'en' : 'id';
+  const handleLanguageChange = (e) => {
+    const newLang = e.target.value;
     setLanguage(newLang);
     localStorage.setItem('language', newLang);
+
+    const translatedSearch = search ? translateName(search, newLang) : search;
+    if (search) setSearch(translatedSearch);
+    if (targetRoomName) setTargetRoomName(translateName(targetRoomName, newLang));
+
+    if (navigationSteps.length > 0) {
+      executeSearch(location, translatedSearch, newLang, activeStepIndex >= 0 ? activeStepIndex : 0);
+    } else if (outputText) {
+      setOutputText(""); // Clear stale output text
+    }
   };
 
   const hasAutoSwitchedFloor = useRef(false);
@@ -221,7 +231,7 @@ export default function App() {
     return pathData.slice(startIndex, endIndex + 1);
   }, [pathData, navigationSteps, activeStepIndex]);
 
-  const speakSteps = (langkahNavigasi) => {
+  const speakSteps = (langkahNavigasi, startIndex = 0, currentLang = language) => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       window.utterances = []; // HACK: Mencegah Garbage Collection di browser Mobile
@@ -234,7 +244,7 @@ export default function App() {
         const utterance = new SpeechSynthesisUtterance(step.teks);
         window.utterances.push(utterance);
         
-        utterance.lang = language === 'en' ? 'en-US' : 'id-ID';
+        utterance.lang = currentLang === 'en' ? 'en-US' : 'id-ID';
         utterance.rate = 1.15;
         
         utterance.onstart = () => {
@@ -266,13 +276,14 @@ export default function App() {
         window.speechSynthesis.speak(utterance);
       };
 
-      playNext(0);
+      playNext(startIndex);
     }
   };
 
-  const executeSearch = async (overrideLocation, overrideTarget) => {
+  const executeSearch = async (overrideLocation, overrideTarget, overrideLang, resumeStepIndex = 0) => {
     const searchLocation = typeof overrideLocation === 'string' ? overrideLocation : location;
     const searchTarget = typeof overrideTarget === 'string' ? overrideTarget : search;
+    const currentLang = overrideLang || language;
     
     if (!searchTarget.trim()) return;
     
@@ -299,7 +310,7 @@ export default function App() {
         body: JSON.stringify({
           start_node_id: searchLocation,
           teks_pencarian: searchTarget.trim(),
-          language: language
+          language: currentLang
         })
       });
       
@@ -311,19 +322,19 @@ export default function App() {
         setNavigationSteps([]);
         setActiveStepIndex(-1);
       } else {
-        const roomName = translateName(data.data_target.nama_ruangan, language);
+        const roomName = translateName(data.data_target.nama_ruangan, currentLang);
         setTargetRoomName(roomName);
-        setSearch(data.data_target.nama_ruangan); // Update dropdown to show the matched NLP room
+        setSearch(roomName); // Update dropdown to show the matched NLP room
         setPathData(data.jalur_koordinat);
         setNavigationSteps(data.langkah_navigasi);
-        setActiveStepIndex(0);
+        setActiveStepIndex(resumeStepIndex);
         
         let allText = getText('no_nav_text');
         if (data.langkah_navigasi && data.langkah_navigasi.length > 0) {
             allText = data.langkah_navigasi.map(l => l.teks).join("\n\n");
             const finalText = `${getText('route_found')}\n${getText('towards')} ${roomName}\n\n${allText}`;
             setOutputText(finalText);
-            speakSteps(data.langkah_navigasi);
+            speakSteps(data.langkah_navigasi, resumeStepIndex, currentLang);
         } else {
             const fallbackText = `${getText('route_found')} ${getText('towards')} ${roomName}`;
             setOutputText(fallbackText);
@@ -335,7 +346,7 @@ export default function App() {
             if ('speechSynthesis' in window) {
               window.speechSynthesis.cancel();
               const utterance = new SpeechSynthesisUtterance(fallbackText);
-              utterance.lang = language === 'en' ? 'en-US' : 'id-ID';
+              utterance.lang = currentLang === 'en' ? 'en-US' : 'id-ID';
               utterance.rate = 1.15;
               window.speechSynthesis.speak(utterance);
             }
@@ -412,20 +423,21 @@ export default function App() {
         <span className="header-logo">Wayfinder</span>
         <div className="header-actions" style={{display: "flex", gap: "10px", alignItems: "center"}}>
 
-          <button 
-            onClick={toggleTheme} 
-            className="theme-toggle"
-            title={isDarkMode ? (language === 'id' ? 'Mode Terang' : 'Light Mode') : (language === 'id' ? 'Mode Gelap' : 'Dark Mode')}
-            style={{background: "transparent", border: "1px solid var(--border)", color: "var(--white)", padding: "5px 10px", borderRadius: "5px", cursor: "pointer", fontWeight: "bold"}}
+          <label className="theme-switch" title={isDarkMode ? (language === 'id' ? 'Mode Terang' : 'Light Mode') : (language === 'id' ? 'Mode Gelap' : 'Dark Mode')}>
+            <input type="checkbox" checked={isDarkMode} onChange={toggleTheme} />
+            <span className="slider">
+              <span className="slider-icon">🌙</span>
+              <span className="slider-icon">☀️</span>
+            </span>
+          </label>
+          <select 
+            value={language}
+            onChange={handleLanguageChange} 
+            style={{background: "transparent", border: "1px solid var(--border)", color: "var(--white)", padding: "5px 10px", borderRadius: "5px", cursor: "pointer", fontWeight: "bold", outline: "none"}}
           >
-            {isDarkMode ? "☀️" : "🌙"}
-          </button>
-          <button 
-            onClick={toggleLanguage} 
-            style={{background: "transparent", border: "1px solid var(--border)", color: "var(--white)", padding: "5px 10px", borderRadius: "5px", cursor: "pointer", fontWeight: "bold"}}
-          >
-            {language === 'id' ? '🇮🇩 ID' : '🇬🇧 EN'}
-          </button>
+            <option value="id" style={{color: "black"}}>🇮🇩 ID</option>
+            <option value="en" style={{color: "black"}}>🇬🇧 EN</option>
+          </select>
           <button className="header-edit-btn" onClick={() => navigate("/edit")}>
             <EditIcon />
             <span>{getText('edit')}</span>
