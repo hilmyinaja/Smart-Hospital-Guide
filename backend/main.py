@@ -10,6 +10,7 @@ from app.services.nlp_service import cari_target_ruangan, latih_ulang_nlp
 from app.services.a_star_service import cari_rute_grid
 from app.models.schemas import RoomModel, RoomUpdateModel
 from loguru import logger
+from deep_translator import GoogleTranslator
 
 # Lock global untuk mencegah race condition dari Firebase thread pool
 sync_lock = threading.Lock()
@@ -55,6 +56,7 @@ def sinkronisasi_peta(data):
                     "h": gh,
                     "door_coords": door_coords,
                     "name": room_name,
+                    "name_en": item.get("name_en", ""),
                     "floor": floor
                 }
                 
@@ -115,6 +117,30 @@ class RequestRute(BaseModel):
     language: str = "id"
     current_floor: str = None
 
+class RequestTranslate(BaseModel):
+    names: list[str]
+
+@app.post("/api/translate")
+def translate_names(request: RequestTranslate):
+    en_translator = GoogleTranslator(source='auto', target='en')
+    id_translator = GoogleTranslator(source='auto', target='id')
+    translations = {}
+    for name in request.names:
+        if not name:
+            continue
+        try:
+            translations[name] = {
+                "id": id_translator.translate(name),
+                "en": en_translator.translate(name)
+            }
+        except Exception as e:
+            logger.error(f"Gagal menerjemahkan {name}: {str(e)}")
+            translations[name] = {"id": name, "en": name}
+    return {
+        "status": "success",
+        "translations": translations
+    }
+
 @app.get("/")
 def home():
     return {
@@ -151,6 +177,7 @@ def dapatkan_rute(request: RequestRute):
         "data_target": {
             "id_ruangan": target_id,
             "nama_ruangan": waypoint_graph.RUANGAN_GRID.get(target_id, {}).get("name", target_id),
+            "nama_ruangan_en": waypoint_graph.RUANGAN_GRID.get(target_id, {}).get("name_en", ""),
             "confidence_nlp": hasil_nlp["confidence_score"]
         },
         "jalur_koordinat": hasil_rute["jalur_grid"],

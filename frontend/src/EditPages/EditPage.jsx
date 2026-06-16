@@ -23,20 +23,6 @@ const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggin
     const typeLabel = shapeProps.type === 'kiosk' ? 'Kiosk' : 'Ruangan';
     const newName = window.prompt(`Masukkan Nama ${typeLabel}:`, shapeProps.name || "");
     if (newName !== null) {
-      const currentLang = localStorage.getItem('language') || 'id';
-      const englishKeywords = ['room', 'clinic', 'ward', 'pharmacy', 'emergency', 'lift', 'stairs', 'cashier', 'door'];
-      const indoKeywords = ['ruang', 'poli', 'rawat', 'farmasi', 'apotek', 'ugd', 'igd', 'tangga', 'kasir', 'pintu'];
-
-      const lowerName = newName.toLowerCase();
-      const hasEnglish = englishKeywords.some(kw => lowerName.includes(kw));
-      const hasIndo = indoKeywords.some(kw => lowerName.includes(kw));
-
-      if (currentLang === 'id' && hasEnglish && !hasIndo) {
-        alert("Anda sedang dalam mode Bahasa Indonesia (ID), namun Anda memasukkan nama dalam Bahasa Inggris. Tolong sesuaikan!");
-      } else if (currentLang === 'en' && hasIndo && !hasEnglish) {
-        alert("You are currently in English (EN) mode, but entered an Indonesian name. Please adjust accordingly!");
-      }
-
       onChange({ ...shapeProps, name: newName });
     }
   };
@@ -125,7 +111,7 @@ const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggin
             y: Math.round(e.target.y() / GRID_SIZE) * GRID_SIZE,
           });
         }}
-        onTransformEnd={(e) => {
+        onTransformEnd={() => {
           setIsDraggingElement(false);
           const node = shapeRef.current;
           const scaleX = node.scaleX();
@@ -547,7 +533,7 @@ export default function EditPage() {
     let dragData;
     try {
       dragData = JSON.parse(e.dataTransfer.getData("text/plain"));
-    } catch (err) {
+    } catch {
       return;
     }
 
@@ -587,6 +573,28 @@ export default function EditPage() {
     setIsConfirmOpen(false);
     if (confirmAction === "save") {
       try {
+        const namesToTranslate = Array.from(new Set(placedElements.map(el => el.name).filter(n => n && n !== "Tanpa Nama")));
+        let translations = {};
+        if (namesToTranslate.length > 0) {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            const res = await fetch("/api/translate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ names: namesToTranslate }),
+              signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            const data = await res.json();
+            if (data.status === "success") {
+              translations = data.translations || {};
+            }
+          } catch (err) {
+            console.error("Gagal fetch terjemahan (timeout/error):", err);
+          }
+        }
+
         const batch = writeBatch(db);
         deletedElements.forEach((id) => {
           const col = id.startsWith('K') ? "Kiosks" : "Rooms";
@@ -595,16 +603,27 @@ export default function EditPage() {
 
         placedElements.forEach((el) => {
           const col = el.type === 'kiosk' ? "Kiosks" : "Rooms";
-          batch.set(doc(db, col, el.id.toString()), {
+          if (!el.id) return; // Skip if no ID
+          const docData = {
             id: el.id.toString(),
-            name: el.name,
-            floor: el.floor,
-            grid_x: Math.round(el.x / GRID_SIZE),
-            grid_y: Math.round(el.y / GRID_SIZE),
-            grid_width: Math.round(el.width / GRID_SIZE),
-            grid_height: Math.round(el.height / GRID_SIZE),
+            name: el.name || "Tanpa Nama",
+            floor: el.floor || "Lantai 1",
+            grid_x: Math.round(el.x / GRID_SIZE) || 0,
+            grid_y: Math.round(el.y / GRID_SIZE) || 0,
+            grid_width: Math.round(el.width / GRID_SIZE) || 1,
+            grid_height: Math.round(el.height / GRID_SIZE) || 1,
             ...(el.type === 'room' && { endpoints: el.endpoints || ['bottom'] })
-          }, { merge: true });
+          };
+          if (translations[el.name]) {
+            if (typeof translations[el.name] === 'string') {
+              docData.name_en = translations[el.name] || "";
+            } else {
+              docData.name = translations[el.name].id || docData.name;
+              docData.name_en = translations[el.name].en || "";
+            }
+          }
+          Object.keys(docData).forEach(key => docData[key] === undefined && delete docData[key]);
+          batch.set(doc(db, col, el.id.toString()), docData, { merge: true });
         });
 
         batch.set(doc(db, "Settings", "MapConfig"), { floorOrder: floors }, { merge: true });
@@ -614,6 +633,7 @@ export default function EditPage() {
         navigate("/admin", { state: { authorized: true } });
       } catch (error) {
         console.error("Gagal simpan:", error);
+        alert("Gagal simpan: " + error.message);
       }
     } else navigate("/admin", { state: { authorized: true } });
     setConfirmAction(null);
@@ -713,7 +733,7 @@ export default function EditPage() {
 
                     {placedElements
                       .filter(el => el.floor === activeEditFloor)
-                      .map((rect, i) => (
+                      .map((rect) => (
                         <ElementShape
                           key={rect.id}
                           shapeProps={rect}

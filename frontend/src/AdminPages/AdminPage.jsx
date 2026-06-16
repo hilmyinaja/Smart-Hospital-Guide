@@ -180,7 +180,7 @@ export default function App() {
         const data = docSnap.data();
         if (data.floor) foundFloors.add(data.floor);
         if (data.name && data.name !== "Tanpa Nama") {
-          loadedRooms.push({ id: docSnap.id, name: data.name, floor: data.floor || "Lantai 1" });
+          loadedRooms.push({ id: docSnap.id, name: data.name, name_en: data.name_en, floor: data.floor || "Lantai 1" });
         }
       });
 
@@ -356,7 +356,7 @@ export default function App() {
         setNavigationSteps([]);
         setActiveStepIndex(-1);
       } else {
-        const roomName = translateName(data.data_target.nama_ruangan, currentLang);
+        const roomName = translateName(data.data_target.nama_ruangan, currentLang, data.data_target.nama_ruangan_en);
         setTargetRoomName(roomName);
         setSearch(roomName); // Update dropdown to show the matched NLP room
         setPathData(data.jalur_koordinat);
@@ -392,12 +392,6 @@ export default function App() {
     }
   };
 
-  const handleSearchKey = (e) => {
-    if (e.key === "Enter") {
-      executeSearch(location, search);
-    }
-  };
-
   const openLogoutConfirm = () => setIsConfirmOpen(true);
   const handleLogoutYes = () => {
     setIsConfirmOpen(false);
@@ -412,8 +406,8 @@ export default function App() {
       setLockedKiosk(kioskToLock);
       
       const kioskInfo = kiosks.find(k => k.id === kioskToLock);
-      const kioskNameId = kioskInfo?.name ? translateName(kioskInfo.name, 'id') : kioskToLock;
-      const kioskNameEn = kioskInfo?.name ? translateName(kioskInfo.name, 'en') : kioskToLock;
+      const kioskNameId = kioskInfo?.name ? translateName(kioskInfo.name, 'id', kioskInfo.name_en) : kioskToLock;
+      const kioskNameEn = kioskInfo?.name ? translateName(kioskInfo.name, 'en', kioskInfo.name_en) : kioskToLock;
       await addActivityLog("Kios Dikunci", "Kiosk Locked", `Mengunci ${kioskNameId}`, `Locked ${kioskNameEn}`);
 
       setIsLockConfirmOpen(false);
@@ -435,8 +429,8 @@ export default function App() {
         await updateDoc(doc(db, "Kiosks", lockedKiosk), { isLocked: false });
         
         const kioskInfo = kiosks.find(k => k.id === lockedKiosk);
-        const kioskNameId = kioskInfo?.name ? translateName(kioskInfo.name, 'id') : lockedKiosk;
-        const kioskNameEn = kioskInfo?.name ? translateName(kioskInfo.name, 'en') : lockedKiosk;
+        const kioskNameId = kioskInfo?.name ? translateName(kioskInfo.name, 'id', kioskInfo.name_en) : lockedKiosk;
+        const kioskNameEn = kioskInfo?.name ? translateName(kioskInfo.name, 'en', kioskInfo.name_en) : lockedKiosk;
         await addActivityLog("Kios Dibuka Kunci", "Kiosk Unlocked", `Melepas kunci ${kioskNameId}`, `Unlocked ${kioskNameEn}`);
       } catch (e) {
         console.error("Gagal update DB saat unlock", e);
@@ -516,7 +510,7 @@ export default function App() {
               </svg>
             </div>
             <h3>{getText('confirm_lock_title')}</h3>
-            <p>{getText('are_you_sure_lock')} <strong>{kiosks.find(k => k.id === kioskToLock)?.name ? translateName(kiosks.find(k => k.id === kioskToLock).name, language) : translateName(kioskToLock, language)}</strong>?</p>
+            <p>{getText('are_you_sure_lock')} <strong>{kiosks.find(k => k.id === kioskToLock)?.name ? translateName(kiosks.find(k => k.id === kioskToLock).name, language, kiosks.find(k => k.id === kioskToLock).name_en) : translateName(kioskToLock, language)}</strong>?</p>
             <div className="confirm-modal-actions">
               <button className="confirm-btn no" onClick={handleLockNo}>{getText('no')}</button>
               <button className="confirm-btn yes" onClick={handleLockYes}>{getText('yes')}</button>
@@ -572,7 +566,7 @@ export default function App() {
                 return (
                   <div key={k.id} className={`kiosk-list-item ${isLocked ? 'locked' : ''}`}>
                     <div className="kiosk-info">
-                      <span className="kiosk-name">{translateName(k.name, language)}</span>
+                      <span className="kiosk-name">{translateName(k.name, language, k.name_en)}</span>
                       <span className="kiosk-floor">{translateName(k.floor, language)}</span>
                     </div>
                     <div className="kiosk-action">

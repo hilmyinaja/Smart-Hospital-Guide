@@ -80,7 +80,6 @@ export default function App() {
   const [kiosks, setKiosks] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [pathData, setPathData] = useState([]);
-  const [outputLines, setOutputLines] = useState([]);
   const [targetRoomName, setTargetRoomName] = useState("");
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return localStorage.getItem('theme') === 'dark';
@@ -299,7 +298,7 @@ export default function App() {
         if (data.floor) foundFloors.add(data.floor);
         // Hanya masukkan ruangan yang sudah diberi nama ke dalam dropdown
         if (data.name && data.name !== "Tanpa Nama" && data.name.toLowerCase() !== "pintu masuk") {
-          loadedRooms.push({ id: docSnap.id, name: data.name, floor: data.floor || "Lantai 1" });
+          loadedRooms.push({ id: docSnap.id, name: data.name, name_en: data.name_en, floor: data.floor || "Lantai 1" });
         }
       });
 
@@ -497,7 +496,7 @@ export default function App() {
       try {
         // Baru coba ubah teks tersebut ke JSON
         data = JSON.parse(textResponse);
-      } catch (parseError) {
+      } catch {
         // Jika gagal, berarti Python mengirim error atau blank. Tampilkan aslinya!
         console.error("Server tidak mengembalikan JSON yang valid:", textResponse);
         throw new Error(`Server Backend Crash/Mati. Cek terminal Python! Respons: ${textResponse.substring(0, 50)}`);
@@ -509,7 +508,7 @@ export default function App() {
         setNavigationSteps([]);
         setActiveStepIndex(-1);
       } else {
-        const roomName = translateName(data.data_target.nama_ruangan, currentLang);
+        const roomName = translateName(data.data_target.nama_ruangan, currentLang, data.data_target.nama_ruangan_en);
         setTargetRoomName(roomName);
         setSearch(roomName); // Update dropdown to show the translated room name
         setPathData(data.jalur_koordinat);
@@ -559,12 +558,6 @@ export default function App() {
     return pathData.slice(startIndex, endIndex + 1);
   }, [pathData, navigationSteps, activeStepIndex]);
 
-  const handleSearchKey = (e) => {
-    if (e.key === "Enter") {
-      executeSearch(location, search);
-    }
-  };
-
   const handleLogin = async () => {
     const u = username.trim();
     const p = password.trim();
@@ -575,7 +568,7 @@ export default function App() {
       setPassword("");
       setErrorMsg("");
       navigate("/admin", { state: { authorized: true } });
-    } catch (error) {
+    } catch {
       setErrorMsg("Akun tidak valid, silahkan coba lagi!");
       setIsShaking(true);
       setTimeout(() => setIsShaking(false), 500);
@@ -793,7 +786,7 @@ export default function App() {
                         <option value="" disabled>{getText('select_kiosk')}</option>
                         {kiosks.filter(k => !k.name?.toLowerCase().includes('pintu')).map((kiosk) => (
                           <option key={kiosk.id} value={kiosk.id}>
-                            {translateName(kiosk.name || kiosk.id, language)}
+                            {translateName(kiosk.name || kiosk.id, language, kiosk.name_en)}
                           </option>
                         ))}
                       </select>
@@ -825,18 +818,18 @@ export default function App() {
                         opacity: 0, position: "absolute", top: 0, left: 0, width: "100%", height: "100%", cursor: "pointer", zIndex: 2, clipPath: "inset(0 0 0 calc(100% - 40px))"
                       }}
                       value={(() => {
-                        const matchedRoom = rooms.find(r => r.name === search || r.id === search || translateName(r.name, language) === search);
+                        const matchedRoom = rooms.find(r => r.name === search || r.id === search || translateName(r.name, language, r.name_en) === search);
                         return matchedRoom ? matchedRoom.id : "";
                       })()}
                       onChange={(e) => {
                         const rawId = e.target.value;
                         const selectedRoom = rooms.find(r => r.id === rawId);
                         if (selectedRoom) {
-                           let disp = translateName(selectedRoom.name, language);
+                           let disp = translateName(selectedRoom.name, language, selectedRoom.name_en);
                            if (selectedRoom.floor.startsWith("submap_")) {
                              const pId = selectedRoom.floor.replace("submap_", "");
                              const pRoom = rooms.find(r => r.id === pId);
-                             if (pRoom) disp += " " + translateName(pRoom.name, language);
+                             if (pRoom) disp += " " + translateName(pRoom.name, language, pRoom.name_en);
                            }
                            setSearch(disp);
                         }
@@ -857,11 +850,11 @@ export default function App() {
                               return false;
                             })
                             .map((room) => {
-                              let displayName = translateName(room.name, language);
+                              let displayName = translateName(room.name, language, room.name_en);
                               if (room.floor.startsWith("submap_")) {
                                 const parentId = room.floor.replace("submap_", "");
                                 const parentRoom = rooms.find(r => r.id === parentId);
-                                if (parentRoom) displayName += " " + translateName(parentRoom.name, language);
+                                if (parentRoom) displayName += " " + translateName(parentRoom.name, language, parentRoom.name_en);
                               }
                               return <option key={room.id} value={room.id}>{displayName}</option>;
                             })}

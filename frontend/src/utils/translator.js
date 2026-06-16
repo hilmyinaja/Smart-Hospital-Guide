@@ -1,5 +1,6 @@
-export const translateName = (name, lang) => {
+export const translateName = (name, lang, nameEn) => {
   if (!name) return "";
+  if (lang === 'en' && nameEn) return nameEn;
   
   let translated = name;
   

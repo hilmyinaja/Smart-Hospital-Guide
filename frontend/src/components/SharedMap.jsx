@@ -173,6 +173,7 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
           id: docSnap.id,
           floor: data.floor || "Lantai 1",
           name: data.name || "Tanpa Nama",
+          name_en: data.name_en,
           x: (data.grid_x || 0) * GRID_SIZE,
           y: (data.grid_y || 0) * GRID_SIZE,
           width: (data.grid_width || 1) * GRID_SIZE,
@@ -195,6 +196,7 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
           id: docSnap.id,
           floor: data.floor || "Lantai 1",
           name: data.name || "Kiosk",
+          name_en: data.name_en,
           x: (data.grid_x || 0) * GRID_SIZE,
           y: (data.grid_y || 0) * GRID_SIZE,
           width: (data.grid_width || 2) * GRID_SIZE,
@@ -310,7 +312,7 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
               {rooms
                 .filter((room) => room.floor === currentFloor)
                 .map((room) => {
-                  const textContent = translateName(room.name || "Tanpa Nama", language);
+                  const textContent = translateName(room.name || "Tanpa Nama", language, room.name_en);
                   const longestWordLen = Math.max(...textContent.split(' ').map(w => w.length), 1);
                   const actualUsableWidth = Math.max(10, room.width - 12);
 
@@ -346,7 +348,7 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
               {kiosks
                 .filter((kiosk) => kiosk.floor === currentFloor)
                 .map((kiosk) => {
-                  const textContent = translateName(kiosk.name || "Kiosk", language);
+                  const textContent = translateName(kiosk.name || "Kiosk", language, kiosk.name_en);
                   const isPintu = kiosk.name?.toLowerCase().includes('pintu');
                   const fillCol = isPintu ? "#4CAF50" : "#2196F3";
                   const strokeCol = isPintu ? "#2E7D32" : "#0D47A1";
