@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import LogoImg from '../assets/Logo.png';
 import { useNavigate } from "react-router";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { Stage, Layer, Rect, Text, Line, Transformer } from "react-konva";
-import { collection, getDocs, doc, writeBatch } from "firebase/firestore";
+import { collection, getDocs, doc, writeBatch, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { translateName } from "../utils/translator";
 import "./Edit.css";
@@ -187,6 +188,9 @@ export default function EditPage() {
 
   const [floors, setFloors] = useState(["Lantai 1"]);
   const [activeEditFloor, setActiveEditFloor] = useState("Lantai 1");
+  const [isFloorDropdownOpen, setIsFloorDropdownOpen] = useState(false);
+  const dragItemIndexRef = useRef(null);
+  const dragOverItemIndexRef = useRef(null);
   const [language, setLanguage] = useState(localStorage.getItem('language') || 'id');
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return localStorage.getItem('theme') === 'dark';
@@ -240,7 +244,10 @@ export default function EditPage() {
       'left': { id: 'Kiri', en: 'Left' },
       'right': { id: 'Kanan', en: 'Right' },
       'undo': { id: 'Urungkan', en: 'Undo' },
-      'redo': { id: 'Ulangi', en: 'Redo' }
+      'redo': { id: 'Ulangi', en: 'Redo' },
+      'rename_floor': { id: 'Ganti Nama', en: 'Rename' },
+      'move_up': { id: 'Geser ke Atas', en: 'Move Up' },
+      'move_down': { id: 'Geser ke Bawah', en: 'Move Down' }
     };
     return dict[key] ? dict[key][language] : key;
   };
@@ -289,9 +296,10 @@ export default function EditPage() {
   useEffect(() => {
     const fetchAllData = async () => {
       try {
-        const [roomsSnapshot, kioskSnapshot] = await Promise.all([
+        const [roomsSnapshot, kioskSnapshot, mapConfigSnap] = await Promise.all([
           getDocs(collection(db, "Rooms")),
-          getDocs(collection(db, "Kiosks"))
+          getDocs(collection(db, "Kiosks")),
+          getDoc(doc(db, "Settings", "MapConfig"))
         ]);
 
         const allElements = [];
@@ -334,7 +342,20 @@ export default function EditPage() {
         setHistory([allElements]);
         setHistoryStep(0);
 
-        const sortedFloors = Array.from(uniqueFloors).sort();
+        let savedFloorOrder = [];
+        if (mapConfigSnap.exists() && mapConfigSnap.data().floorOrder) {
+          savedFloorOrder = mapConfigSnap.data().floorOrder;
+        }
+
+        const sortedFloors = Array.from(uniqueFloors).sort((a, b) => {
+          const idxA = savedFloorOrder.indexOf(a);
+          const idxB = savedFloorOrder.indexOf(b);
+          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+          if (idxA !== -1) return -1;
+          if (idxB !== -1) return 1;
+          return a.localeCompare(b);
+        });
+
         setFloors(sortedFloors);
         setActiveEditFloor(sortedFloors[0] || "Lantai 1");
       } catch (error) {
@@ -441,7 +462,7 @@ export default function EditPage() {
         alert("Lantai tersebut sudah ada di daftar!");
         return;
       }
-      const newFloorsList = [...floors, formattedFloor].sort();
+      const newFloorsList = [...floors, formattedFloor];
       setFloors(newFloorsList);
       setActiveEditFloor(formattedFloor);
       setSelectedId(null);
@@ -472,6 +493,49 @@ export default function EditPage() {
       setActiveEditFloor(remainingFloors[0]);
       setSelectedId(null);
     }
+  };
+
+  const handleRenameFloor = () => {
+    const newFloor = window.prompt(`Masukkan nama baru untuk "${activeEditFloor}":`, activeEditFloor);
+    if (newFloor && newFloor.trim() !== "" && newFloor.trim() !== activeEditFloor) {
+      const formattedFloor = newFloor.trim();
+      if (floors.includes(formattedFloor)) {
+        alert("Nama lantai tersebut sudah digunakan!");
+        return;
+      }
+
+      const newElements = placedElements.map(el => {
+        if (el.floor === activeEditFloor) {
+          return { ...el, floor: formattedFloor };
+        }
+        return el;
+      });
+
+      setPlacedElements(newElements);
+      saveHistory(newElements);
+
+      const newFloorsList = floors.map(f => f === activeEditFloor ? formattedFloor : f);
+      setFloors(newFloorsList);
+      setActiveEditFloor(formattedFloor);
+    }
+  };
+
+  const handleDragSort = () => {
+    const dragIndex = dragItemIndexRef.current;
+    const hoverIndex = dragOverItemIndexRef.current;
+
+    if (dragIndex === null || hoverIndex === null || dragIndex === hoverIndex) return;
+
+    const newFloors = [...floors];
+    const draggedItem = newFloors[dragIndex];
+
+    newFloors.splice(dragIndex, 1);
+    newFloors.splice(hoverIndex, 0, draggedItem);
+
+    setFloors(newFloors);
+
+    dragItemIndexRef.current = null;
+    dragOverItemIndexRef.current = null;
   };
 
   const handleDrop = (e) => {
@@ -543,13 +607,15 @@ export default function EditPage() {
           }, { merge: true });
         });
 
+        batch.set(doc(db, "Settings", "MapConfig"), { floorOrder: floors }, { merge: true });
+
         await batch.commit();
         alert("Denah dan setingan endpoint baru berhasil disimpan!");
-        navigate("/admin");
+        navigate("/admin", { state: { authorized: true } });
       } catch (error) {
         console.error("Gagal simpan:", error);
       }
-    } else navigate("/admin");
+    } else navigate("/admin", { state: { authorized: true } });
     setConfirmAction(null);
   };
 
@@ -565,7 +631,10 @@ export default function EditPage() {
   return (
     <div className="edit-page-container">
       <header className="edit-page-header">
-        <span className="edit-page-logo">Wayfinder - {getText('edit_mode')}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <img src={LogoImg} alt="Wayfinder Logo" style={{ height: '28px', width: 'auto', filter: isDarkMode ? "brightness(0.1)" : "none" }} />
+          <span className="edit-page-logo">Wayfinder - {getText('edit_mode')}</span>
+        </div>
 
         <div className="header-actions" style={{ display: "flex", gap: "10px", alignItems: "center" }}>
           <label className="theme-switch" title={isDarkMode ? (language === 'id' ? 'Mode Terang' : 'Light Mode') : (language === 'id' ? 'Mode Gelap' : 'Dark Mode')}>
@@ -677,19 +746,64 @@ export default function EditPage() {
               <span>🏢 {getText('floor_management')}</span>
               <span className="badge">{floors.length} {getText('floors_count')}</span>
             </h4>
-            <select
-              value={activeEditFloor}
-              onChange={(e) => {
-                setActiveEditFloor(e.target.value);
-                setSelectedId(null);
-              }}
-              className="edit-select"
-            >
-              {floors.map(f => <option key={f} value={f}>{translateName(f, language)}</option>)}
-            </select>
+            <div className="custom-floor-dropdown">
+              <div 
+                className="custom-dropdown-header"
+                onClick={() => setIsFloorDropdownOpen(!isFloorDropdownOpen)}
+              >
+                <span>{translateName(activeEditFloor, language)}</span>
+                <span className="dropdown-arrow">{isFloorDropdownOpen ? '▲' : '▼'}</span>
+              </div>
+              
+              {isFloorDropdownOpen && (
+                <div className="custom-dropdown-list">
+                  {floors.map((f, index) => (
+                    <div 
+                      key={f} 
+                      className={`custom-dropdown-item ${activeEditFloor === f ? 'active' : ''}`}
+                      draggable
+                      data-index={index}
+                      onDragStart={(e) => {
+                        dragItemIndexRef.current = index;
+                        e.dataTransfer.effectAllowed = 'move';
+                      }}
+                      onDragEnter={() => {
+                        dragOverItemIndexRef.current = index;
+                      }}
+                      onDragEnd={handleDragSort}
+                      onDragOver={(e) => e.preventDefault()}
+                      onTouchStart={() => {
+                        dragItemIndexRef.current = index;
+                      }}
+                      onTouchMove={(e) => {
+                        const touch = e.touches[0];
+                        const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                        if (target) {
+                          const dropItem = target.closest('.custom-dropdown-item');
+                          if (dropItem && dropItem.dataset.index !== undefined) {
+                            dragOverItemIndexRef.current = parseInt(dropItem.dataset.index, 10);
+                          }
+                        }
+                      }}
+                      onTouchEnd={handleDragSort}
+                      onClick={() => {
+                        setActiveEditFloor(f);
+                        setSelectedId(null);
+                        setIsFloorDropdownOpen(false);
+                      }}
+                      style={{ touchAction: 'none' }}
+                    >
+                      <span className="floor-name">{translateName(f, language)}</span>
+                      <span className="drag-handle" title="Drag to reorder">≡</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
-            <div className="edit-btn-group">
+            <div className="edit-btn-group" style={{ marginBottom: "10px" }}>
               <button onClick={handleAddFloor} className="edit-btn btn-success">{getText('add_floor')}</button>
+              <button onClick={handleRenameFloor} className="edit-btn btn-primary">{getText('rename_floor')}</button>
               <button onClick={handleDeleteFloor} className="edit-btn btn-danger">{getText('del_floor')}</button>
             </div>
           </div>
@@ -718,13 +832,45 @@ export default function EditPage() {
             <p className="edit-selected-text">
               {selectedId ? `${getText('selected')}: ${translateName(placedElements.find(el => el.id === selectedId)?.name || "Kiosk", language)}` : getText('no_element_selected')}
             </p>
-            <button
-              className="edit-btn btn-danger delete-btn"
-              onClick={deleteSelectedElement}
-              disabled={!selectedId}
-            >
-              {getText('del_element')}
-            </button>
+            <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
+              <button
+                className="edit-btn btn-danger delete-btn"
+                onClick={deleteSelectedElement}
+                disabled={!selectedId}
+                style={{ flex: 1 }}
+              >
+                {getText('del_element')}
+              </button>
+
+              {selectedId && placedElements.find(el => el.id === selectedId)?.type === 'room' && (
+                <button
+                  onClick={() => {
+                    const room = placedElements.find(el => el.id === selectedId);
+                    const submapId = `submap_${room.id}`;
+                    setActiveEditFloor(submapId);
+                    setSelectedId(null);
+
+                    const hasPintuMasuk = placedElements.some(el => el.floor === submapId && el.name.toLowerCase() === 'pintu masuk');
+                    if (!hasPintuMasuk) {
+                      const newId = generateNextKioskId();
+                      const newElements = [...placedElements, {
+                        id: newId, type: 'kiosk',
+                        floor: submapId,
+                        x: 200, y: 200,
+                        width: GRID_SIZE * 2, height: GRID_SIZE * 2,
+                        name: "Pintu Masuk", fill: "#FF9800", stroke: "#E65100"
+                      }];
+                      setPlacedElements(newElements);
+                      saveHistory(newElements);
+                    }
+                  }}
+                  className="edit-btn btn-primary"
+                  style={{ flex: 1 }}
+                >
+                  {getText('enter_submap')}
+                </button>
+              )}
+            </div>
 
             {selectedId && placedElements.find(el => el.id === selectedId)?.type === 'room' && (() => {
               const room = placedElements.find(el => el.id === selectedId);
@@ -735,30 +881,6 @@ export default function EditPage() {
               };
               return (
                 <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                  <button
-                    onClick={() => {
-                      const submapId = `submap_${room.id}`;
-                      setActiveEditFloor(submapId);
-                      setSelectedId(null);
-
-                      const hasPintuMasuk = placedElements.some(el => el.floor === submapId && el.name.toLowerCase() === 'pintu masuk');
-                      if (!hasPintuMasuk) {
-                        const newId = generateNextKioskId();
-                        const newElements = [...placedElements, {
-                          id: newId, type: 'kiosk',
-                          floor: submapId,
-                          x: 200, y: 200,
-                          width: GRID_SIZE * 2, height: GRID_SIZE * 2,
-                          name: "Pintu Masuk", fill: "#FF9800", stroke: "#E65100"
-                        }];
-                        setPlacedElements(newElements);
-                        saveHistory(newElements);
-                      }
-                    }}
-                    className="edit-btn btn-primary"
-                  >
-                    {getText('enter_submap')}
-                  </button>
 
                   <div className="endpoint-controls edit-card-inner">
                     <h4 className="endpoint-title">{getText('active_endpoint_side')}</h4>
@@ -794,102 +916,103 @@ export default function EditPage() {
 
           <h3>{getText('template_elements')}</h3>
           <p style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "-5px", marginBottom: "15px" }}>{getText('template_hint')}</p>
+          <div className="dnd-zone">
+            <h5 style={{ margin: "5px 0 10px 0", fontSize: "12px", color: "var(--text-main)", fontWeight: "700" }}>{language === 'id' ? 'Ruangan' : 'Rooms'}</h5>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+              {[
+                { name: "Ruangan Pintu Berlawanan", shortName: "Biasa", endpoints: ['left', 'right'], color: "#4caf50", icon: "🚪" },
+                { name: "Ruangan 1 Pintu", shortName: "1 Pintu", endpoints: ['top'], color: "#4caf50", icon: "🚪" },
+                { name: "Ruangan 2 Pintu", shortName: "2 Pintu", endpoints: ['left', 'bottom'], color: "#4caf50", icon: "🚪" },
+                { name: "Ruangan 3 Pintu", shortName: "3 Pintu", endpoints: ['left', 'right', 'bottom'], color: "#4caf50", icon: "🚪" },
+                { name: "Ruangan 4 Pintu", shortName: "4 Pintu", endpoints: ['top', 'bottom', 'left', 'right'], color: "#4caf50", icon: "🚪" }
+              ].map(preset => (
+                <div
+                  key={preset.name}
+                  draggable
+                  className="template-card template-room"
+                  title={translateName(preset.name, language)}
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData("text/plain", JSON.stringify({
+                      type: "new-room",
+                      defaultName: preset.name,
+                      endpoints: preset.endpoints,
+                      defaultGridWidth: 4,
+                      defaultGridHeight: 4
+                    }));
+                  }}
+                  onClick={() => {
+                    const newId = generateNextRoomId();
+                    const newElements = [...placedElements, {
+                      id: newId, type: 'room', floor: activeEditFloor,
+                      x: 200, y: 200, width: GRID_SIZE * 4, height: GRID_SIZE * 4,
+                      name: preset.name, fill: "#e0e0e0", stroke: "#9e9e9e",
+                      endpoints: preset.endpoints
+                    }];
+                    setPlacedElements(newElements);
+                    saveHistory(newElements);
+                  }}
+                >
+                  <div className="template-icon">{preset.icon}</div>
+                  <p>{preset.shortName}</p>
+                </div>
+              ))}
+            </div>
 
-          <div className="dnd-zone" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            <h5 style={{ margin: "5px 0 0 0", fontSize: "12px", color: "var(--text-main)" }}>{language === 'id' ? 'Ruangan' : 'Rooms'}</h5>
-            {[
-              { name: "Ruangan Pintu Berlawanan", endpoints: ['left', 'right'], color: "#4caf50" },
-              { name: "Ruangan 1 Pintu", endpoints: ['top'], color: "#4caf50" },
-              { name: "Ruangan 2 Pintu", endpoints: ['left', 'bottom'], color: "#4caf50" },
-              { name: "Ruangan 3 Pintu", endpoints: ['left', 'right', 'bottom'], color: "#4caf50" },
-              { name: "Ruangan 4 Pintu", endpoints: ['top', 'bottom', 'left', 'right'], color: "#4caf50" }
-            ].map(preset => (
+            <div style={{ margin: "10px 0", borderTop: "1px solid var(--border)" }}></div>
+
+            <h5 style={{ margin: "0 0 10px 0", fontSize: "12px", color: "var(--text-main)", fontWeight: "700" }}>{language === 'id' ? 'Lainnya' : 'Others'}</h5>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
               <div
-                key={preset.name}
                 draggable
-                className="template-card template-room"
                 onDragStart={(e) => {
                   e.dataTransfer.setData("text/plain", JSON.stringify({
-                    type: "new-room",
-                    defaultName: preset.name,
-                    endpoints: preset.endpoints,
-                    defaultGridWidth: 4,
-                    defaultGridHeight: 4
+                    type: "new-kiosk",
+                    defaultName: "Kios Baru",
+                    defaultGridWidth: 2,
+                    defaultGridHeight: 2
                   }));
                 }}
                 onClick={() => {
-                  const newId = generateNextRoomId();
+                  const newId = generateNextKioskId();
                   const newElements = [...placedElements, {
-                    id: newId, type: 'room', floor: activeEditFloor,
-                    x: 200, y: 200, width: GRID_SIZE * 4, height: GRID_SIZE * 4,
-                    name: preset.name, fill: "#e0e0e0", stroke: "#9e9e9e",
-                    endpoints: preset.endpoints
+                    id: newId, type: 'kiosk', floor: activeEditFloor,
+                    x: 200, y: 200, width: GRID_SIZE * 2, height: GRID_SIZE * 2,
+                    name: "Kios Baru"
                   }];
                   setPlacedElements(newElements);
                   saveHistory(newElements);
                 }}
+                className="template-card template-kiosk"
+              >
+                <div className="template-icon">ℹ️</div>
+                <p>{getText('drag_kiosk')}</p>
+              </div>
+
+              <div
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData("text/plain", JSON.stringify({
+                    type: "new-entrance",
+                    defaultName: language === 'id' ? "Pintu Masuk Utama" : "Main Entrance",
+                    defaultGridWidth: 2,
+                    defaultGridHeight: 2
+                  }));
+                }}
+                onClick={() => {
+                  const newId = generateNextKioskId();
+                  const newElements = [...placedElements, {
+                    id: newId, type: 'kiosk', floor: activeEditFloor,
+                    x: 200, y: 240, width: GRID_SIZE * 2, height: GRID_SIZE * 2,
+                    name: language === 'id' ? "Pintu Masuk Utama" : "Main Entrance"
+                  }];
+                  setPlacedElements(newElements);
+                  saveHistory(newElements);
+                }}
+                className="template-card template-entrance"
               >
                 <div className="template-icon">🚪</div>
-                <p>{translateName(preset.name, language)}</p>
+                <p>{language === 'id' ? 'Pintu Masuk' : 'Entrance'}</p>
               </div>
-            ))}
-
-            <div style={{ margin: "5px 0", borderTop: "1px solid var(--border)" }}></div>
-
-            <h5 style={{ margin: "0", fontSize: "12px", color: "var(--text-main)" }}>{language === 'id' ? 'Kios' : 'Kiosk'}</h5>
-            <div
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData("text/plain", JSON.stringify({
-                  type: "new-kiosk",
-                  defaultName: "Kios Baru",
-                  defaultGridWidth: 2,
-                  defaultGridHeight: 2
-                }));
-              }}
-              onClick={() => {
-                const newId = generateNextKioskId();
-                const newElements = [...placedElements, {
-                  id: newId, type: 'kiosk', floor: activeEditFloor,
-                  x: 200, y: 200, width: GRID_SIZE * 2, height: GRID_SIZE * 2,
-                  name: "Kios Baru"
-                }];
-                setPlacedElements(newElements);
-                saveHistory(newElements);
-              }}
-              className="template-card template-kiosk"
-            >
-              <div className="template-icon">ℹ️</div>
-              <p>{getText('drag_kiosk')}</p>
-            </div>
-
-            <div style={{ margin: "5px 0", borderTop: "1px solid var(--border)" }}></div>
-
-            <h5 style={{ margin: "0", fontSize: "12px", color: "var(--text-main)" }}>{language === 'id' ? 'Pintu Masuk' : 'Entrance Door'}</h5>
-            <div
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData("text/plain", JSON.stringify({
-                  type: "new-entrance",
-                  defaultName: language === 'id' ? "Pintu Masuk Utama" : "Main Entrance",
-                  defaultGridWidth: 2,
-                  defaultGridHeight: 2
-                }));
-              }}
-              onClick={() => {
-                const newId = generateNextKioskId();
-                const newElements = [...placedElements, {
-                  id: newId, type: 'kiosk', floor: activeEditFloor,
-                  x: 200, y: 240, width: GRID_SIZE * 2, height: GRID_SIZE * 2,
-                  name: language === 'id' ? "Pintu Masuk Utama" : "Main Entrance"
-                }];
-                setPlacedElements(newElements);
-                saveHistory(newElements);
-              }}
-              className="template-card template-entrance"
-            >
-              <div className="template-icon">🚪</div>
-              <p>{language === 'id' ? 'Pintu Masuk' : 'Entrance'}</p>
             </div>
           </div>
         </aside>

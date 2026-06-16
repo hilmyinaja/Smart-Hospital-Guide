@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import LogoImg from '../assets/Logo.png';
 import { useNavigate } from "react-router";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot, doc } from "firebase/firestore";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { db, auth } from "../firebase";
 import SharedMap from "../components/SharedMap";
@@ -248,6 +249,7 @@ export default function App() {
   }, [language]);
 
   const hasAutoSwitchedFloor = useRef(false);
+  const floorOrderRef = useRef([]);
 
   useEffect(() => {
     // 1. Listen ke Kiosks
@@ -271,7 +273,14 @@ export default function App() {
 
       setFloors(prev => {
         const combined = new Set([...prev, ...foundFloors]);
-        return Array.from(combined).sort();
+        return Array.from(combined).sort((a, b) => {
+          const idxA = floorOrderRef.current.indexOf(a);
+          const idxB = floorOrderRef.current.indexOf(b);
+          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+          if (idxA !== -1) return -1;
+          if (idxB !== -1) return 1;
+          return a.localeCompare(b);
+        });
       });
 
       if (floorToSwitch && !hasAutoSwitchedFloor.current) {
@@ -300,13 +309,38 @@ export default function App() {
 
       setFloors(prev => {
         const combined = new Set([...prev, ...foundFloors]);
-        return Array.from(combined).sort();
+        return Array.from(combined).sort((a, b) => {
+          const idxA = floorOrderRef.current.indexOf(a);
+          const idxB = floorOrderRef.current.indexOf(b);
+          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+          if (idxA !== -1) return -1;
+          if (idxB !== -1) return 1;
+          return a.localeCompare(b);
+        });
       });
+    });
+
+    // 3. Listen ke MapConfig untuk urutan lantai
+    const unsubscribeConfig = onSnapshot(doc(db, "Settings", "MapConfig"), (docSnap) => {
+      if (docSnap.exists() && docSnap.data().floorOrder) {
+        floorOrderRef.current = docSnap.data().floorOrder;
+        setFloors(prev => {
+          return [...prev].sort((a, b) => {
+            const idxA = floorOrderRef.current.indexOf(a);
+            const idxB = floorOrderRef.current.indexOf(b);
+            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+            if (idxA !== -1) return -1;
+            if (idxB !== -1) return 1;
+            return a.localeCompare(b);
+          });
+        });
+      }
     });
 
     return () => {
       unsubscribeKiosks();
       unsubscribeRooms();
+      unsubscribeConfig();
     };
   }, []);
 
@@ -540,7 +574,7 @@ export default function App() {
       setUsername("");
       setPassword("");
       setErrorMsg("");
-      navigate("/admin");
+      navigate("/admin", { state: { authorized: true } });
     } catch (error) {
       setErrorMsg("Akun tidak valid, silahkan coba lagi!");
       setIsShaking(true);
@@ -563,7 +597,10 @@ export default function App() {
     <div>
       {!isMobileMode && (
         <header className="header">
-          <span className="header-logo">Wayfinder</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <img src={LogoImg} alt="Wayfinder Logo" style={{ height: '35px', width: 'auto', filter: isDarkMode ? "brightness(0.1)" : "none" }} />
+            <span className="header-logo">Wayfinder</span>
+          </div>
           <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
             <label className="theme-switch" title={isDarkMode ? "Light Mode" : "Dark Mode"}>
               <input 
@@ -766,22 +803,16 @@ export default function App() {
 
                   {/* SEARCH & ROOM DROPDOWN */}
                   <div className="search-wrapper destination-input" style={{ position: "relative" }}>
-                    <input
-                      className="search-input route-search"
-                      style={{ paddingRight: "74px", width: "100%" }}
-                      type="text"
-                      placeholder={isListening ? (language === 'en' ? 'Listening...' : 'Mendengarkan...') : getText('search_placeholder')}
-                      value={search}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setSearch(val);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          executeSearch(location, search);
-                        }
-                      }}
-                    />
+                    <form onSubmit={(e) => { e.preventDefault(); executeSearch(location, search); }} style={{ width: "100%", margin: 0 }}>
+                      <input
+                        className="search-input route-search"
+                        style={{ paddingRight: "74px", width: "100%" }}
+                        type="search"
+                        placeholder={isListening ? (language === 'en' ? 'Listening...' : 'Mendengarkan...') : getText('search_placeholder')}
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                      />
+                    </form>
 
                     <div className="mic-btn-wrapper" onClick={startListening} title={language === 'en' ? 'Voice Search' : 'Pencarian Suara'}>
                       <MicIcon isListening={isListening} />
@@ -993,35 +1024,63 @@ export default function App() {
 
           {/* VERTICAL FLOOR SCRUBBER (OPTION 1) */}
           <div className="vertical-scrubber-wrapper">
-            {floors.filter(f => {
-              if (f.startsWith("submap_")) return false;
-              if (isMobileMode && navigationSteps.length > 0) {
-                return navigationSteps.some(step => step.floor === f);
-              }
-              return true;
-            }).reverse().map((f) => {
-              const isActive = (() => {
-                if (floor.startsWith("submap_")) {
-                  const parentId = floor.replace("submap_", "");
-                  const parent = rooms.find(r => r.id === parentId);
-                  return parent ? parent.floor === f : false;
+            {(() => {
+              const visibleFloors = floors.filter(f => {
+                if (f.startsWith("submap_")) return false;
+                if (isMobileMode && navigationSteps.length > 0) {
+                  return navigationSteps.some(step => step.floor === f);
                 }
-                return floor === f;
-              })();
+                return true;
+              });
 
-              let shortName = f.replace("Lantai ", "").replace("Basement", "B");
+              const initialCounts = {};
+              visibleFloors.forEach(f => {
+                if (!f.toLowerCase().startsWith("lantai ") && f.length > 0) {
+                  const initial = f.charAt(0).toUpperCase();
+                  initialCounts[initial] = (initialCounts[initial] || 0) + 1;
+                }
+              });
 
-              return (
-                <button
-                  key={f}
-                  className={`scrubber-btn ${isActive ? 'active' : ''}`}
-                  onClick={() => setFloor(f)}
-                  title={f}
-                >
-                  {shortName}
-                </button>
-              );
-            })}
+              return visibleFloors.map((f) => {
+                const isActive = (() => {
+                  if (floor.startsWith("submap_")) {
+                    const parentId = floor.replace("submap_", "");
+                    const parent = rooms.find(r => r.id === parentId);
+                    return parent ? parent.floor === f : false;
+                  }
+                  return floor === f;
+                })();
+
+                let shortName = f;
+                if (f.toLowerCase().startsWith("lantai ")) {
+                  shortName = f.substring(7).trim();
+                } else if (f) {
+                  const initial = f.charAt(0).toUpperCase();
+                  if (initialCounts[initial] > 1) {
+                    const match = f.match(/^([a-zA-Z])[a-z]*\s*(\d+)/i);
+                    if (match && match[2]) {
+                      shortName = (match[1] + match[2]).toUpperCase();
+                    } else {
+                      shortName = f.substring(0, 2);
+                      shortName = shortName.charAt(0).toUpperCase() + (shortName.length > 1 ? shortName.charAt(1).toLowerCase() : "");
+                    }
+                  } else {
+                    shortName = initial;
+                  }
+                }
+
+                return (
+                  <button
+                    key={f}
+                    className={`scrubber-btn ${isActive ? 'active' : ''}`}
+                    onClick={() => setFloor(f)}
+                    title={f}
+                  >
+                    {shortName}
+                  </button>
+                );
+              });
+            })()}
           </div>
 
           {floor.startsWith("submap_") && (

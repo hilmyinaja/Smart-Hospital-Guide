@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import LogoImg from '../assets/Logo.png';
 import { useNavigate } from "react-router";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { collection, onSnapshot, doc, updateDoc, query, orderBy, limit, addDoc, serverTimestamp } from "firebase/firestore";
@@ -130,6 +131,7 @@ export default function App() {
   };
 
   const hasAutoSwitchedFloor = useRef(false);
+  const floorOrderRef = useRef([]);
 
   useEffect(() => {
     // 1. Listen ke Kiosks
@@ -153,7 +155,14 @@ export default function App() {
       
       setFloors(prev => {
         const combined = new Set([...prev, ...foundFloors]);
-        return Array.from(combined).sort();
+        return Array.from(combined).sort((a, b) => {
+          const idxA = floorOrderRef.current.indexOf(a);
+          const idxB = floorOrderRef.current.indexOf(b);
+          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+          if (idxA !== -1) return -1;
+          if (idxB !== -1) return 1;
+          return a.localeCompare(b);
+        });
       });
 
       if (floorToSwitch && !hasAutoSwitchedFloor.current) {
@@ -180,7 +189,14 @@ export default function App() {
 
       setFloors(prev => {
         const combined = new Set([...prev, ...foundFloors]);
-        return Array.from(combined).sort();
+        return Array.from(combined).sort((a, b) => {
+          const idxA = floorOrderRef.current.indexOf(a);
+          const idxB = floorOrderRef.current.indexOf(b);
+          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+          if (idxA !== -1) return -1;
+          if (idxB !== -1) return 1;
+          return a.localeCompare(b);
+        });
       });
     });
 
@@ -200,10 +216,28 @@ export default function App() {
       setActivities(loadedLogs);
     });
 
+    // 4. Listen ke MapConfig untuk urutan lantai
+    const unsubscribeConfig = onSnapshot(doc(db, "Settings", "MapConfig"), (docSnap) => {
+      if (docSnap.exists() && docSnap.data().floorOrder) {
+        floorOrderRef.current = docSnap.data().floorOrder;
+        setFloors(prev => {
+          return [...prev].sort((a, b) => {
+            const idxA = floorOrderRef.current.indexOf(a);
+            const idxB = floorOrderRef.current.indexOf(b);
+            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+            if (idxA !== -1) return -1;
+            if (idxB !== -1) return 1;
+            return a.localeCompare(b);
+          });
+        });
+      }
+    });
+
     return () => {
       unsubscribeKiosks();
       unsubscribeRooms();
       unsubscribeLogs();
+      unsubscribeConfig();
     };
   }, []);
 
@@ -420,7 +454,10 @@ export default function App() {
   return (
     <div>
       <header className="header">
-        <span className="header-logo">Wayfinder</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <img src={LogoImg} alt="Wayfinder Logo" style={{ height: '28px', width: 'auto', filter: isDarkMode ? "brightness(0.1)" : "none" }} />
+          <span className="header-logo">Wayfinder</span>
+        </div>
         <div className="header-actions" style={{display: "flex", gap: "10px", alignItems: "center"}}>
 
           <label className="theme-switch" title={isDarkMode ? (language === 'id' ? 'Mode Terang' : 'Light Mode') : (language === 'id' ? 'Mode Gelap' : 'Dark Mode')}>
@@ -438,7 +475,7 @@ export default function App() {
             <option value="id" style={{color: "black"}}>🇮🇩 ID</option>
             <option value="en" style={{color: "black"}}>🇬🇧 EN</option>
           </select>
-          <button className="header-edit-btn" onClick={() => navigate("/edit")}>
+          <button className="header-edit-btn" onClick={() => navigate("/edit", { state: { authorized: true } })}>
             <EditIcon />
             <span>{getText('edit')}</span>
           </button>
@@ -608,29 +645,56 @@ export default function App() {
         <main className="map-panel" style={{ position: "relative" }}>
           {/* VERTICAL FLOOR SCRUBBER (OPTION 1) */}
           <div className="vertical-scrubber-wrapper">
-            {floors.filter(f => !f.startsWith("submap_")).reverse().map((f) => {
-              const isActive = (() => {
-                if (floor.startsWith("submap_")) {
-                  const parentId = floor.replace("submap_", "");
-                  const parent = rooms.find(r => r.id === parentId);
-                  return parent ? parent.floor === f : false;
+            {(() => {
+              const visibleFloors = floors.filter(f => !f.startsWith("submap_"));
+              const initialCounts = {};
+              visibleFloors.forEach(f => {
+                if (!f.toLowerCase().startsWith("lantai ") && f.length > 0) {
+                  const initial = f.charAt(0).toUpperCase();
+                  initialCounts[initial] = (initialCounts[initial] || 0) + 1;
                 }
-                return floor === f;
-              })();
-              
-              let shortName = f.replace("Lantai ", "").replace("Basement", "B");
+              });
 
-              return (
-                <button
-                  key={f}
-                  className={`scrubber-btn ${isActive ? 'active' : ''}`}
-                  onClick={() => setFloor(f)}
-                  title={f}
-                >
-                  {shortName}
-                </button>
-              );
-            })}
+              return visibleFloors.map((f) => {
+                const isActive = (() => {
+                  if (floor.startsWith("submap_")) {
+                    const parentId = floor.replace("submap_", "");
+                    const parent = rooms.find(r => r.id === parentId);
+                    return parent ? parent.floor === f : false;
+                  }
+                  return floor === f;
+                })();
+                
+                let shortName = f;
+                if (f.toLowerCase().startsWith("lantai ")) {
+                  shortName = f.substring(7).trim();
+                } else if (f) {
+                  const initial = f.charAt(0).toUpperCase();
+                  if (initialCounts[initial] > 1) {
+                    const match = f.match(/^([a-zA-Z])[a-z]*\s*(\d+)/i);
+                    if (match && match[2]) {
+                      shortName = (match[1] + match[2]).toUpperCase();
+                    } else {
+                      shortName = f.substring(0, 2);
+                      shortName = shortName.charAt(0).toUpperCase() + (shortName.length > 1 ? shortName.charAt(1).toLowerCase() : "");
+                    }
+                  } else {
+                    shortName = initial;
+                  }
+                }
+
+                return (
+                  <button
+                    key={f}
+                    className={`scrubber-btn ${isActive ? 'active' : ''}`}
+                    onClick={() => setFloor(f)}
+                    title={f}
+                  >
+                    {shortName}
+                  </button>
+                );
+              });
+            })()}
           </div>
 
           {floor.startsWith("submap_") && (
