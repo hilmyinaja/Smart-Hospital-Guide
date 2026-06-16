@@ -380,13 +380,13 @@ export default function App() {
       const kioskInfo = kiosks.find(k => k.id === kioskToLock);
       const kioskNameId = kioskInfo?.name ? translateName(kioskInfo.name, 'id') : kioskToLock;
       const kioskNameEn = kioskInfo?.name ? translateName(kioskInfo.name, 'en') : kioskToLock;
-      await addActivityLog("Kiosk Dikunci", "Kiosk Locked", `Mengunci ${kioskNameId}`, `Locked ${kioskNameEn}`);
+      await addActivityLog("Kios Dikunci", "Kiosk Locked", `Mengunci ${kioskNameId}`, `Locked ${kioskNameEn}`);
 
       setIsLockConfirmOpen(false);
       setKioskToLock("");
     } catch (e) {
       console.error(e);
-      alert("Gagal mengunci kiosk di database.");
+      alert("Gagal mengunci kios di database.");
     }
   };
 
@@ -403,7 +403,7 @@ export default function App() {
         const kioskInfo = kiosks.find(k => k.id === lockedKiosk);
         const kioskNameId = kioskInfo?.name ? translateName(kioskInfo.name, 'id') : lockedKiosk;
         const kioskNameEn = kioskInfo?.name ? translateName(kioskInfo.name, 'en') : lockedKiosk;
-        await addActivityLog("Kiosk Dibuka Kunci", "Kiosk Unlocked", `Melepas kunci ${kioskNameId}`, `Unlocked ${kioskNameEn}`);
+        await addActivityLog("Kios Dibuka Kunci", "Kiosk Unlocked", `Melepas kunci ${kioskNameId}`, `Unlocked ${kioskNameEn}`);
       } catch (e) {
         console.error("Gagal update DB saat unlock", e);
       }
@@ -520,14 +520,14 @@ export default function App() {
               </div>
               <div className="stat-card">
                 <span className="stat-value">{kiosks.length}</span>
-                <span className="stat-label">{language === 'id' ? 'Kiosk Aktif' : 'Active Kiosks'}</span>
+                <span className="stat-label">{language === 'id' ? 'Kios Aktif' : 'Active Kiosks'}</span>
               </div>
             </div>
           </div>
 
           {/* OPSI 1: KIOSK MANAGER */}
           <div className="admin-widget kiosk-manager-widget">
-            <h3>{language === 'id' ? 'Manajemen Kiosk' : 'Kiosk Manager'}</h3>
+            <h3>{language === 'id' ? 'Manajemen Kios' : 'Kiosk Manager'}</h3>
             <div className="kiosk-list-container">
               {kiosks.filter(k => !k.name?.toLowerCase().includes('pintu')).length > 0 ? 
                 kiosks.filter(k => !k.name?.toLowerCase().includes('pintu')).map(k => {

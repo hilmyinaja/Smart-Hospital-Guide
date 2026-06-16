@@ -314,10 +314,11 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
                   const longestWordLen = Math.max(...textContent.split(' ').map(w => w.length), 1);
                   const actualUsableWidth = Math.max(10, room.width - 12);
 
-                  // Calculate font size so the longest word fits perfectly inside the inner box width
-                  const maxFontSizeWidth = actualUsableWidth / (longestWordLen * 0.85);
-                  const maxFontSizeHeight = room.height / 2.5;
-                  const fontSize = Math.max(6, Math.min(14, maxFontSizeWidth, maxFontSizeHeight));
+                  // Adjust font size calculation for better readability and word wrapping
+                  const maxFontSizeWidth = actualUsableWidth / (longestWordLen * 0.6);
+                  const maxFontSizeHeight = room.height / 2;
+                  // Strictly cap at maxFontSizeWidth to guarantee letters from the same word are never split
+                  const fontSize = Math.min(maxFontSizeWidth, Math.max(9, Math.min(16, maxFontSizeHeight)));
 
                   return (
                     <Group
@@ -353,10 +354,11 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
                   const longestWordLen = Math.max(...textContent.split(' ').map(w => w.length), 1);
                   const actualUsableWidth = Math.max(10, kiosk.width - 12);
 
-                  // Calculate font size so the longest word fits perfectly inside the inner box width
-                  const maxFontSizeWidth = actualUsableWidth / (longestWordLen * 0.85);
-                  const maxFontSizeHeight = kiosk.height / 2.5;
-                  const fontSize = Math.max(6, Math.min(14, maxFontSizeWidth, maxFontSizeHeight));
+                  // Adjust font size calculation for better readability and word wrapping
+                  const maxFontSizeWidth = actualUsableWidth / (longestWordLen * 0.6);
+                  const maxFontSizeHeight = kiosk.height / 2;
+                  // Strictly cap at maxFontSizeWidth to guarantee letters from the same word are never split
+                  const fontSize = Math.min(maxFontSizeWidth, Math.max(9, Math.min(16, maxFontSizeHeight)));
 
                   return (
                     <React.Fragment key={kiosk.id}>

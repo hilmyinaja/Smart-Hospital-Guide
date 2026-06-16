@@ -45,9 +45,11 @@ const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggin
   const longestWordLen = Math.max(...textContent.split(' ').map(w => w.length), 1);
   const actualUsableWidth = Math.max(10, shapeProps.width - 12);
 
-  const maxFontSizeWidth = actualUsableWidth / (longestWordLen * 0.85);
-  const maxFontSizeHeight = shapeProps.height / 2.5;
-  const dynamicFontSize = Math.max(6, Math.min(14, maxFontSizeWidth, maxFontSizeHeight));
+  // Adjust font size calculation for better readability and word wrapping
+  const maxFontSizeWidth = actualUsableWidth / (longestWordLen * 0.6);
+  const maxFontSizeHeight = shapeProps.height / 2;
+  // Strictly cap at maxFontSizeWidth to guarantee letters from the same word are never split
+  const dynamicFontSize = Math.min(maxFontSizeWidth, Math.max(9, Math.min(16, maxFontSizeHeight)));
 
   const getVisualColors = useCallback(() => {
     if (shapeProps.type === 'kiosk') {
