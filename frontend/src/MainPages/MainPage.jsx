@@ -709,7 +709,7 @@ export default function App() {
                 value={(() => {
                   const host = customQrHost || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? serverIp : window.location.hostname);
                   const port = window.location.port ? `:${window.location.port}` : "";
-                  const expires = Date.now() + 30 * 60 * 1000;
+                  const expires = Date.now() + 5 * 60 * 1000;
                   return `${window.location.protocol}//${host}${port}/?start=${encodeURIComponent(location)}&end=${encodeURIComponent(search)}&mobile=true&expires=${expires}`;
                 })()}
                 size={200}
@@ -892,8 +892,8 @@ export default function App() {
                   <button className="quick-action-btn" onClick={() => { const q = language === 'id' ? 'Tangga Darurat' : 'Emergency Stairs'; setSearch(q); executeSearch(location, q); }}>
                     <span>🏃</span> {language === 'id' ? 'Tangga Darurat' : 'Emergency Stairs'}
                   </button>
-                  <button className="quick-action-btn" onClick={() => { const q = language === 'id' ? 'Lift' : 'Elevator'; setSearch(q); executeSearch(location, q); }}>
-                    <span>🛗</span> {language === 'id' ? 'Lift' : 'Elevator'}
+                  <button className="quick-action-btn" onClick={() => { const q = 'Lift'; setSearch(q); executeSearch(location, q); }}>
+                    <span>🛗</span> Lift
                   </button>
                   <button className="quick-action-btn" onClick={() => { const q = language === 'id' ? 'Pusat Informasi' : 'Information Center'; setSearch(q); executeSearch(location, q); }}>
                     <span>ℹ️</span> {language === 'id' ? 'Pusat Informasi' : 'Information Center'}
