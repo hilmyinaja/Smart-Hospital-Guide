@@ -36,6 +36,11 @@ body.dark-mode {
   padding: 0;
 }
 
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
   font-family: 'DM Sans', sans-serif;
   background: var(--bg);
