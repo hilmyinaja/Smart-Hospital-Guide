@@ -673,18 +673,7 @@ export default function EditPage() {
             <option value="en" style={{color: "black"}}>🇬🇧 EN</option>
           </select>
 
-          {activeEditFloor.startsWith("submap_") && (
-            <button
-              onClick={() => {
-                const parentRoomId = activeEditFloor.replace("submap_", "");
-                const parentRoom = placedElements.find(el => el.id === parentRoomId);
-                setActiveEditFloor(parentRoom ? parentRoom.floor : floors[0]);
-              }}
-              style={{ padding: "8px 15px", background: "transparent", color: "white", border: "1px solid rgba(255,255,255,0.3)", borderRadius: "5px", cursor: "pointer", fontWeight: "bold" }}
-            >
-              <span>{getText('back_to_main_floor')}</span>
-            </button>
-          )}
+
 
           <button className="edit-page-btn cancel" onClick={() => setIsConfirmOpen(true)}><span>{getText('cancel')}</span></button>
           <button className="edit-page-btn save" onClick={() => { setConfirmAction("save"); setIsConfirmOpen(true); }}><span>{getText('save_map')}</span></button>
@@ -891,6 +880,20 @@ export default function EditPage() {
                 </button>
               )}
             </div>
+
+            {activeEditFloor.startsWith("submap_") && (
+              <button
+                className="edit-btn btn-secondary"
+                style={{ width: "100%", marginTop: "4px" }}
+                onClick={() => {
+                  const parentRoomId = activeEditFloor.replace("submap_", "");
+                  const parentRoom = placedElements.find(el => el.id === parentRoomId);
+                  setActiveEditFloor(parentRoom ? parentRoom.floor : floors[0]);
+                }}
+              >
+                ← {getText('back_to_main_floor')}
+              </button>
+            )}
 
             {selectedId && placedElements.find(el => el.id === selectedId)?.type === 'room' && (() => {
               const room = placedElements.find(el => el.id === selectedId);

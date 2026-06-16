@@ -93,6 +93,8 @@ export default function App() {
   const [customQrHost, setCustomQrHost] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isSessionExpired, setIsSessionExpired] = useState(false);
+  // ── STATE ROOM ACTION MODAL ──
+  const [roomActionModal, setRoomActionModal] = useState(null); // { room, hasSubmap }
 
   useEffect(() => {
     document.body.classList.toggle("dark-mode", isDarkMode);
@@ -1100,8 +1102,20 @@ export default function App() {
                   selectedKiosk={location}
                   isDarkMode={isDarkMode}
                   onRoomClick={(room) => {
-                    if (floors.includes(`submap_${room.id}`)) {
-                      setFloor(`submap_${room.id}`);
+                    if (isMobileMode) return; // Disable click on mobile handoff mode
+                    const hasSubmap = floors.includes(`submap_${room.id}`);
+                    if (hasSubmap) {
+                      // Tampilkan modal pilihan
+                      setRoomActionModal({ room, hasSubmap: true });
+                    } else {
+                      // Langsung navigasi
+                      const roomName = translateName(room.name, language, room.name_en);
+                      setSearch(roomName);
+                      if (location) {
+                        executeSearch(location, roomName);
+                      } else {
+                        setSearch(roomName);
+                      }
                     }
                   }}
                   showGrid={false}
@@ -1111,6 +1125,133 @@ export default function App() {
             </TransformComponent>
           </TransformWrapper>
         </main>
+
+        {/* ── ROOM ACTION MODAL ── */}
+        {roomActionModal && (
+          <div
+            onClick={() => setRoomActionModal(null)}
+            style={{
+              position: "fixed", inset: 0,
+              background: "rgba(0,0,0,0.35)",
+              backdropFilter: "blur(4px)",
+              WebkitBackdropFilter: "blur(4px)",
+              zIndex: 3000,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center"
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: isDarkMode ? "#1e293b" : "#ffffff",
+                borderRadius: "20px",
+                padding: "28px 24px",
+                width: "min(340px, 90vw)",
+                boxShadow: "0 25px 50px -12px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.08) inset",
+                border: `1px solid ${isDarkMode ? "#334155" : "rgba(226,232,240,0.8)"}`,
+                animation: "modalEnter 0.3s cubic-bezier(0.34,1.56,0.64,1) forwards"
+              }}
+            >
+              {/* Header */}
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
+                <div style={{
+                  width: "44px", height: "44px", borderRadius: "12px",
+                  background: isDarkMode ? "rgba(26,115,200,0.15)" : "#E8F0FE",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "var(--blue-primary)", flexShrink: 0
+                }}>
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                    <polyline points="9 22 9 12 15 12 15 22"/>
+                  </svg>
+                </div>
+                <div>
+                  <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: "1rem", color: isDarkMode ? "#f1f5f9" : "#172B4D" }}>
+                    {translateName(roomActionModal.room.name, language, roomActionModal.room.name_en)}
+                  </div>
+                  <div style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginTop: "2px" }}>
+                    {language === 'id' ? 'Pilih tindakan untuk ruangan ini' : 'Choose an action for this room'}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setRoomActionModal(null)}
+                  style={{ marginLeft: "auto", background: isDarkMode ? "#334155" : "#f1f5f9", border: "none", width: "30px", height: "30px", borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: "16px", flexShrink: 0 }}
+                >
+                  ×
+                </button>
+              </div>
+
+              {/* Divider */}
+              <div style={{ height: "1px", background: isDarkMode ? "#334155" : "#e2e8f0", marginBottom: "18px" }} />
+
+              {/* Action Buttons */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                {/* Navigate Button */}
+                <button
+                  onClick={() => {
+                    const room = roomActionModal.room;
+                    const roomName = translateName(room.name, language, room.name_en);
+                    setSearch(roomName);
+                    setRoomActionModal(null);
+                    if (location) {
+                      executeSearch(location, roomName);
+                    }
+                  }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: "12px",
+                    padding: "14px 16px", borderRadius: "12px", border: "none",
+                    background: "linear-gradient(135deg, var(--blue-primary) 0%, var(--blue-dark) 100%)",
+                    color: "white", cursor: "pointer", textAlign: "left",
+                    boxShadow: "0 4px 12px rgba(26,115,200,0.3)",
+                    transition: "all 0.2s ease", width: "100%"
+                  }}
+                >
+                  <div style={{ width: "34px", height: "34px", borderRadius: "8px", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: "0.92rem" }}>{language === 'id' ? 'Navigasi ke Sini' : 'Navigate Here'}</div>
+                    <div style={{ fontSize: "0.75rem", opacity: 0.85, marginTop: "1px" }}>{language === 'id' ? 'Tampilkan rute dari posisi Anda' : 'Show route from your position'}</div>
+                  </div>
+                </button>
+
+                {/* Enter Submap Button */}
+                {roomActionModal.hasSubmap && (
+                  <button
+                    onClick={() => {
+                      setFloor(`submap_${roomActionModal.room.id}`);
+                      setRoomActionModal(null);
+                    }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: "12px",
+                      padding: "14px 16px", borderRadius: "12px",
+                      border: `1.5px solid ${isDarkMode ? "#334155" : "var(--border)"}`,
+                      background: isDarkMode ? "rgba(30,41,59,0.6)" : "#f8fafc",
+                      color: isDarkMode ? "#e2e8f0" : "var(--text-main)", cursor: "pointer", textAlign: "left",
+                      transition: "all 0.2s ease", width: "100%"
+                    }}
+                  >
+                    <div style={{ width: "34px", height: "34px", borderRadius: "8px", background: isDarkMode ? "rgba(26,115,200,0.15)" : "#E8F0FE", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--blue-primary)" }}>
+                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <path d="M9 3v18"/>
+                        <path d="M3 9h6"/>
+                        <path d="M3 15h6"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: "0.92rem" }}>{language === 'id' ? 'Masuk ke Ruangan' : 'Enter Room'}</div>
+                      <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "1px" }}>{language === 'id' ? 'Lihat denah bagian dalam ruangan' : 'View the inner floor plan'}</div>
+                    </div>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
