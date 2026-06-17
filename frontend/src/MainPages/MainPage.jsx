@@ -187,6 +187,19 @@ export default function App() {
     return dict[key] ? dict[key][language] : key;
   };
 
+  const getRoomTranslation = (indoName) => {
+    if (language === 'id') return indoName;
+    const room = rooms.find(r => r.name && r.name.toLowerCase() === indoName.toLowerCase());
+    if (room && room.name_en) {
+      return room.name_en;
+    }
+    const kiosk = kiosks.find(k => k.name && k.name.toLowerCase() === indoName.toLowerCase());
+    if (kiosk && kiosk.name_en) {
+      return kiosk.name_en;
+    }
+    return translateName(indoName, language);
+  };
+
   const handleLanguageChange = (e) => {
     const newLang = e.target.value;
     setLanguage(newLang);
@@ -876,32 +889,32 @@ export default function App() {
                   {language === 'id' ? 'Pencarian Cepat' : 'Quick Searches'}
                 </p>
                 <div className="quick-actions">
-                  <button className="quick-action-btn" onClick={() => { const q = translateName('Pintu Masuk', language); setSearch(q); executeSearch(location, q); }}>
-                    <span>🚪</span> {translateName('Pintu Masuk', language)}
+                  <button className="quick-action-btn" onClick={() => { const q = getRoomTranslation('Pintu Masuk'); setSearch(q); executeSearch(location, q); }}>
+                    <span>🚪</span> {getRoomTranslation('Pintu Masuk')}
                   </button>
-                  <button className="quick-action-btn" onClick={() => { const q = translateName('IGD', language); setSearch(q); executeSearch(location, q); }}>
-                    <span>🚨</span> {translateName('IGD', language)}
+                  <button className="quick-action-btn" onClick={() => { const q = getRoomTranslation('IGD'); setSearch(q); executeSearch(location, q); }}>
+                    <span>🚨</span> {getRoomTranslation('IGD')}
                   </button>
-                  <button className="quick-action-btn" onClick={() => { const q = translateName('Toilet', language); setSearch(q); executeSearch(location, q); }}>
-                    <span>🚻</span> {translateName('Toilet', language)}
+                  <button className="quick-action-btn" onClick={() => { const q = getRoomTranslation('Toilet'); setSearch(q); executeSearch(location, q); }}>
+                    <span>🚻</span> {getRoomTranslation('Toilet')}
                   </button>
-                  <button className="quick-action-btn" onClick={() => { const q = translateName('Farmasi', language); setSearch(q); executeSearch(location, q); }}>
-                    <span>💊</span> {translateName('Farmasi', language)}
+                  <button className="quick-action-btn" onClick={() => { const q = getRoomTranslation('Farmasi'); setSearch(q); executeSearch(location, q); }}>
+                    <span>💊</span> {getRoomTranslation('Farmasi')}
                   </button>
-                  <button className="quick-action-btn" onClick={() => { const q = translateName('Mushola', language); setSearch(q); executeSearch(location, q); }}>
-                    <span>🕌</span> {translateName('Mushola', language)}
+                  <button className="quick-action-btn" onClick={() => { const q = getRoomTranslation('Mushola'); setSearch(q); executeSearch(location, q); }}>
+                    <span>🕌</span> {getRoomTranslation('Mushola')}
                   </button>
-                  <button className="quick-action-btn" onClick={() => { const q = translateName('Tangga Darurat', language); setSearch(q); executeSearch(location, q); }}>
-                    <span>🏃</span> {translateName('Tangga Darurat', language)}
+                  <button className="quick-action-btn" onClick={() => { const q = getRoomTranslation('Tangga Darurat'); setSearch(q); executeSearch(location, q); }}>
+                    <span>🏃</span> {getRoomTranslation('Tangga Darurat')}
                   </button>
-                  <button className="quick-action-btn" onClick={() => { const q = translateName('Lift', language); setSearch(q); executeSearch(location, q); }}>
-                    <span>🛗</span> {translateName('Lift', language)}
+                  <button className="quick-action-btn" onClick={() => { const q = getRoomTranslation('Lift'); setSearch(q); executeSearch(location, q); }}>
+                    <span>🛗</span> {getRoomTranslation('Lift')}
                   </button>
-                  <button className="quick-action-btn" onClick={() => { const q = translateName('Pusat Informasi', language); setSearch(q); executeSearch(location, q); }}>
-                    <span>ℹ️</span> {translateName('Pusat Informasi', language)}
+                  <button className="quick-action-btn" onClick={() => { const q = getRoomTranslation('Pusat Informasi'); setSearch(q); executeSearch(location, q); }}>
+                    <span>ℹ️</span> {getRoomTranslation('Pusat Informasi')}
                   </button>
-                  <button className="quick-action-btn" onClick={() => { const q = translateName('Kantin', language); setSearch(q); executeSearch(location, q); }}>
-                    <span>🍔</span> {translateName('Kantin', language)}
+                  <button className="quick-action-btn" onClick={() => { const q = getRoomTranslation('Kantin'); setSearch(q); executeSearch(location, q); }}>
+                    <span>🍔</span> {getRoomTranslation('Kantin')}
                   </button>
                 </div>
               </div>

@@ -146,7 +146,7 @@ def translate_names(request: RequestTranslate):
             
     if names_to_translate and GEMINI_API_KEY:
         try:
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            model = genai.GenerativeModel('gemini-2.5-flash')
             prompt = f"""
 You are an expert translator for a smart hospital guide application. 
 Your task is to translate the following Indonesian hospital room names into English medical/hospital terminology.
