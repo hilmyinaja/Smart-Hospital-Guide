@@ -1026,7 +1026,7 @@ export default function App() {
                 gap: "8px"
               }}
             >
-              <span>🛑</span> {language === 'id' ? 'Hentikan Navigasi' : 'Stop Navigation'}
+              {language === 'id' ? 'Hentikan Navigasi' : 'Stop Navigation'}
             </button>
           )}
 
