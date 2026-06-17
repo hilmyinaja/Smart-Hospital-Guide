@@ -325,8 +325,8 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
                   return (
                     <Group
                       key={room.id}
-                      onClick={() => onRoomClick && onRoomClick(room)}
-                      onTap={() => onRoomClick && onRoomClick(room)}
+                      onClick={(e) => onRoomClick && onRoomClick(room, e)}
+                      onTap={(e) => onRoomClick && onRoomClick(room, e)}
                       onMouseEnter={(e) => { if (onRoomClick) { e.target.getStage().container().style.cursor = 'pointer'; } }}
                       onMouseLeave={(e) => { if (onRoomClick) { e.target.getStage().container().style.cursor = 'default'; } }}
                     >

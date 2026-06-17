@@ -202,7 +202,7 @@ export default function EditPage() {
       'kiosk': { id: 'Kios', en: 'Kiosk' },
       'entrance': { id: 'Pintu Masuk', en: 'Entrance' },
       'exit': { id: 'Pintu Keluar', en: 'Exit' },
-      'add_floor': { id: '+ Tambah', en: '+ Add' },
+      'add_floor': { id: 'Tambah', en: 'Add' },
       'del_floor': { id: 'Hapus', en: 'Delete' },
       'save_confirm': { id: 'Konfirmasi Simpan', en: 'Confirm Save' },
       'cancel_confirm': { id: 'Konfirmasi Batal', en: 'Confirm Cancel' },

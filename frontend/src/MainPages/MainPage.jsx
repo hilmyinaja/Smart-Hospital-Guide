@@ -876,29 +876,32 @@ export default function App() {
                   {language === 'id' ? 'Pencarian Cepat' : 'Quick Searches'}
                 </p>
                 <div className="quick-actions">
-                  <button className="quick-action-btn" onClick={() => { const q = language === 'id' ? 'Pintu Masuk' : 'Entrance'; setSearch(q); executeSearch(location, q); }}>
-                    <span>🚪</span> {language === 'id' ? 'Pintu Masuk' : 'Entrance'}
+                  <button className="quick-action-btn" onClick={() => { const q = translateName('Pintu Masuk', language); setSearch(q); executeSearch(location, q); }}>
+                    <span>🚪</span> {translateName('Pintu Masuk', language)}
                   </button>
-                  <button className="quick-action-btn" onClick={() => { const q = language === 'id' ? 'IGD' : 'ER'; setSearch(q); executeSearch(location, q); }}>
-                    <span>🚨</span> {language === 'id' ? 'IGD' : 'ER'}
+                  <button className="quick-action-btn" onClick={() => { const q = translateName('IGD', language); setSearch(q); executeSearch(location, q); }}>
+                    <span>🚨</span> {translateName('IGD', language)}
                   </button>
-                  <button className="quick-action-btn" onClick={() => { const q = language === 'id' ? 'Toilet' : 'Restroom'; setSearch(q); executeSearch(location, q); }}>
-                    <span>🚻</span> {language === 'id' ? 'Toilet' : 'Restroom'}
+                  <button className="quick-action-btn" onClick={() => { const q = translateName('Toilet', language); setSearch(q); executeSearch(location, q); }}>
+                    <span>🚻</span> {translateName('Toilet', language)}
                   </button>
-                  <button className="quick-action-btn" onClick={() => { const q = language === 'id' ? 'Farmasi' : 'Pharmacy'; setSearch(q); executeSearch(location, q); }}>
-                    <span>💊</span> {language === 'id' ? 'Farmasi' : 'Pharmacy'}
+                  <button className="quick-action-btn" onClick={() => { const q = translateName('Farmasi', language); setSearch(q); executeSearch(location, q); }}>
+                    <span>💊</span> {translateName('Farmasi', language)}
                   </button>
-                  <button className="quick-action-btn" onClick={() => { const q = language === 'id' ? 'Mushola' : 'Prayer Room'; setSearch(q); executeSearch(location, q); }}>
-                    <span>🕌</span> {language === 'id' ? 'Mushola' : 'Prayer Room'}
+                  <button className="quick-action-btn" onClick={() => { const q = translateName('Mushola', language); setSearch(q); executeSearch(location, q); }}>
+                    <span>🕌</span> {translateName('Mushola', language)}
                   </button>
-                  <button className="quick-action-btn" onClick={() => { const q = language === 'id' ? 'Tangga Darurat' : 'Emergency Stairs'; setSearch(q); executeSearch(location, q); }}>
-                    <span>🏃</span> {language === 'id' ? 'Tangga Darurat' : 'Emergency Stairs'}
+                  <button className="quick-action-btn" onClick={() => { const q = translateName('Tangga Darurat', language); setSearch(q); executeSearch(location, q); }}>
+                    <span>🏃</span> {translateName('Tangga Darurat', language)}
                   </button>
-                  <button className="quick-action-btn" onClick={() => { const q = 'Lift'; setSearch(q); executeSearch(location, q); }}>
-                    <span>🛗</span> Lift
+                  <button className="quick-action-btn" onClick={() => { const q = translateName('Lift', language); setSearch(q); executeSearch(location, q); }}>
+                    <span>🛗</span> {translateName('Lift', language)}
                   </button>
-                  <button className="quick-action-btn" onClick={() => { const q = language === 'id' ? 'Pusat Informasi' : 'Information Center'; setSearch(q); executeSearch(location, q); }}>
-                    <span>ℹ️</span> {language === 'id' ? 'Pusat Informasi' : 'Information Center'}
+                  <button className="quick-action-btn" onClick={() => { const q = translateName('Pusat Informasi', language); setSearch(q); executeSearch(location, q); }}>
+                    <span>ℹ️</span> {translateName('Pusat Informasi', language)}
+                  </button>
+                  <button className="quick-action-btn" onClick={() => { const q = translateName('Kantin', language); setSearch(q); executeSearch(location, q); }}>
+                    <span>🍔</span> {translateName('Kantin', language)}
                   </button>
                 </div>
               </div>
@@ -976,7 +979,7 @@ export default function App() {
               onClick={() => setIsQrModalOpen(true)}
               style={{ marginTop: "15px" }}
             >
-              📱 Tampilkan QR Code Navigasi
+              Tampilkan QR Code Navigasi
             </button>
           )}
 
@@ -1101,12 +1104,14 @@ export default function App() {
                   language={language}
                   selectedKiosk={location}
                   isDarkMode={isDarkMode}
-                  onRoomClick={(room) => {
+                  onRoomClick={(room, e) => {
                     if (isMobileMode) return; // Disable click on mobile handoff mode
                     const hasSubmap = floors.includes(`submap_${room.id}`);
                     if (hasSubmap) {
                       // Tampilkan modal pilihan
-                      setRoomActionModal({ room, hasSubmap: true });
+                      const clientX = e?.evt?.clientX ?? window.innerWidth / 2;
+                      const clientY = e?.evt?.clientY ?? window.innerHeight / 2;
+                      setRoomActionModal({ room, hasSubmap: true, x: clientX, y: clientY });
                     } else {
                       // Langsung navigasi
                       const roomName = translateName(room.name, language, room.name_en);
@@ -1132,58 +1137,57 @@ export default function App() {
             onClick={() => setRoomActionModal(null)}
             style={{
               position: "fixed", inset: 0,
-              background: "rgba(0,0,0,0.35)",
-              backdropFilter: "blur(4px)",
-              WebkitBackdropFilter: "blur(4px)",
               zIndex: 3000,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center"
             }}
           >
             <div
               onClick={(e) => e.stopPropagation()}
               style={{
+                position: "absolute",
+                left: roomActionModal.x,
+                top: roomActionModal.y - 15,
+                transform: "translate(-50%, -100%)",
                 background: isDarkMode ? "#1e293b" : "#ffffff",
-                borderRadius: "20px",
-                padding: "28px 24px",
-                width: "min(340px, 90vw)",
-                boxShadow: "0 25px 50px -12px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.08) inset",
+                borderRadius: "16px",
+                padding: "16px",
+                width: "280px",
+                boxShadow: "0 10px 25px -5px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.05)",
                 border: `1px solid ${isDarkMode ? "#334155" : "rgba(226,232,240,0.8)"}`,
-                animation: "modalEnter 0.3s cubic-bezier(0.34,1.56,0.64,1) forwards"
+                animation: "modalEnter 0.2s ease-out forwards",
+                pointerEvents: "auto"
               }}
             >
               {/* Header */}
-              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" }}>
                 <div style={{
-                  width: "44px", height: "44px", borderRadius: "12px",
+                  width: "36px", height: "36px", borderRadius: "10px",
                   background: isDarkMode ? "rgba(26,115,200,0.15)" : "#E8F0FE",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   color: "var(--blue-primary)", flexShrink: 0
                 }}>
-                  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
                     <polyline points="9 22 9 12 15 12 15 22"/>
                   </svg>
                 </div>
                 <div>
-                  <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: "1rem", color: isDarkMode ? "#f1f5f9" : "#172B4D" }}>
+                  <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: "0.9rem", color: isDarkMode ? "#f1f5f9" : "#172B4D" }}>
                     {translateName(roomActionModal.room.name, language, roomActionModal.room.name_en)}
                   </div>
-                  <div style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginTop: "2px" }}>
+                  <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "2px" }}>
                     {language === 'id' ? 'Pilih tindakan untuk ruangan ini' : 'Choose an action for this room'}
                   </div>
                 </div>
                 <button
                   onClick={() => setRoomActionModal(null)}
-                  style={{ marginLeft: "auto", background: isDarkMode ? "#334155" : "#f1f5f9", border: "none", width: "30px", height: "30px", borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: "16px", flexShrink: 0 }}
+                  style={{ marginLeft: "auto", background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: "16px", flexShrink: 0 }}
                 >
                   ×
                 </button>
               </div>
 
               {/* Divider */}
-              <div style={{ height: "1px", background: isDarkMode ? "#334155" : "#e2e8f0", marginBottom: "18px" }} />
+              <div style={{ height: "1px", background: isDarkMode ? "#334155" : "#e2e8f0", marginBottom: "12px" }} />
 
               {/* Action Buttons */}
               <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -1199,22 +1203,22 @@ export default function App() {
                     }
                   }}
                   style={{
-                    display: "flex", alignItems: "center", gap: "12px",
-                    padding: "14px 16px", borderRadius: "12px", border: "none",
+                    display: "flex", alignItems: "center", gap: "10px",
+                    padding: "10px 12px", borderRadius: "10px", border: "none",
                     background: "linear-gradient(135deg, var(--blue-primary) 0%, var(--blue-dark) 100%)",
                     color: "white", cursor: "pointer", textAlign: "left",
                     boxShadow: "0 4px 12px rgba(26,115,200,0.3)",
                     transition: "all 0.2s ease", width: "100%"
                   }}
                 >
-                  <div style={{ width: "34px", height: "34px", borderRadius: "8px", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <div style={{ width: "28px", height: "28px", borderRadius: "8px", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <polygon points="3 11 22 2 13 21 11 13 3 11"/>
                     </svg>
                   </div>
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: "0.92rem" }}>{language === 'id' ? 'Navigasi ke Sini' : 'Navigate Here'}</div>
-                    <div style={{ fontSize: "0.75rem", opacity: 0.85, marginTop: "1px" }}>{language === 'id' ? 'Tampilkan rute dari posisi Anda' : 'Show route from your position'}</div>
+                    <div style={{ fontWeight: 700, fontSize: "0.85rem" }}>{language === 'id' ? 'Navigasi ke Sini' : 'Navigate Here'}</div>
+                    <div style={{ fontSize: "0.7rem", opacity: 0.85, marginTop: "1px" }}>{language === 'id' ? 'Tampilkan rute dari posisi Anda' : 'Show route from your position'}</div>
                   </div>
                 </button>
 
@@ -1226,16 +1230,16 @@ export default function App() {
                       setRoomActionModal(null);
                     }}
                     style={{
-                      display: "flex", alignItems: "center", gap: "12px",
-                      padding: "14px 16px", borderRadius: "12px",
-                      border: `1.5px solid ${isDarkMode ? "#334155" : "var(--border)"}`,
+                      display: "flex", alignItems: "center", gap: "10px",
+                      padding: "10px 12px", borderRadius: "10px",
+                      border: `1px solid ${isDarkMode ? "#334155" : "var(--border)"}`,
                       background: isDarkMode ? "rgba(30,41,59,0.6)" : "#f8fafc",
                       color: isDarkMode ? "#e2e8f0" : "var(--text-main)", cursor: "pointer", textAlign: "left",
                       transition: "all 0.2s ease", width: "100%"
                     }}
                   >
-                    <div style={{ width: "34px", height: "34px", borderRadius: "8px", background: isDarkMode ? "rgba(26,115,200,0.15)" : "#E8F0FE", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--blue-primary)" }}>
-                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <div style={{ width: "28px", height: "28px", borderRadius: "8px", background: isDarkMode ? "rgba(26,115,200,0.15)" : "#E8F0FE", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--blue-primary)" }}>
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <rect x="3" y="3" width="18" height="18" rx="2"/>
                         <path d="M9 3v18"/>
                         <path d="M3 9h6"/>
@@ -1243,8 +1247,8 @@ export default function App() {
                       </svg>
                     </div>
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: "0.92rem" }}>{language === 'id' ? 'Masuk ke Ruangan' : 'Enter Room'}</div>
-                      <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "1px" }}>{language === 'id' ? 'Lihat denah bagian dalam ruangan' : 'View the inner floor plan'}</div>
+                      <div style={{ fontWeight: 700, fontSize: "0.85rem" }}>{language === 'id' ? 'Masuk ke Ruangan' : 'Enter Room'}</div>
+                      <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "1px" }}>{language === 'id' ? 'Lihat denah bagian dalam ruangan' : 'View the inner floor plan'}</div>
                     </div>
                   </button>
                 )}

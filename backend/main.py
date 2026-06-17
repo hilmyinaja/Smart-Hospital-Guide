@@ -4,12 +4,21 @@ from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 import threading
 import socket
+import os
+import json
+from dotenv import load_dotenv
+import google.generativeai as genai
 from app.core.database import db, listen_to_firestore 
 from app.core import state as waypoint_graph
 from app.services.nlp_service import cari_target_ruangan, latih_ulang_nlp
 from app.services.a_star_service import cari_rute_grid
 from app.models.schemas import RoomModel, RoomUpdateModel
 from loguru import logger
+
+load_dotenv()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 # Lock global untuk mencegah race condition dari Firebase thread pool
 sync_lock = threading.Lock()
@@ -122,13 +131,59 @@ class RequestTranslate(BaseModel):
 @app.post("/api/translate")
 def translate_names(request: RequestTranslate):
     translations = {}
+    names_to_translate = []
+    
     for name in request.names:
         if not name:
             continue
-        translations[name] = {
-            "id": name,
-            "en": name
-        }
+        if "lift" in name.lower():
+            translations[name] = {
+                "id": name,
+                "en": name
+            }
+        else:
+            names_to_translate.append(name)
+            
+    if names_to_translate and GEMINI_API_KEY:
+        try:
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            prompt = f"""
+You are an expert translator for a smart hospital guide application. 
+Your task is to translate the following Indonesian hospital room names into English medical/hospital terminology.
+Return the result as a raw JSON object (without markdown blocks like ```json) where keys are the original Indonesian names, and values are the English translations.
+
+Names to translate:
+{json.dumps(names_to_translate)}
+"""
+            response = model.generate_content(prompt)
+            result_text = response.text.strip()
+            if result_text.startswith("```json"):
+                result_text = result_text.replace("```json", "").replace("```", "").strip()
+            elif result_text.startswith("```"):
+                result_text = result_text.replace("```", "").strip()
+            
+            translated_dict = json.loads(result_text)
+            
+            for name in names_to_translate:
+                en_name = translated_dict.get(name, name)
+                translations[name] = {
+                    "id": name,
+                    "en": en_name
+                }
+        except Exception as e:
+            logger.error(f"Gemini translation failed: {e}")
+            for name in names_to_translate:
+                translations[name] = {
+                    "id": name,
+                    "en": name
+                }
+    else:
+        for name in names_to_translate:
+            translations[name] = {
+                "id": name,
+                "en": name
+            }
+
     return {
         "status": "success",
         "translations": translations
