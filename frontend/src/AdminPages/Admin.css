@@ -19,7 +19,7 @@
 
 body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text-main); min-height: 100vh; }
 
-/* ── HEADER ──────────────────────────────────────────── */
+/* ── header ──────────────────────────────────────────── */
 .header {
   background: var(--blue-primary);
   height: 56px;
@@ -53,10 +53,10 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 
 .header-edit-btn { background: rgba(255, 187, 1, 0.749); border-color: rgba(255,255,255,0.2); }
 
-/* ── MAIN LAYOUT ─────────────────────────────────────── */
+/* ── layout utama ─────────────────────────────────────── */
 .main-layout { display: flex; gap: 16px; padding: 14px 20px; margin: 0 auto; height: calc(100vh - 56px); overflow: hidden; }
 
-/* ── LEFT PANEL ──────────────────────────────────────── */
+/* ── panel kiri ──────────────────────────────────────── */
 .left-panel { width: 300px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; }
 
 .search-input, .dropdown-select {
@@ -94,7 +94,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   transition: color 0.2s;
 }
 
-/* Destination output dynamic box */
+/* kotak tujuan dinamis */
 .destination-output-dynamic {
   width: 100%;
   max-height: 280px;
@@ -159,7 +159,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   text-align: center; padding: 11px 0; border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
-/* ── MAP PANEL ───────────────────────────────────────── */
+/* ── panel peta ───────────────────────────────────────── */
 .map-panel { flex: 1; background: var(--bg); border: 1.5px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); min-height: 0; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
 
 @media (max-width: 768px) {
@@ -224,7 +224,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   }
 }
 
-/* ── MODAL KONFIRMASI ────────────────────────────────── */
+/* ── modal konfirmasi ────────────────────────────────── */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -316,7 +316,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   }
 }
 
-/* ── CONFIRMATION ICON BADGES ────────────────────────── */
+/* ── ikon konfirmasi ────────────────────────── */
 .confirm-icon-badge {
   width: 64px;
   height: 64px;
@@ -352,7 +352,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   border: 1px solid rgba(249, 115, 22, 0.2);
 }
 
-/* ── MODAL DARK MODE OVERRIDES ───────────────────────── */
+/* ── modal dark mode overrides ───────────────────────── */
 body.dark-mode .confirm-modal {
   background: #1e293b;
   border-color: #334155;
@@ -390,7 +390,7 @@ body.dark-mode .cancel-badge {
   background: rgba(249, 115, 22, 0.1);
 }
 
-/* ── ADMIN WIDGETS ───────────────────────────────────── */
+/* ── admin widgets ───────────────────────────────────── */
 .admin-sidebar {
   display: flex;
   flex-direction: column;

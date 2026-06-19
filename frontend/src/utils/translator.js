@@ -159,7 +159,7 @@ export const translateName = (name, lang, nameEn) => {
       translated = translated.replace(regex, en_word);
     }
   } else if (lang === 'id') {
-    // Balikkan kamus untuk terjemahan EN -> ID
+    // Balikkan kamus untuk terjemahan en -> id
     const reverseDict = {};
     for (const [id_word, en_word] of Object.entries(dict)) {
       if (!reverseDict[en_word]) reverseDict[en_word] = id_word; 

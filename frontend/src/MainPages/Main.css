@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Space+Grotesk:wght@500;600&display=swap');
 
-/* ── HEADER ──────────────────────────────────────────── */
+/* ── header ──────────────────────────────────────────── */
 .header {
   background: var(--blue-primary);
   height: 56px;
@@ -36,7 +36,7 @@
   transition: background 0.2s, border-color 0.2s;
 }
 
-/* ── MAIN LAYOUT ─────────────────────────────────────── */
+/* ── layout utama ─────────────────────────────────────── */
 .main-layout {
   display: flex;
   gap: 16px;
@@ -47,7 +47,7 @@
   overflow: hidden;
 }
 
-/* ── LEFT PANEL ──────────────────────────────────────── */
+/* ── panel kiri ──────────────────────────────────────── */
 .left-panel {
   width: 300px;
   flex-shrink: 0;
@@ -59,7 +59,7 @@
   padding-right: 2px;
 }
 
-/* Search */
+/* pencarian */
 .search-wrapper {
   position: relative;
 }
@@ -148,7 +148,7 @@
   color: #ff3b3b !important;
 }
 
-/* Destination output dynamic box */
+/* kotak tujuan dinamis */
 .destination-output-dynamic {
   width: 100%;
   max-height: 240px;
@@ -206,7 +206,7 @@
   border-left: 3px solid var(--blue-primary);
 }
 
-/* Dropdown */
+/* dropdown */
 .dropdown-wrapper {
   position: relative;
 }
@@ -250,7 +250,7 @@
 
 
 
-/* ── MOBILE HANDOFF MODE ────────────────────────────── */
+/* ── mode mobile handoff ────────────────────────────── */
 .main-layout.mobile-mode {
   padding: 10px;
   gap: 10px;
@@ -291,9 +291,9 @@
   transition: background 0.2s;
 }
 
-/* VERTICAL FLOOR SCRUBBER STYLES MOVED TO index.css */
+/* gaya pengontrol lantai vertikal pindah ke index.css */
 
-/* ── MAP PANEL ───────────────────────────────────────── */
+/* ── panel peta ───────────────────────────────────────── */
 .map-panel {
   flex: 1;
   background: var(--bg);
@@ -315,7 +315,7 @@
   opacity: 0.45;
 }
 
-/* ── RESPONSIVE ──────────────────────────────────────── */
+/* ── responsif ──────────────────────────────────────── */
 @media (max-width: 768px) {
   .main-layout {
     flex-direction: column;
@@ -372,7 +372,7 @@
   }
 }
 
-/* ── MODAL STYLING ───────────────────────────────────── */
+/* ── gaya modal ───────────────────────────────────── */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -646,7 +646,7 @@
   transition: transform 0.2s ease;
 }
 
-/* Animations */
+/* animasi */
 @keyframes modalEnter {
   from {
     opacity: 0;
@@ -677,7 +677,7 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* ── ROUTE PLANNER LAYOUT ────────────────────────────── */
+/* ── layout rute ────────────────────────────── */
 .route-planner-container {
   display: flex;
   margin-bottom: 10px;
@@ -764,14 +764,14 @@
   font-weight: 500;
 }
 
-/* Remove colored glowing focus outlines for the new route UI */
+/* Remove colored glowing focus outlines for the new route ui */
 .route-planner-inputs .search-wrapper:focus-within .search-input.route-search,
 .route-planner-inputs .search-input.route-search:focus {
   box-shadow: none;
   outline: none;
 }
 
-/* --- QUICK ACTIONS SECTION --- */
+/* aksi cepat */
 .quick-actions-section {
   overflow: hidden;
   max-height: 800px;
@@ -842,4 +842,4 @@
   box-shadow: none;
   border-color: #c8d4e0;
   outline: none;
-}
+}

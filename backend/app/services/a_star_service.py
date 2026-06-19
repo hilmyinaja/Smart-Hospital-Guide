@@ -76,7 +76,7 @@ def cari_pasangan_lift_terbaik(start_node, target_node, curr_floor, target_floor
     min_dist = float('inf')
     
     for l1 in lifts_start:
-        # Cari pasangan lift di lantai tujuan berdasarkan shaft yang sama (X,Y paling dekat)
+        # Cari pasangan lift di lantai tujuan berdasarkan shaft yang sama (x,y paling dekat)
         l2 = min(lifts_target, key=lambda l: hitung_manhattan(l1["x"], l1["y"], l["x"], l["y"]))
         
         # Hitung total estimasi jarak: Start -> Lift 1 -> (Pindah Lantai) -> Lift 2 -> Target
@@ -360,7 +360,7 @@ def generate_navigation_text(path, start_id, target_id, language="id"):
             langkah.append({
                 "teks": teks_transisi,
                 "index_akhir": i,
-                "floor": p1["floor"] # Masih di floor sebelumnya untuk memicu transisi di UI
+                "floor": p1["floor"] # Masih di floor sebelumnya untuk memicu transisi di ui
             })
             current_dir = None
             is_after_transition = True

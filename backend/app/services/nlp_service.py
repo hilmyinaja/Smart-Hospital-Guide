@@ -15,7 +15,7 @@ NLP_CACHE = {}
 
 # Pengetahuan dasar asisten agar lebih pintar
 KAMUS_SINONIM = {
-    # IGD & Darurat
+    # igd & Darurat
     "ugd": "igd", "emergency": "igd", "darurat": "igd", "kecelakaan": "igd", "sekarat": "igd", "luka": "igd", "pendarahan": "igd", "kritis": "igd", "parah": "igd", "tabrakan": "igd", "pingsan": "igd", "luka bakar": "igd", "keracunan": "igd", "sesak napas berat": "igd", "serangan jantung": "igd",
 
     # Toilet
@@ -42,7 +42,7 @@ KAMUS_SINONIM = {
     "operasi": "ruang operasi", "ok": "ruang operasi", "pembedahan": "ruang operasi", "caesar": "ruang operasi", "kamar bedah": "ruang operasi",
     "meninggal": "kamar jenazah", "mati": "kamar jenazah", "jenazah": "kamar jenazah", "mayat": "kamar jenazah", "morgue": "kamar jenazah", "kremasi": "kamar jenazah",
 
-    # MCU (Medical Check Up)
+    # mcu (Medical Check Up)
     "checkup": "mcu", "cek kesehatan": "mcu", "medical check up": "mcu", "screening": "mcu", "tes kesehatan": "mcu", "medical": "mcu",
 
     # Fasilitas Umum
@@ -70,7 +70,7 @@ KAMUS_SINONIM = {
     # Poli Gigi & Mulut
     "gigi": "poli gigi", "cabut gigi": "poli gigi", "tambal gigi": "poli gigi", "kawat gigi": "poli gigi", "behel": "poli gigi", "karang gigi": "poli gigi", "sakit gigi": "poli gigi", "gusi": "poli gigi", "sariawan": "poli gigi", "mulut": "poli gigi",
 
-    # Poli Mata & THT
+    # Poli Mata & tht
     "mata": "poli mata", "kacamata": "poli mata", "rabun": "poli mata", "katarak": "poli mata", "minus": "poli mata", "silinder": "poli mata", "buta": "poli mata", "sakit mata": "poli mata",
     "tht": "poli tht", "telinga": "poli tht", "hidung": "poli tht", "tenggorokan": "poli tht", "amandel": "poli tht", "budek": "poli tht", "tuli": "poli tht", "sinusitis": "poli tht", "mimisan": "poli tht",
 
@@ -93,7 +93,7 @@ KAMUS_SINONIM = {
 
     # English to Indonesian Mappings
 
-    # ER & Emergency
+    # er & Emergency
     "er": "igd", "emergency": "igd", "casualty": "igd", "accident": "igd", "critical": "igd", "bleeding": "igd", "faint": "igd", "heart attack": "igd", "poisoning": "igd", "burns": "igd",
 
     # Toilet
@@ -110,7 +110,7 @@ KAMUS_SINONIM = {
     "radiology": "radiologi", "xray": "radiologi", "x-ray": "radiologi", "mri": "radiologi", "ultrasound": "radiologi", "scan": "radiologi", "imaging": "radiologi",
     "laboratory": "laboratorium", "lab": "laboratorium", "swab": "laboratorium", "sample": "laboratorium",
 
-    # Inpatient & ICU
+    # Inpatient & icu
     "inpatient": "rawat inap", "ward": "rawat inap", "hospitalization": "rawat inap", "admission": "rawat inap", "visiting": "rawat inap", "stay": "rawat inap",
     "intensive care": "icu", "critical care": "icu",
 
@@ -148,7 +148,7 @@ KAMUS_SINONIM = {
     # Dental
     "dental": "poli gigi", "dentist": "poli gigi", "toothache": "poli gigi", "teeth": "poli gigi", "tooth": "poli gigi", "braces": "poli gigi", "cavity": "poli gigi", "gums": "poli gigi",
 
-    # Eye & ENT
+    # Eye & ent
     "eye": "poli mata", "ophthalmology": "poli mata", "glasses": "poli mata", "vision": "poli mata", "blind": "poli mata", "cataract": "poli mata",
     "ent": "poli tht", "ear": "poli tht", "nose": "poli tht", "throat": "poli tht", "deaf": "poli tht", "sinus": "poli tht", "tonsil": "poli tht",
 
@@ -193,7 +193,7 @@ KAMUS_SINONIM = {
     "ambulans": "igd", "ambulance": "igd", "mobil jenazah": "kamar jenazah"
 }
 
-# Fungsi pembersihan teks untuk NLP
+# Fungsi pembersihan teks untuk nlp
 def bersihkan_teks(teks_kotor):
     teks = teks_kotor.lower()
     
@@ -206,7 +206,7 @@ def bersihkan_teks(teks_kotor):
         
     teks = re.sub(r'[^\w\s]', '', teks)
     
-    # Kata tugas yang tidak relevan (ID & EN)
+    # Kata tugas yang tidak relevan (id & en)
     stopwords = [
         "mau", "ke", "di", "mana", "tolong", "antar", "cari", "ruang", "tempat", "saya", "ingin", "tanya", "mas", "mbak", "kasih", "tau", "arah", "jalan", "buat", "ambil",
         "tunjukkan", "bantuin", "dong", "aku", "nyari", "gimana", "caranya", "menuju", "cara", "pergi", "bisa", "tolongin", "dong", "pak", "bu", "sus", "suster", "dokter", "letak", "letaknya", "ada",
@@ -216,7 +216,7 @@ def bersihkan_teks(teks_kotor):
     
     return " ".join(kata_akhir)
 
-# Fungsi untuk melatih ulang model NLP dengan data terbaru dari Firebase
+# Fungsi untuk melatih ulang model nlp dengan data terbaru dari Firebase
 def latih_ulang_nlp(data_kamus_baru):
     global DATABASE_RUANGAN, daftar_nama_ruangan, embeddings_ruangan
     
@@ -248,7 +248,7 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
 
     input_bersih = bersihkan_teks(input_pengunjung)
 
-    # PEMERIKSAAN KECOCOKAN PERSIS & IRISAN KATA
+    # pemeriksaan kecocokan persis & irisan kata
     perfect_matches = []
     keyword_perfect_matches = []
     substring_matches = []
@@ -264,7 +264,7 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
         room_name_lower = room.get("name", "").lower().strip()
         room_keywords = [k.lower().strip() for k in room.get("keywords", [])]
         
-        # 1. Cocokkan ID Persis atau Nama Persis (Mentah)
+        # 1. Cocokkan id Persis atau Nama Persis (Mentah)
         if input_lower == room_name_lower or input_pengunjung == r_id:
             perfect_matches.append(r_id)
             
@@ -356,7 +356,7 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
          pesan = "Mohon masukkan tujuan yang lebih spesifik." if language == "id" else "Please enter a more specific destination."
          return {"status": "error", "pesan": pesan}
 
-    # HEURISTIC: Deteksi jika user HANYA ingin pergi ke suatu lantai (misal: "turun lantai 1", "lantai 2", dsb.)
+    # heuristic: Deteksi jika user hanya ingin pergi ke suatu lantai (misal: "turun lantai 1", "lantai 2", dsb.)
     # Jika iya, kita akan arahkan mereka ke "Lift" di lantai tujuan tersebut.
     teks_cek = input_bersih.replace("naik", "").replace("turun", "").strip()
     match_lantai = re.fullmatch(r'lantai\s+(\w+)', teks_cek) # \w+ agar menangkap angka maupun string "dasar" dsb
@@ -381,7 +381,7 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
     skor_kemiripan = util.cos_sim(input_embedding, embeddings_ruangan)[0].cpu().numpy()
     
     # Penalti Tangga Darurat jika user tidak secara spesifik mengetik "tangga"
-    # agar rute antar lantai via pencarian NLP selalu memprioritaskan "Lift"
+    # agar rute antar lantai via pencarian nlp selalu memprioritaskan "Lift"
     if "tangga" not in input_bersih:
         for i, r_id in enumerate(daftar_nama_ruangan):
             nama_keywords = " ".join(DATABASE_RUANGAN.get(r_id, [])).lower()

@@ -8,7 +8,7 @@ import SharedMap from "../components/SharedMap";
 import { translateName } from "../utils/translator";
 import "./Admin.css";
 
-// ── Icon components ──
+// ── komponen ikon ──
 const SearchIcon = () => (
   <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="11" cy="11" r="8" />
@@ -272,7 +272,7 @@ export default function App() {
   const speakSteps = (langkahNavigasi, startIndex = 0, currentLang = language) => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      window.utterances = []; // HACK: Mencegah Garbage Collection di browser Mobile
+      window.utterances = []; // solusi sementara: Mencegah Garbage Collection di browser Mobile
       
       const playNext = (index) => {
         if (!isMountedRef.current) return;
@@ -325,14 +325,13 @@ export default function App() {
     
     if (!searchTarget.trim()) return;
     
-    // HACK MOBILE: Pancing engine suara dengan audio kosong secara sinkron dengan klik tombol
+    // solusi mobile: Pancing engine suara dengan audio kosong secara sinkron dengan klik tombol
     if ('speechSynthesis' in window) {
        const silentUtterance = new SpeechSynthesisUtterance('');
        silentUtterance.volume = 0;
        window.speechSynthesis.speak(silentUtterance);
     }
 
-    
     if (!searchLocation) {
       setOutputText(getText('fail_kiosk_first'));
       return;
@@ -545,7 +544,7 @@ export default function App() {
       <div className="main-layout">
         <aside className="left-panel admin-sidebar">
           
-          {/* OPSI 2: ANALITIK MINI */}
+          {/* opsi 2: analitik mini */}
           <div className="admin-widget">
             <h3>{language === 'id' ? 'Statistik Sistem' : 'System Analytics'}</h3>
             <div className="stat-grid">
@@ -560,7 +559,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* OPSI 1: MANAJER KIOS */}
+          {/* opsi 1: manajer kios */}
           <div className="admin-widget kiosk-manager-widget">
             <h3>{language === 'id' ? 'Manajemen Kios' : 'Kiosk Manager'}</h3>
             <div className="kiosk-list-container">
@@ -603,7 +602,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* OPSI 3: LOG AKTIVITAS (MOCK) */}
+          {/* opsi 3: log aktivitas (mock) */}
           <div className="admin-widget activity-log-widget">
             <h3>{language === 'id' ? 'Aktivitas Terbaru' : 'Recent Activity'}</h3>
             <div className="activity-list">
@@ -638,7 +637,7 @@ export default function App() {
               )}
             </div>
           </div>
-          {/* KOTAK TEKS NAVIGASI DINAMIS */}
+          {/* kotak teks navigasi dinamis */}
           {(outputText || navigationSteps.length > 0) && (
             <div className="destination-output-dynamic">
               {navigationSteps.length > 0 ? (
@@ -664,7 +663,7 @@ export default function App() {
         </aside>
         
         <main className="map-panel" style={{ position: "relative" }}>
-          {/* KONTROL LANTAI VERTIKAL (OPSI 1) */}
+          {/* kontrol lantai vertikal (opsi 1) */}
           <div className="vertical-scrubber-wrapper">
             {(() => {
               const visibleFloors = floors.filter(f => !f.startsWith("submap_"));

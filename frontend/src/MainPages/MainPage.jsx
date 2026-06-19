@@ -10,7 +10,7 @@ import { translateName } from "../utils/translator";
 import { QRCodeCanvas } from "qrcode.react";
 import "./Main.css";
 
-// ── Icon components ──
+// ── komponen ikon ──
 const SearchIcon = () => (
   <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="11" cy="11" r="8" />
@@ -63,7 +63,7 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [outputText, setOutputText] = useState("");
 
-  // ── STATE KIOSK LOCK ──
+  // ── status kiosk lock ──
   const [location, setLocation] = useState(localStorage.getItem("locked_kiosk_id") || "");
   const [isKioskLocked, setIsKioskLocked] = useState(!!localStorage.getItem("locked_kiosk_id"));
 
@@ -93,7 +93,7 @@ export default function App() {
   const [customQrHost, setCustomQrHost] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isSessionExpired, setIsSessionExpired] = useState(false);
-  // ── STATE ROOM ACTION MODAL ──
+  // ── status room action modal ──
   const [roomActionModal, setRoomActionModal] = useState(null); // { room, hasSubmap }
 
   useEffect(() => {
@@ -218,7 +218,7 @@ export default function App() {
     }
   };
 
-  // ── FITUR LOCK DEVICE & MOBILE HANDOFF ──
+  // ── fitur lock device & mobile handoff ──
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const lockId = params.get("set_kiosk");
@@ -320,7 +320,6 @@ export default function App() {
         }
       });
 
-
       loadedRooms.sort((a, b) => a.name.localeCompare(b.name));
       setRooms(loadedRooms);
 
@@ -408,7 +407,7 @@ export default function App() {
   const speakSteps = (langkahNavigasi, startIndex = 0, currentLang = language) => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      window.utterances = []; // HACK: Mencegah Garbage Collection di browser Mobile
+      window.utterances = []; // solusi sementara: Mencegah Garbage Collection di browser Mobile
 
       const playNext = (index) => {
         if (!isMountedRef.current) return;
@@ -480,7 +479,7 @@ export default function App() {
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current);
 
-    // HACK MOBILE: Pancing engine suara dengan audio kosong secara sinkron dengan klik tombol
+    // solusi mobile: Pancing engine suara dengan audio kosong secara sinkron dengan klik tombol
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       const silentUtterance = new SpeechSynthesisUtterance('');
@@ -512,7 +511,7 @@ export default function App() {
 
       let data;
       try {
-        // Baru coba ubah teks tersebut ke JSON
+        // Baru coba ubah teks tersebut ke json
         data = JSON.parse(textResponse);
       } catch {
         // Jika gagal, berarti Python mengirim error atau blank. Tampilkan aslinya!
@@ -782,7 +781,7 @@ export default function App() {
                   </div>
                 </div>
                 <div className="route-planner-inputs">
-                  {/* DROPDOWN KIOSK ATAU INFO KIOSK TERKUNCI */}
+                  {/* dropdown kiosk atau info kiosk terkunci */}
                   {isKioskLocked ? (
                     <div className="dropdown-wrapper kiosk-input" style={{ padding: "12px", background: "var(--white)", borderRadius: "8px", border: "1.5px solid var(--border)", color: "var(--text-main)", fontWeight: "600", fontSize: "14px", display: "flex", alignItems: "center", gap: "8px" }}>
                       {getText('you_are_here')} {kiosks.find(k => k.id === location)?.name || location}
@@ -812,7 +811,7 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* PENCARIAN & DROPDOWN RUANGAN */}
+                  {/* pencarian & dropdown ruangan */}
                   <div className="search-wrapper destination-input" style={{ position: "relative" }}>
                     <form onSubmit={(e) => { e.preventDefault(); executeSearch(location, search); }} style={{ width: "100%", margin: 0 }}>
                       <input
@@ -829,7 +828,7 @@ export default function App() {
                       <MicIcon isListening={isListening} />
                     </div>
 
-                    {/* Dropdown Tak Terlihat di Atas Chevron */}
+                    {/* dropdown Tak Terlihat di Atas Chevron */}
                     <select
                       className="dropdown-select route-select"
                       style={{
@@ -884,7 +883,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* AKSI CEPAT — hanya tampil saat belum ada tujuan dipilih */}
+              {/* aksi cepat — hanya tampil saat belum ada tujuan dipilih */}
               <div className={`quick-actions-section${search.trim() ? ' quick-actions-hidden' : ''}`}>
                 <p className="quick-actions-label">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
@@ -921,11 +920,10 @@ export default function App() {
                 </div>
               </div>
 
-
             </>
           )}
 
-          {/* KOTAK TEKS NAVIGASI DINAMIS */}
+          {/* kotak teks navigasi dinamis */}
           {(outputText || navigationSteps.length > 0) && (
             <div className={`destination-output-dynamic ${isMobileMode ? 'mobile-nav-box' : ''}`}>
               {navigationSteps.length > 0 ? (
@@ -1036,7 +1034,7 @@ export default function App() {
 
         <main className="map-panel" style={{ position: "relative" }}>
 
-          {/* KONTROL LANTAI VERTIKAL (OPSI 1) */}
+          {/* kontrol lantai vertikal (opsi 1) */}
           <div className="vertical-scrubber-wrapper">
             {(() => {
               const visibleFloors = floors.filter(f => {
@@ -1146,7 +1144,7 @@ export default function App() {
           </TransformWrapper>
         </main>
 
-        {/* ── ROOM ACTION MODAL ── */}
+        {/* ── room action modal ── */}
         {roomActionModal && (
           <div
             onClick={() => setRoomActionModal(null)}
@@ -1201,7 +1199,6 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Pemisah */}
               <div style={{ height: "1px", background: isDarkMode ? "#334155" : "#e2e8f0", marginBottom: "12px" }} />
 
               {/* Tombol Aksi */}

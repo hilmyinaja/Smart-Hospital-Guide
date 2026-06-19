@@ -47,7 +47,7 @@ body {
   color: var(--text-main);
 }
 
-/* Theme Toggle Switch */
+/* tombol ubah tema */
 .theme-switch {
   position: relative;
   display: inline-block;
@@ -105,13 +105,13 @@ input:checked+.slider:before {
   line-height: 1;
 }
 
-/* Fix for extra outline on map drag focus */
+/* perbaikan garis luar saat peta digeser */
 .react-transform-component,
 .react-transform-wrapper {
   outline: none !important;
 }
 
-/* ── VERTICAL FLOOR SCRUBBER (GLOBAL) ───────────── */
+/* ── pengontrol lantai vertikal ───────────── */
 .vertical-scrubber-wrapper {
   position: absolute;
   right: 24px;
@@ -132,11 +132,11 @@ input:checked+.slider:before {
   overflow-y: auto;
   pointer-events: auto;
   touch-action: pan-y;
-  -ms-overflow-style: none;  /* IE and Edge */
+  -ms-overflow-style: none;  /* ie and Edge */
   scrollbar-width: none;  /* Firefox */
 }
 
-/* Hide scrollbar for Chrome, Safari and Opera */
+/* sembunyikan scrollbar */
 .vertical-scrubber-wrapper::-webkit-scrollbar {
   display: none;
 }

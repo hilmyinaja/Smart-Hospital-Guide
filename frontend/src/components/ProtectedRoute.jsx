@@ -10,7 +10,7 @@ export default function ProtectedRoute({ children }) {
   const location = useLocation();
 
   useEffect(() => {
-    // Cegah akses URL langsung
+    // Cegah akses url langsung
     if (!location.state || !location.state.authorized) {
       navigate("/");
       return;

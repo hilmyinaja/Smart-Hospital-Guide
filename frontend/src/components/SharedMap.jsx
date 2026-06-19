@@ -147,8 +147,6 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
     };
   }, [rooms, kiosks, currentFloor, mapSize.width, mapSize.height]);
 
-
-
   useEffect(() => {
     const updateSize = () => {
       if (containerRef.current) {
@@ -235,7 +233,7 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
     }
 
     // Kecepatan jalan: semakin kecil angka = semakin lambat
-    // totalPathLength / X  → orang menempuh seluruh jalur dalam X detik
+    // totalPathLength / X → orang menempuh seluruh jalur dalam X detik
     const WALK_SPEED = Math.max(15, totalPathLength / 5);
     const LEG_SWING_FREQ = 0.006; // frekuensi ayunan kaki
 
@@ -383,7 +381,7 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
             </Group>
           </Layer>
 
-          {/* Layer Animasi Terpisah (SANGAT PENTING UNTUK PERFORMA MOBILE) */}
+          {/* Layer Animasi Terpisah (penting untuk performa mobile) */}
           <Layer>
             <Group scaleX={scaleAndOffset.scale} scaleY={scaleAndOffset.scale} x={scaleAndOffset.x} y={scaleAndOffset.y}>
               {/* Garis Rute & Animasi Orang Berjalan */}

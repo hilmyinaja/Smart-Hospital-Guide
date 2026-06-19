@@ -27,7 +27,7 @@ const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggin
     }
   };
 
-  // ── RUMUS BARU: AUTO SHRINK FONT ──
+  // ── rumus baru: auto shrink font ──
   const textContent = translateName(shapeProps.name || (shapeProps.type === 'kiosk' ? 'Kiosk' : 'Tanpa Nama'), language);
   const longestWordLen = Math.max(...textContent.split(' ').map(w => w.length), 1);
   const actualUsableWidth = Math.max(10, shapeProps.width - 12);
@@ -39,22 +39,27 @@ const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggin
   const dynamicFontSize = Math.min(maxFontSizeWidth, Math.max(9, Math.min(16, maxFontSizeHeight)));
 
   const getVisualColors = useCallback(() => {
-    if (shapeProps.type === 'kiosk') {
-      if (shapeProps.name?.toLowerCase().includes('pintu')) {
-        return { fill: "#4CAF50", stroke: "#2E7D32", text: "#FFFFFF" };
-      }
+    const original = originalElements.find(el => el.id === shapeProps.id);
+    const isNew = !original;
+    const isChanged = original && (Math.abs(original.x - shapeProps.x) > 0.1 || Math.abs(original.y - shapeProps.y) > 0.1 || Math.abs(original.width - shapeProps.width) > 0.1 || Math.abs(original.height - shapeProps.height) > 0.1);
+
+    const isEntrance = shapeProps.type === 'kiosk' && shapeProps.name?.toLowerCase().includes('pintu');
+    const isKiosk = shapeProps.type === 'kiosk' && !isEntrance;
+
+    if (isEntrance) {
+      if (isNew) return { fill: isDarkMode ? "#1b5e20" : "#a5d6a7", stroke: isDarkMode ? "#2e7d32" : "#4caf50", text: isDarkMode ? "#ffffff" : "#1b5e20" };
+      if (isChanged) return { fill: isDarkMode ? "#827717" : "#e6ee9c", stroke: isDarkMode ? "#9e9d24" : "#c0ca33", text: isDarkMode ? "#ffffff" : "#827717" };
+      return { fill: "#4CAF50", stroke: "#2E7D32", text: "#FFFFFF" };
+    }
+
+    if (isKiosk) {
+      if (isNew) return { fill: isDarkMode ? "#0d47a1" : "#bbdefb", stroke: isDarkMode ? "#1565c0" : "#2196f3", text: isDarkMode ? "#ffffff" : "#0d47a1" };
+      if (isChanged) return { fill: isDarkMode ? "#311b92" : "#d1c4e9", stroke: isDarkMode ? "#4527a0" : "#9575cd", text: isDarkMode ? "#ffffff" : "#311b92" };
       return { fill: "#2196F3", stroke: "#0D47A1", text: "#FFFFFF" };
     }
 
-    const original = originalElements.find(el => el.id === shapeProps.id);
-    if (!original) return { fill: isDarkMode ? "#064e3b" : "#d4edda", stroke: isDarkMode ? "#065f46" : "#c3e6cb", text: isDarkMode ? "#d1fae5" : "#155724" };
-
-    const posChanged = Math.abs(original.x - shapeProps.x) > 0.1 || Math.abs(original.y - shapeProps.y) > 0.1;
-    const sizeChanged = Math.abs(original.width - shapeProps.width) > 0.1 || Math.abs(original.height - shapeProps.height) > 0.1;
-
-    if (posChanged || sizeChanged) {
-      return { fill: isDarkMode ? "#3f3f00" : "#fff3cd", stroke: isDarkMode ? "#666600" : "#ffeeba", text: isDarkMode ? "#fff" : "#856404" };
-    }
+    if (isNew) return { fill: isDarkMode ? "#064e3b" : "#d4edda", stroke: isDarkMode ? "#065f46" : "#c3e6cb", text: isDarkMode ? "#d1fae5" : "#155724" };
+    if (isChanged) return { fill: isDarkMode ? "#3f3f00" : "#fff3cd", stroke: isDarkMode ? "#666600" : "#ffeeba", text: isDarkMode ? "#fff" : "#856404" };
 
     return { fill: isDarkMode ? "#1e293b" : "#f8f9fa", stroke: isDarkMode ? "#334155" : "#ced4da", text: isDarkMode ? "#f8fafc" : "#495057" };
   }, [shapeProps, originalElements, isDarkMode]);
@@ -97,6 +102,10 @@ const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggin
         strokeWidth={isSelected ? 3 : 2}
         perfectDrawEnabled={false}
         shadowForStrokeEnabled={false}
+        onTouchStart={() => setIsDraggingElement(true)}
+        onTouchEnd={() => setIsDraggingElement(false)}
+        onMouseDown={() => setIsDraggingElement(true)}
+        onMouseUp={() => setIsDraggingElement(false)}
         onDragStart={() => setIsDraggingElement(true)}
         onTransformStart={() => setIsDraggingElement(true)}
         dragBoundFunc={(pos) => ({
@@ -177,6 +186,7 @@ export default function EditPage() {
   const [isFloorDropdownOpen, setIsFloorDropdownOpen] = useState(false);
   const dragItemIndexRef = useRef(null);
   const dragOverItemIndexRef = useRef(null);
+  const touchDragDataRef = useRef(null);
   const [language, setLanguage] = useState(localStorage.getItem('language') || 'id');
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return localStorage.getItem('theme') === 'dark';
@@ -534,19 +544,7 @@ export default function EditPage() {
     dragOverItemIndexRef.current = null;
   };
 
-  const handleDrop = (e) => {
-    e.preventDefault();
-    const mapRect = mapRef.current.getBoundingClientRect();
-    const clientX = e.clientX - mapRect.left;
-    const clientY = e.clientY - mapRect.top;
-
-    let dragData;
-    try {
-      dragData = JSON.parse(e.dataTransfer.getData("text/plain"));
-    } catch {
-      return;
-    }
-
+  const processDrop = (clientX, clientY, dragData) => {
     if (transformRef.current && dragData) {
       const { scale, positionX, positionY } = transformRef.current.state;
       const x = (clientX - positionX) / scale;
@@ -577,6 +575,22 @@ export default function EditPage() {
       saveHistory(newElements);
       setSelectedId(newId);
     }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const mapRect = mapRef.current.getBoundingClientRect();
+    const clientX = e.clientX - mapRect.left;
+    const clientY = e.clientY - mapRect.top;
+
+    let dragData;
+    try {
+      dragData = JSON.parse(e.dataTransfer.getData("text/plain"));
+    } catch {
+      return;
+    }
+
+    processDrop(clientX, clientY, dragData);
   };
 
   const handleConfirmYes = async () => {
@@ -682,8 +696,6 @@ export default function EditPage() {
             <option value="id" style={{color: "black"}}>🇮🇩 ID</option>
             <option value="en" style={{color: "black"}}>🇬🇧 EN</option>
           </select>
-
-
 
           <button className="edit-page-btn cancel" onClick={() => setIsConfirmOpen(true)}><span>{getText('cancel')}</span></button>
           <button className="edit-page-btn save" onClick={() => { setConfirmAction("save"); setIsConfirmOpen(true); }}><span>{getText('save_map')}</span></button>
@@ -965,6 +977,7 @@ export default function EditPage() {
                   draggable
                   className="template-card template-room"
                   title={translateName(preset.name, language)}
+                  style={{ touchAction: 'none' }}
                   onDragStart={(e) => {
                     e.dataTransfer.setData("text/plain", JSON.stringify({
                       type: "new-room",
@@ -973,6 +986,28 @@ export default function EditPage() {
                       defaultGridWidth: 4,
                       defaultGridHeight: 4
                     }));
+                  }}
+                  onTouchStart={() => {
+                    touchDragDataRef.current = {
+                      type: "new-room",
+                      defaultName: preset.name,
+                      endpoints: preset.endpoints,
+                      defaultGridWidth: 4,
+                      defaultGridHeight: 4
+                    };
+                  }}
+                  onTouchEnd={(e) => {
+                    if (!touchDragDataRef.current) return;
+                    const touch = e.changedTouches[0];
+                    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                    const mapContainer = mapRef.current;
+                    if (mapContainer && mapContainer.contains(target)) {
+                      const mapRect = mapContainer.getBoundingClientRect();
+                      const clientX = touch.clientX - mapRect.left;
+                      const clientY = touch.clientY - mapRect.top;
+                      processDrop(clientX, clientY, touchDragDataRef.current);
+                    }
+                    touchDragDataRef.current = null;
                   }}
                   onClick={() => {
                     const newId = generateNextRoomId();
@@ -998,6 +1033,7 @@ export default function EditPage() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
               <div
                 draggable
+                style={{ touchAction: 'none' }}
                 onDragStart={(e) => {
                   e.dataTransfer.setData("text/plain", JSON.stringify({
                     type: "new-kiosk",
@@ -1005,6 +1041,27 @@ export default function EditPage() {
                     defaultGridWidth: 2,
                     defaultGridHeight: 2
                   }));
+                }}
+                onTouchStart={() => {
+                  touchDragDataRef.current = {
+                    type: "new-kiosk",
+                    defaultName: "Kios Baru",
+                    defaultGridWidth: 2,
+                    defaultGridHeight: 2
+                  };
+                }}
+                onTouchEnd={(e) => {
+                  if (!touchDragDataRef.current) return;
+                  const touch = e.changedTouches[0];
+                  const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                  const mapContainer = mapRef.current;
+                  if (mapContainer && mapContainer.contains(target)) {
+                    const mapRect = mapContainer.getBoundingClientRect();
+                    const clientX = touch.clientX - mapRect.left;
+                    const clientY = touch.clientY - mapRect.top;
+                    processDrop(clientX, clientY, touchDragDataRef.current);
+                  }
+                  touchDragDataRef.current = null;
                 }}
                 onClick={() => {
                   const newId = generateNextKioskId();
@@ -1024,6 +1081,7 @@ export default function EditPage() {
 
               <div
                 draggable
+                style={{ touchAction: 'none' }}
                 onDragStart={(e) => {
                   e.dataTransfer.setData("text/plain", JSON.stringify({
                     type: "new-entrance",
@@ -1031,6 +1089,27 @@ export default function EditPage() {
                     defaultGridWidth: 2,
                     defaultGridHeight: 2
                   }));
+                }}
+                onTouchStart={() => {
+                  touchDragDataRef.current = {
+                    type: "new-entrance",
+                    defaultName: language === 'id' ? "Pintu Masuk Utama" : "Main Entrance",
+                    defaultGridWidth: 2,
+                    defaultGridHeight: 2
+                  };
+                }}
+                onTouchEnd={(e) => {
+                  if (!touchDragDataRef.current) return;
+                  const touch = e.changedTouches[0];
+                  const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                  const mapContainer = mapRef.current;
+                  if (mapContainer && mapContainer.contains(target)) {
+                    const mapRect = mapContainer.getBoundingClientRect();
+                    const clientX = touch.clientX - mapRect.left;
+                    const clientY = touch.clientY - mapRect.top;
+                    processDrop(clientX, clientY, touchDragDataRef.current);
+                  }
+                  touchDragDataRef.current = null;
                 }}
                 onClick={() => {
                   const newId = generateNextKioskId();

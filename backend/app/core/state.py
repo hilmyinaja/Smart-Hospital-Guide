@@ -13,7 +13,7 @@ def get_grid_map(floor):
         GRID_MAP[floor] = [[0 for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
     return GRID_MAP[floor]
 
-# Mapping ID Ruangan ke letak Grid (X = Kolom, Y = Baris)
+# Mapping id Ruangan ke letak Grid (X = Kolom, Y = Baris)
 RUANGAN_GRID = {}
 
 # Fungsi Jarak Manhattan (Jauh lebih ringan dari Euclidean untuk sistem Grid)

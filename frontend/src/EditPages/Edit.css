@@ -1,4 +1,4 @@
-/* Prefix edit-page- memastikan CSS ini TIDAK memengaruhi MainPage/AdminPage */
+/* Prefix edit-page- memastikan css ini tidak memengaruhi MainPage/AdminPage */
 
 .edit-page-header {
   background: var(--blue-primary);
@@ -79,7 +79,7 @@ body.dark-mode .edit-page-map {
   padding-right: 8px;
 }
 
-/* Scrollbar for right panel */
+/* scrollbar panel kanan */
 .edit-page-right-panel::-webkit-scrollbar {
   width: 6px;
 }
@@ -91,7 +91,7 @@ body.dark-mode .edit-page-right-panel::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.15);
 }
 
-/* ── MODERN CARDS ── */
+/* ── kartu modern ── */
 .edit-card {
   background: var(--white);
   padding: 16px;
@@ -131,7 +131,7 @@ body.dark-mode .edit-page-right-panel::-webkit-scrollbar-thumb {
   font-weight: 600;
 }
 
-/* ── FORM ELEMENTS ── */
+/* ── elemen form ── */
 .edit-select {
   width: 100%;
   padding: 10px 12px;
@@ -156,7 +156,7 @@ body.dark-mode .edit-page-right-panel::-webkit-scrollbar-thumb {
   box-shadow: 0 0 0 3px rgba(26, 115, 200, 0.15);
 }
 
-/* ── BUTTONS ── */
+/* ── tombol ── */
 .edit-btn-group {
   display: flex;
   gap: 8px;
@@ -187,7 +187,7 @@ body.dark-mode .edit-page-right-panel::-webkit-scrollbar-thumb {
 
 .btn-primary { background: var(--blue-primary); color: white; box-shadow: 0 2px 8px rgba(26, 115, 200, 0.25); }
 
-/* ── TEMPLATES (DRAG & DROP) ── */
+/* ── template ── */
 .edit-tools h3 {
   font-size: 16px;
   color: var(--text-main);
@@ -245,7 +245,7 @@ body.dark-mode .edit-page-right-panel::-webkit-scrollbar-thumb {
 .template-entrance { border-left: 4px solid #f59e0b; width: auto !important; height: auto !important; margin: 0 !important; }
 .template-entrance .template-icon { background: rgba(245, 158, 11, 0.1); }
 
-/* ── CHECKBOX CONTROLS ── */
+/* ── kontrol checkbox ── */
 .endpoint-title {
   margin: 0 0 6px 0;
   font-size: 13px;
@@ -310,7 +310,7 @@ body.dark-mode .edit-page-right-panel::-webkit-scrollbar-thumb {
   gap: 12px;
 }
 
-/* Modal Overlay */
+/* overlay modal */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -327,7 +327,7 @@ body.dark-mode .edit-page-right-panel::-webkit-scrollbar-thumb {
   transition: all 0.3s ease;
 }
 
-/* Confirm Modal */
+/* modal konfirmasi */
 .confirm-modal {
   background: var(--white);
   border-radius: 20px;
@@ -402,7 +402,7 @@ body.dark-mode .edit-page-right-panel::-webkit-scrollbar-thumb {
 }
 
 
-/* ── RESPONSIVE ──────────────────────────────────────── */
+/* ── responsif ──────────────────────────────────────── */
 @media (max-width: 768px) {
   .edit-page-layout {
     display: flex;
@@ -454,7 +454,7 @@ body.dark-mode .edit-page-right-panel::-webkit-scrollbar-thumb {
   }
 }
 
-/* ── CONFIRMATION ICON BADGES ────────────────────────── */
+/* ── ikon konfirmasi ────────────────────────── */
 .confirm-icon-badge {
   width: 64px;
   height: 64px;
@@ -477,7 +477,7 @@ body.dark-mode .edit-page-right-panel::-webkit-scrollbar-thumb {
   color: #f97316;
   border: 1px solid rgba(249, 115, 22, 0.2);
 }
-/* ── CUSTOM DROPDOWN DRAG AND DROP ── */
+/* ── dropdown khusus ── */
 .custom-floor-dropdown {
   position: relative;
   width: 100%;

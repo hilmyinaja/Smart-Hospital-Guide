@@ -86,7 +86,7 @@ def sinkronisasi_peta(data):
                 
                 logger.debug(f" -> Load: [{room_id}] '{room_name}' (X:{item['grid_x']}, Y:{item['grid_y']})")
 
-        # Tambahkan nama ruangan induk ke node submap untuk pencocokan NLP yang lebih baik
+        # Tambahkan nama ruangan induk ke node submap untuk pencocokan nlp yang lebih baik
         for room_id, room in temp_ruangan.items():
             if room["floor"].startswith("submap_"):
                 parent_id = room["floor"].replace("submap_", "")
