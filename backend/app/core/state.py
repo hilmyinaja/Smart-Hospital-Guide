@@ -1,4 +1,3 @@
-# waypoint_graph.py
 import math
 
 # 0 = Lorong Bebas (Jalur Navigasi)
@@ -15,7 +14,7 @@ def get_grid_map(floor):
     return GRID_MAP[floor]
 
 # Mapping ID Ruangan ke letak Grid (X = Kolom, Y = Baris)
-RUANGAN_GRID = {} # Ini diisi dinamis oleh main.py / Firebase
+RUANGAN_GRID = {}
 
 # Fungsi Jarak Manhattan (Jauh lebih ringan dari Euclidean untuk sistem Grid)
 def hitung_manhattan(x1, y1, x2, y2):

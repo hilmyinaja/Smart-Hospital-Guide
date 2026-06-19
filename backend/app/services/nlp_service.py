@@ -1,4 +1,3 @@
-# nlp_engine.py
 import re
 import difflib
 import numpy as np
@@ -198,7 +197,7 @@ KAMUS_SINONIM = {
 def bersihkan_teks(teks_kotor):
     teks = teks_kotor.lower()
     
-    # Sort keys by length descending so compound words are replaced before single words
+    # Urutkan kunci berdasarkan panjang menurun agar kata majemuk diganti sebelum kata tunggal
     sorted_synonyms = sorted(KAMUS_SINONIM.items(), key=lambda item: len(item[0]), reverse=True)
     
     # Perbaikan sinonim (misal: "mau ambil obat" -> "mau ambil farmasi")
@@ -249,7 +248,7 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
 
     input_bersih = bersihkan_teks(input_pengunjung)
 
-    # EXACT & WORD INTERSECTION MATCH CHECK
+    # PEMERIKSAAN KECOCOKAN PERSIS & IRISAN KATA
     perfect_matches = []
     keyword_perfect_matches = []
     substring_matches = []
@@ -265,7 +264,7 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
         room_name_lower = room.get("name", "").lower().strip()
         room_keywords = [k.lower().strip() for k in room.get("keywords", [])]
         
-        # 1. Match Exact ID or Exact Name (Raw)
+        # 1. Cocokkan ID Persis atau Nama Persis (Mentah)
         if input_lower == room_name_lower or input_pengunjung == r_id:
             perfect_matches.append(r_id)
             
@@ -282,7 +281,7 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
                 mapping_kunci_ke_id[teks_bersih].append(r_id)
                 room_words.update(teks_bersih.split())
                 
-                # Exact Keyword Match
+                # Kecocokan Kata Kunci Persis
                 if input_bersih == teks_bersih:
                     if r_id not in perfect_matches and r_id not in keyword_perfect_matches:
                         keyword_perfect_matches.append(r_id)
@@ -291,7 +290,7 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
                     if r_id not in perfect_matches and r_id not in keyword_perfect_matches and r_id not in substring_matches:
                         substring_matches.append(r_id)
         
-        # 2. Word Intersection (Irisan Kata Baku)
+        # 2. Irisan Kata Baku
         irisan = input_words.intersection(room_words)
         irisan_valid = [w for w in irisan if len(w) >= 3]
         if irisan_valid:
@@ -344,7 +343,7 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
                             terbaik_id = m_id
                     return {"status": "success", "target_id": terbaik_id, "confidence_score": 1.0}
             
-            # Fallback jika tidak ada start_node_id
+            # Cadangan jika tidak ada start_node_id
             if current_floor:
                 for m_id in exact_matches:
                     m_room = waypoint_graph.RUANGAN_GRID.get(m_id)
@@ -430,7 +429,7 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
                             terbaik_id = kandidat_id
                 
             if not terbaik_id:
-                # Fallback jika tidak ada start_node_id, minimal utamakan current_floor
+                # Cadangan jika tidak ada start_node_id, minimal utamakan current_floor
                 if current_floor:
                     for idx in kandidat_indeks:
                         kandidat_id = daftar_nama_ruangan[idx]

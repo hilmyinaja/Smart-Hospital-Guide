@@ -138,7 +138,7 @@ export const translateName = (name, lang, nameEn) => {
   const ordinals = ["Zero", "First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth", "Ninth", "Tenth", "Eleventh", "Twelfth", "Thirteenth", "Fourteenth", "Fifteenth"];
 
   if (lang === 'en') {
-    // Convert Lantai X -> First Floor, Second Floor, etc.
+    // Ubah Lantai X -> First Floor, Second Floor, dll.
     const floorMatch = translated.match(/Lantai\s+(\d+)/i);
     if (floorMatch) {
       const num = parseInt(floorMatch[1], 10);
@@ -159,13 +159,13 @@ export const translateName = (name, lang, nameEn) => {
       translated = translated.replace(regex, en_word);
     }
   } else if (lang === 'id') {
-    // Reverse dictionary for EN -> ID translation
+    // Balikkan kamus untuk terjemahan EN -> ID
     const reverseDict = {};
     for (const [id_word, en_word] of Object.entries(dict)) {
       if (!reverseDict[en_word]) reverseDict[en_word] = id_word; 
     }
 
-    // Convert First Floor -> Lantai 1
+    // Ubah First Floor -> Lantai 1
     const floorMatchEn = translated.match(/([a-zA-Z]+)\s+Floor/i);
     if (floorMatchEn) {
       const word = floorMatchEn[1];
