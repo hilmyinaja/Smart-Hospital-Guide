@@ -269,6 +269,7 @@ export default function App() {
       }
       window.history.replaceState(null, "", window.location.pathname);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language]);
 
   const hasAutoSwitchedFloor = useRef(false);

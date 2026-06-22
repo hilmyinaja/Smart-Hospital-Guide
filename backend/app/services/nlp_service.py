@@ -16,7 +16,7 @@ NLP_CACHE = {}
 # Pengetahuan dasar asisten agar lebih pintar
 KAMUS_SINONIM = {
     # igd & Darurat
-    "ugd": "igd", "emergency": "igd", "darurat": "igd", "kecelakaan": "igd", "sekarat": "igd", "luka": "igd", "pendarahan": "igd", "kritis": "igd", "parah": "igd", "tabrakan": "igd", "pingsan": "igd", "luka bakar": "igd", "keracunan": "igd", "sesak napas berat": "igd", "serangan jantung": "igd",
+    "ugd": "igd", "emergency": "igd", "gawat darurat": "igd", "kecelakaan": "igd", "sekarat": "igd", "luka": "igd", "pendarahan": "igd", "kritis": "igd", "parah": "igd", "tabrakan": "igd", "pingsan": "igd", "luka bakar": "igd", "keracunan": "igd", "sesak napas berat": "igd", "serangan jantung": "igd",
 
     # Toilet
     "wc": "toilet", "kamar mandi": "toilet", "kencing": "toilet", "berak": "toilet", "buang air": "toilet", "pipis": "toilet", "pup": "toilet", "bab": "toilet", "bak": "toilet", "restroom": "toilet", "washroom": "toilet", "wastafel": "toilet",

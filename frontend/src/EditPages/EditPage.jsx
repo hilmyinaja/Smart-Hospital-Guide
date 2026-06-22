@@ -243,7 +243,6 @@ export default function EditPage() {
       'redo': { id: 'Ulangi', en: 'Redo' },
       'rename_floor': { id: 'Ganti Nama', en: 'Rename' },
       'move_up': { id: 'Geser ke Atas', en: 'Move Up' },
-      'move_up': { id: 'Geser ke Atas', en: 'Move Up' },
       'move_down': { id: 'Geser ke Bawah', en: 'Move Down' },
       'prompt_new_floor': { id: 'Masukkan nama lantai baru:\n(Contoh: Lantai 5, Gedung B, Basement)', en: 'Enter new floor name:\n(Example: Floor 5, Building B, Basement)' },
       'alert_floor_exists': { id: 'Lantai tersebut sudah ada di daftar!', en: 'That floor is already in the list!' },
