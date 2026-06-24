@@ -32,6 +32,7 @@ def listen_to_firestore(callback):
         for doc in col_snapshot:
             data = doc.to_dict()
             data['id_dokumen'] = doc.id 
+            data['type'] = 'room'
             updated_data.append(data)
         state["rooms"] = updated_data
         callback(state["rooms"] + state["kiosks"])
@@ -41,6 +42,7 @@ def listen_to_firestore(callback):
         for doc in col_snapshot:
             data = doc.to_dict()
             data['id_dokumen'] = doc.id 
+            data['type'] = 'kiosk'
             updated_data.append(data)
         state["kiosks"] = updated_data
         callback(state["rooms"] + state["kiosks"])

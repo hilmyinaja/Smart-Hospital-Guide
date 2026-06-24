@@ -5,32 +5,42 @@ def _a_star_single_floor(start_node, target_node):
     floor = start_node.get("floor", "Lantai 1")
     grid = get_grid_map(floor)
     
-    target_coords = set()
-    if "door_coords" in target_node and target_node["door_coords"]:
-        for c in target_node["door_coords"]:
-            target_coords.add(c)
-    else:
-        for dy in range(target_node.get("h", 1)):
-            for dx in range(target_node.get("w", 1)):
-                target_coords.add((target_node["x"] + dx, target_node["y"] + dy))
+    def get_valid_coords(node):
+        coords = set()
+        is_kiosk = node.get("type") == "kiosk"
+        is_entrance = is_kiosk and "pintu" in node.get("name", "").lower()
+        
+        if is_kiosk and not is_entrance:
+            for dy in range(node.get("h", 1)):
+                for dx in range(node.get("w", 1)):
+                    coords.add((node["x"] + dx, node["y"] + dy))
+        else:
+            if "door_coords" in node and node["door_coords"]:
+                for c in node["door_coords"]:
+                    coords.add(c)
+            else:
+                for dy in range(node.get("h", 1)):
+                    for dx in range(node.get("w", 1)):
+                        coords.add((node["x"] + dx, node["y"] + dy))
+        return coords
 
+    target_coords = get_valid_coords(target_node)
+    
     open_set = []
     came_from = {}
     g_score = {}
     f_score = {}
     
-    for dy in range(start_node.get("h", 1)):
-        for dx in range(start_node.get("w", 1)):
-            sx = start_node["x"] + dx
-            sy = start_node["y"] + dy
-            
-            g_score[(sx, sy)] = 0
-            min_h = float('inf')
-            for tx, ty in target_coords:
-                h = hitung_manhattan(sx, sy, tx, ty)
-                if h < min_h: min_h = h
-            f_score[(sx, sy)] = min_h
-            heapq.heappush(open_set, (min_h, (sx, sy)))
+    start_coords = get_valid_coords(start_node)
+
+    for sx, sy in start_coords:
+        g_score[(sx, sy)] = 0
+        min_h = float('inf')
+        for tx, ty in target_coords:
+            h = hitung_manhattan(sx, sy, tx, ty)
+            if h < min_h: min_h = h
+        f_score[(sx, sy)] = min_h
+        heapq.heappush(open_set, (min_h, (sx, sy)))
             
     while open_set:
         current_f, current = heapq.heappop(open_set)

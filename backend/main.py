@@ -64,7 +64,8 @@ def sinkronisasi_peta(data):
                     "door_coords": door_coords,
                     "name": room_name,
                     "name_en": item.get("name_en", ""),
-                    "floor": floor
+                    "floor": floor,
+                    "type": item.get("type", "room")
                 }
                 
                 if floor not in temp_grid:
