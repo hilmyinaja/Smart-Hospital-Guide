@@ -91,7 +91,6 @@ export default function App() {
   const [isNavFinished, setIsNavFinished] = useState(false);
   const [countdownValue, setCountdownValue] = useState(10);
   const [serverIp, setServerIp] = useState("");
-  const [customQrHost, setCustomQrHost] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isSessionExpired, setIsSessionExpired] = useState(false);
   // ── status room action modal ──
@@ -385,7 +384,6 @@ export default function App() {
         .then(res => res.json())
         .then(data => {
           setServerIp(data.ip);
-          setCustomQrHost(data.ip);
         })
         .catch(err => {
           console.error("Gagal mendapatkan IP server, mencoba lagi...", err);
@@ -735,7 +733,7 @@ export default function App() {
             <div style={{ background: "white", padding: "16px", borderRadius: "10px", display: "inline-block" }}>
               <QRCodeCanvas
                 value={(() => {
-                  const host = customQrHost || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? serverIp : window.location.hostname);
+                  const host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? serverIp : window.location.hostname;
                   const port = window.location.port ? `:${window.location.port}` : "";
                   const expires = Date.now() + 5 * 60 * 1000;
                   return `${window.location.protocol}//${host}${port}/?start=${encodeURIComponent(location)}&end=${encodeURIComponent(search)}&mobile=true&expires=${expires}`;
