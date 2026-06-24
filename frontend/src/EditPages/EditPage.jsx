@@ -9,7 +9,7 @@ import { translateName } from "../utils/translator";
 import { PromptDialog, AlertDialog, ConfirmDialog } from "../components/Dialogs";
 import "./Edit.css";
 
-const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggingElement, GRID_SIZE, originalElements, language, isDarkMode, onRequestRename }) => {
+const ElementShape = React.memo(({ shapeProps, isSelected, onSelect, onChange, setIsDraggingElement, GRID_SIZE, originalElements, language, isDarkMode, onRequestRename }) => {
   const shapeRef = useRef();
   const trRef = useRef();
 
@@ -155,18 +155,36 @@ const ElementShape = ({ shapeProps, isSelected, onSelect, onChange, setIsDraggin
         ellipsis={false}
         perfectDrawEnabled={false}
       />
-
       {renderEndpoints()}
-
       {isSelected && (
-        <Transformer ref={trRef} rotateEnabled={false} boundBoxFunc={(oldBox, newBox) => {
-          if (newBox.width < GRID_SIZE || newBox.height < GRID_SIZE) return oldBox;
-          return newBox;
-        }} />
+        <Transformer
+          ref={trRef}
+          rotateEnabled={false}
+          boundBoxFunc={(oldBox, newBox) => {
+            if (newBox.width < GRID_SIZE || newBox.height < GRID_SIZE) {
+              return oldBox;
+            }
+            return newBox;
+          }}
+        />
       )}
     </React.Fragment>
   );
-};
+}, (prev, next) => {
+  return (
+    prev.isSelected === next.isSelected &&
+    prev.language === next.language &&
+    prev.isDarkMode === next.isDarkMode &&
+    prev.GRID_SIZE === next.GRID_SIZE &&
+    prev.shapeProps.x === next.shapeProps.x &&
+    prev.shapeProps.y === next.shapeProps.y &&
+    prev.shapeProps.width === next.shapeProps.width &&
+    prev.shapeProps.height === next.shapeProps.height &&
+    prev.shapeProps.name === next.shapeProps.name &&
+    prev.shapeProps.floor === next.shapeProps.floor &&
+    prev.shapeProps.type === next.shapeProps.type
+  );
+});
 
 export default function EditPage() {
   const navigate = useNavigate();
@@ -715,6 +733,10 @@ export default function EditPage() {
     return translateName(floorName, language);
   };
 
+  const activeFloorElements = useMemo(() => {
+    return placedElements.filter(el => el.floor === activeEditFloor);
+  }, [placedElements, activeEditFloor]);
+
   return (
     <div className="edit-page-container">
       <header className="edit-page-header">
@@ -816,8 +838,7 @@ export default function EditPage() {
                     <Rect id="bg-grid" x={0} y={0} width={calculatedMapSize.width} height={calculatedMapSize.height} fill="transparent" />
                     {drawGrid()}
 
-                    {placedElements
-                      .filter(el => el.floor === activeEditFloor)
+                    {activeFloorElements
                       .map((rect) => (
                         <ElementShape
                           key={rect.id}

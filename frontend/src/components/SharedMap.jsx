@@ -278,6 +278,9 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
     return lines;
   };
 
+  const currentFloorRooms = useMemo(() => rooms.filter(room => room.floor === currentFloor), [rooms, currentFloor]);
+  const currentFloorKiosks = useMemo(() => kiosks.filter(kiosk => kiosk.floor === currentFloor), [kiosks, currentFloor]);
+
   return (
     <div ref={containerRef} style={{ width: "100%", height: "100%", background: isDarkMode ? "#0f172a" : "#f5f5f5" }}>
       {mapSize.width > 0 && mapSize.height > 0 && (
@@ -307,8 +310,7 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
               )}
 
               {/* Render Ruangan bersih senada background (Tanpa Endpoint) */}
-              {rooms
-                .filter((room) => room.floor === currentFloor)
+              {currentFloorRooms
                 .map((room) => {
                   const textContent = translateName(room.name || "Tanpa Nama", language, room.name_en);
                   const longestWordLen = Math.max(...textContent.split(' ').map(w => w.length), 1);
@@ -343,8 +345,7 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
                 })}
 
               {/* Render Kiosks (biru) dan Pintu Masuk (hijau) */}
-              {kiosks
-                .filter((kiosk) => kiosk.floor === currentFloor)
+              {currentFloorKiosks
                 .map((kiosk) => {
                   const textContent = translateName(kiosk.name || "Kiosk", language, kiosk.name_en);
                   const isPintu = kiosk.name?.toLowerCase().includes('pintu');
