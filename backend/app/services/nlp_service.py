@@ -74,14 +74,27 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
          pesan = "Mohon masukkan tujuan yang lebih spesifik." if language == "id" else "Please enter a more specific destination."
          return {"status": "error", "pesan": pesan}
 
-    # Heuristic: Deteksi jika user hanya ingin pergi ke suatu lantai (misal: "turun lantai 1", "lantai 2", dsb).
-    # Jika iya, kita akan arahkan mereka ke "Lift" di lantai tujuan tersebut.
+    # Heuristic: Deteksi jika user hanya ingin pergi ke suatu lantai.
+    # Cocokkan input dengan semua nama lantai yang ada di database (kecuali submap).
     teks_cek = input_bersih.replace("naik", "").replace("turun", "").strip()
-    match_lantai = re.fullmatch(r'lantai\s+(\w+)', teks_cek)  # Regex untuk menangkap angka maupun string "dasar".
-    if match_lantai:
-        target_floor = f"Lantai {match_lantai.group(1)}"
+    
+    # Kumpulkan semua nama lantai unik dari grid (abaikan submap).
+    semua_lantai = set()
+    for room in waypoint_graph.RUANGAN_GRID.values():
+        fl = room.get("floor", "Lantai 1")
+        if not fl.startswith("submap_"):
+            semua_lantai.add(fl)
+    
+    # Cocokkan input yang sudah dibersihkan dengan nama lantai.
+    target_floor_match = None
+    for fl in semua_lantai:
+        if teks_cek.lower() == fl.lower():
+            target_floor_match = fl
+            break
+    
+    if target_floor_match:
         for r_id, room in waypoint_graph.RUANGAN_GRID.items():
-            if room.get("floor", "Lantai 1").lower() == target_floor.lower():
+            if room.get("floor", "Lantai 1") == target_floor_match:
                 nama = room.get("name", "").lower()
                 if "lift" in nama and "tangga" not in nama:
                     return {
