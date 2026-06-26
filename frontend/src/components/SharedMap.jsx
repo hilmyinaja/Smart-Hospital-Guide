@@ -110,9 +110,9 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
     const availableHeight = mapSize.height - padding * 2;
     const scaleX = availableWidth / mapBounds.width;
     const scaleY = availableHeight / mapBounds.height;
-    const scale = Math.min(scaleX, scaleY, 2); // Batasi skala maksimum ke 2x untuk menghindari peregangan berlebihan
+    const scale = Math.min(scaleX, scaleY, 2); // Batasi skala maksimum ke 2x untuk menghindari peregangan berlebihan.
 
-    // Pusatkan batas peta di stage
+
     const x = (mapSize.width - mapBounds.width * scale) / 2 - mapBounds.x * scale;
     const y = (mapSize.height - mapBounds.height * scale) / 2 - mapBounds.y * scale;
 
@@ -232,15 +232,15 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
       totalPathLength = getTotalPathLength(activePathPoints);
     }
 
-    // Kecepatan jalan: semakin kecil angka = semakin lambat
-    // totalPathLength / X → orang menempuh seluruh jalur dalam X detik
+    // Kecepatan jalan: semakin kecil angka = semakin lambat.
+    // TotalPathLength / X -> orang menempuh seluruh jalur dalam X detik.
     const WALK_SPEED = Math.max(15, totalPathLength / 5);
-    const LEG_SWING_FREQ = 0.006; // frekuensi ayunan kaki
+    const LEG_SWING_FREQ = 0.006; // Frekuensi ayunan kaki.
 
     const anim = new Konva.Animation((frame) => {
       if (!lineRef.current) return;
 
-      // Animasi garis putus-putus bergerak
+
       const dashOffset = (frame.time / 25) % 20;
       lineRef.current.dashOffset(-dashOffset);
 
@@ -316,10 +316,10 @@ export default function SharedMap({ path = [], activePath = null, currentFloor =
                   const longestWordLen = Math.max(...textContent.split(' ').map(w => w.length), 1);
                   const actualUsableWidth = Math.max(10, room.width - 12);
 
-                  // Sesuaikan ukuran font untuk keterbacaan dan word wrapping yang lebih baik
+                  // Sesuaikan ukuran font untuk keterbacaan dan word wrapping yang lebih baik.
                   const maxFontSizeWidth = actualUsableWidth / (longestWordLen * 0.6);
                   const maxFontSizeHeight = room.height / 2;
-                  // Batasi ukuran font secara ketat agar huruf dari kata yang sama tidak terpisah
+                  // Batasi ukuran font secara ketat agar huruf dari kata yang sama tidak terpisah.
                   const fontSize = Math.min(maxFontSizeWidth, Math.max(9, Math.min(16, maxFontSizeHeight)));
 
                   return (

@@ -1,10 +1,19 @@
+import os
 import re
-import difflib
 import numpy as np
 from sentence_transformers import SentenceTransformer, util
+from rapidfuzz import process, fuzz
+import google.generativeai as genai
+from firebase_admin import firestore
+from app.core.database import db
+
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 print("Memuat mesin NLP (Sentence Transformers)...")
-# Menggunakan model multilingual MPNet yang lebih pintar dan akurat untuk semantik
+# Menggunakan model multilingual MPNet yang lebih pintar dan akurat untuk semantik.
 model = SentenceTransformer('paraphrase-multilingual-mpnet-base-v2')
 
 DATABASE_RUANGAN = {}
@@ -13,200 +22,13 @@ embeddings_ruangan = None
 
 NLP_CACHE = {}
 
-# Pengetahuan dasar asisten agar lebih pintar
-KAMUS_SINONIM = {
-    # igd & Darurat
-    "ugd": "igd", "emergency": "igd", "gawat darurat": "igd", "kecelakaan": "igd", "sekarat": "igd", "luka": "igd", "pendarahan": "igd", "kritis": "igd", "parah": "igd", "tabrakan": "igd", "pingsan": "igd", "luka bakar": "igd", "keracunan": "igd", "sesak napas berat": "igd", "serangan jantung": "igd",
 
-    # Toilet
-    "wc": "toilet", "kamar mandi": "toilet", "kencing": "toilet", "berak": "toilet", "buang air": "toilet", "pipis": "toilet", "pup": "toilet", "bab": "toilet", "bak": "toilet", "restroom": "toilet", "washroom": "toilet", "wastafel": "toilet",
-
-    # Administrasi & Keuangan
-    "bayar": "kasir", "uang": "kasir", "pembayaran": "kasir", "tagihan": "kasir", "lunasi": "kasir", "administrasi": "kasir", "payment": "kasir", "bill": "kasir", "cashier": "kasir", "bpjs": "pendaftaran", "asuransi": "pendaftaran",
-    "daftar": "pendaftaran", "antri": "pendaftaran", "registrasi": "pendaftaran", "loket": "pendaftaran", "nomor": "pendaftaran", "antrian": "pendaftaran", "registration": "pendaftaran",
-
-    # Farmasi & Obat
-    "obat": "farmasi", "apotek": "farmasi", "apotik": "farmasi", "resep": "farmasi", "tebus": "farmasi", "pharmacy": "farmasi", "medicine": "farmasi", "ambil obat": "farmasi", "sirup": "farmasi", "pil": "farmasi",
-
-    # Radiologi & Imaging
-    "rontgen": "radiologi", "xray": "radiologi", "scan": "radiologi", "mri": "radiologi", "usg": "radiologi", "ct": "radiologi", "radiology": "radiologi", "foto": "radiologi", "sinar x": "radiologi",
-
-    # Laboratorium
-    "lab": "laboratorium", "tes": "laboratorium", "test": "laboratorium", "sampel": "laboratorium", "swab": "laboratorium", "pcr": "laboratorium",
-
-    # Rawat Inap & Fasilitas
-    "menginap": "rawat inap", "besuk": "rawat inap", "jenguk": "rawat inap", "opname": "rawat inap", "bangsal": "rawat inap", "inpatient": "rawat inap", "ward": "rawat inap", "visit": "rawat inap", "kamar": "rawat inap", "ruang rawat": "rawat inap", "vip": "rawat inap", "vvip": "rawat inap",
-    "icu": "icu", "nicu": "nicu", "picu": "picu", "hcu": "icu", "perawatan intensif": "icu", "koma": "icu",
-
-    # Operasi & Kamar Jenazah
-    "operasi": "ruang operasi", "ok": "ruang operasi", "pembedahan": "ruang operasi", "caesar": "ruang operasi", "kamar bedah": "ruang operasi",
-    "meninggal": "kamar jenazah", "mati": "kamar jenazah", "jenazah": "kamar jenazah", "mayat": "kamar jenazah", "morgue": "kamar jenazah", "kremasi": "kamar jenazah",
-
-    # mcu (Medical Check Up)
-    "checkup": "mcu", "cek kesehatan": "mcu", "medical check up": "mcu", "screening": "mcu", "tes kesehatan": "mcu", "medical": "mcu",
-
-    # Fasilitas Umum
-    "sholat": "mushola", "salat": "mushola", "masjid": "mushola", "ibadah": "mushola", "sembahyang": "mushola", "prayer": "mushola", "mosque": "mushola", "berdoa": "mushola", "musholla": "mushola", "musala": "mushola",
-    "makan": "kantin", "minum": "kantin", "lapar": "kantin", "haus": "kantin", "jajan": "kantin", "eat": "kantin", "drink": "kantin", "food": "kantin", "canteen": "kantin", "cafeteria": "kantin", "ngopi": "kantin", "sarapan": "kantin", "kopi": "kantin", "snack": "kantin", "restoran": "kantin",
-    "parkir": "parkiran", "motor": "parkiran", "mobil": "parkiran", "kendaraan": "parkiran", "parking": "parkiran", "basement": "parkiran", "valet": "parkiran",
-    "taman": "taman", "garden": "taman", "udara segar": "taman", "merokok": "taman",
-    "informasi": "pusat informasi", "info": "pusat informasi", "cs": "pusat informasi", "customer service": "pusat informasi", "satpam": "pusat informasi", "security": "pusat informasi", "resepsionis": "pusat informasi",
-    "atm": "atm", "tarik tunai": "atm", "ambil uang": "atm", "bank": "atm",
-    "tunggu": "ruang tunggu", "menunggu": "ruang tunggu", "duduk": "ruang tunggu", "istirahat": "ruang tunggu",
-
-    # Navigasi & Bangunan
-    "room": "ruang", "door": "pintu", "stairs": "tangga", "naik": "lift", "turun": "lift", "elevator": "lift", "eskalator": "tangga", "keluar": "pintu keluar", "exit": "pintu keluar", "masuk": "pintu masuk", "entrance": "pintu masuk",
-
-    # Poliklinik & Spesialisasi
-    "periksa": "poli", "dokter": "poli", "konsultasi": "poli", "kontrol": "poli", "pusing": "poli", "sakit": "poli", "demam": "poli", "berobat": "poli", "check up": "poli", "doctor": "poli", "clinic": "poli", "poliklinik": "poli", "rawat jalan": "poli",
-    
-    # Keluhan Umum -> Poli Umum / Penyakit Dalam
-    "batuk": "poli umum", "pilek": "poli umum", "flu": "poli umum", "mual": "poli umum", "muntah": "poli umum", "diare": "poli umum", "mencret": "poli umum", "masuk angin": "poli umum", "meriang": "poli umum", "lemas": "poli penyakit dalam", "lambung": "poli penyakit dalam", "maag": "poli penyakit dalam", "asam urat": "poli penyakit dalam", "diabetes": "poli penyakit dalam", "gula darah": "poli penyakit dalam", "kolesterol": "poli penyakit dalam", "hipertensi": "poli penyakit dalam", "tensi": "poli penyakit dalam",
-
-    # Poli Kandungan (Obgyn) & Anak
-    "kandungan": "poli kandungan", "hamil": "poli kandungan", "melahirkan": "poli kandungan", "usg kandungan": "poli kandungan", "ibu hamil": "poli kandungan", "keguguran": "poli kandungan", "bersalin": "poli kandungan", "bidan": "poli kandungan", "obgyn": "poli kandungan",
-    "bayi": "poli anak", "anak": "poli anak", "balita": "poli anak", "imunisasi": "poli anak", "vaksin anak": "poli anak", "tumbuh kembang": "poli anak", "pediatri": "poli anak",
-
-    # Poli Gigi & Mulut
-    "gigi": "poli gigi", "cabut gigi": "poli gigi", "tambal gigi": "poli gigi", "kawat gigi": "poli gigi", "behel": "poli gigi", "karang gigi": "poli gigi", "sakit gigi": "poli gigi", "gusi": "poli gigi", "sariawan": "poli gigi", "mulut": "poli gigi",
-
-    # Poli Mata & tht
-    "mata": "poli mata", "kacamata": "poli mata", "rabun": "poli mata", "katarak": "poli mata", "minus": "poli mata", "silinder": "poli mata", "buta": "poli mata", "sakit mata": "poli mata",
-    "tht": "poli tht", "telinga": "poli tht", "hidung": "poli tht", "tenggorokan": "poli tht", "amandel": "poli tht", "budek": "poli tht", "tuli": "poli tht", "sinusitis": "poli tht", "mimisan": "poli tht",
-
-    # Poli Jantung & Saraf
-    "jantung": "poli jantung", "dada": "poli jantung", "sesak nafas": "poli jantung", "kardiologi": "poli jantung", "debar": "poli jantung", "ring jantung": "poli jantung",
-    "saraf": "poli saraf", "syaraf": "poli saraf", "stroke": "poli saraf", "lumpuh": "poli saraf", "kesemutan": "poli saraf", "kejang": "poli saraf", "epilepsi": "poli saraf", "neurologi": "poli saraf", "parkinson": "poli saraf", "vertigo": "poli saraf", "sakit kepala": "poli saraf", "migrain": "poli saraf",
-
-    # Poli Ortopedi (Tulang) & Rehab Medik
-    "kaki": "poli ortopedi", "tangan": "poli ortopedi", "tulang": "poli ortopedi", "patah": "poli ortopedi", "retak": "poli ortopedi", "sendi": "poli ortopedi", "keseleo": "poli ortopedi", "otot": "poli ortopedi", "saraf terjepit": "poli ortopedi", "hnp": "poli ortopedi", "rematik": "poli ortopedi",
-    "fisioterapi": "rehabilitasi medik", "terapi": "rehabilitasi medik", "rehab": "rehabilitasi medik", "pijat": "rehabilitasi medik",
-
-    # Poli Kulit, Kelamin, & Kecantikan
-    "kulit": "poli kulit", "gatal": "poli kulit", "panu": "poli kulit", "jerawat": "poli kulit", "alergi": "poli kulit", "kadas": "poli kulit", "kurap": "poli kulit", "kelamin": "poli kulit", "sipilis": "poli kulit", "kecantikan": "poli kulit", "skincare": "poli kulit",
-
-    # Poli Paru
-    "paru": "poli paru", "tbc": "poli paru", "asma": "poli paru", "bronkitis": "poli paru", "batuk berdarah": "poli paru", "flek paru": "poli paru",
-
-    # Poli Jiwa / Psikiatri
-    "jiwa": "poli jiwa", "psikiater": "poli jiwa", "psikolog": "poli jiwa", "stres": "poli jiwa", "depresi": "poli jiwa", "gila": "poli jiwa", "mental": "poli jiwa", "cemas": "poli jiwa", "insomnia": "poli jiwa", "susah tidur": "poli jiwa",
-
-    # English to Indonesian Mappings
-
-    # er & Emergency
-    "er": "igd", "emergency": "igd", "casualty": "igd", "accident": "igd", "critical": "igd", "bleeding": "igd", "faint": "igd", "heart attack": "igd", "poisoning": "igd", "burns": "igd",
-
-    # Toilet
-    "restroom": "toilet", "washroom": "toilet", "bathroom": "toilet", "lavatory": "toilet", "men's room": "toilet", "women's room": "toilet", "urinal": "toilet", "pee": "toilet", "poop": "toilet",
-
-    # Admin & Finance
-    "cashier": "kasir", "billing": "kasir", "payment": "kasir", "pay": "kasir", "bill": "kasir", 
-    "registration": "pendaftaran", "register": "pendaftaran", "admission": "pendaftaran", "reception": "pendaftaran", "queue": "pendaftaran", "enrollment": "pendaftaran",
-
-    # Pharmacy & Meds
-    "pharmacy": "farmasi", "medicine": "farmasi", "drugs": "farmasi", "pill": "farmasi", "prescription": "farmasi", "medication": "farmasi", "drugstore": "farmasi",
-
-    # Radiology & Lab
-    "radiology": "radiologi", "xray": "radiologi", "x-ray": "radiologi", "mri": "radiologi", "ultrasound": "radiologi", "scan": "radiologi", "imaging": "radiologi",
-    "laboratory": "laboratorium", "lab": "laboratorium", "swab": "laboratorium", "sample": "laboratorium",
-
-    # Inpatient & icu
-    "inpatient": "rawat inap", "ward": "rawat inap", "hospitalization": "rawat inap", "admission": "rawat inap", "visiting": "rawat inap", "stay": "rawat inap",
-    "intensive care": "icu", "critical care": "icu",
-
-    # Surgery & Morgue
-    "surgery": "ruang operasi", "operating room": "ruang operasi", "operation": "ruang operasi", "surgeon": "ruang operasi", "theater": "ruang operasi",
-    "morgue": "kamar jenazah", "mortuary": "kamar jenazah", "dead": "kamar jenazah", "corpse": "kamar jenazah",
-
-    # General Facilities
-    "mosque": "mushola", "prayer room": "mushola", "pray": "mushola",
-    "canteen": "kantin", "cafeteria": "kantin", "food court": "kantin", "cafe": "kantin", "eat": "kantin", "drink": "kantin", "food": "kantin", "breakfast": "kantin", "coffee": "kantin",
-    "parking": "parkiran", "car park": "parkiran", "basement": "parkiran", "valet": "parkiran",
-    "garden": "taman", "park": "taman", "smoking area": "taman",
-    "information": "pusat informasi", "customer service": "pusat informasi", "help desk": "pusat informasi", "security": "pusat informasi", "guard": "pusat informasi",
-    "atm": "atm", "cash machine": "atm", "withdraw": "atm", "bank": "atm",
-    "waiting room": "ruang tunggu", "wait": "ruang tunggu", "lounge": "ruang tunggu",
-
-    # Navigation
-    "stairs": "tangga", "staircase": "tangga", "elevator": "lift", "escalator": "tangga", "entrance": "pintu masuk", "entry": "pintu masuk", "exit": "pintu keluar", "out": "pintu keluar", "in": "pintu masuk", "door": "pintu",
-
-    # Clinics (Outpatient)
-    "specialist clinic": "poli spesialis", "specialist": "spesialis",
-    "children clinic": "poli anak", "kids clinic": "poli anak", "dental clinic": "poli gigi", "eye clinic": "poli mata",
-    "heart clinic": "poli jantung", "nerve clinic": "poli saraf", "skin clinic": "poli kulit", "lung clinic": "poli paru",
-    "clinic": "poli", "outpatient": "poli", "doctor": "poli", "consultation": "poli", "checkup": "poli", "polyclinic": "poli",
-
-    # General Symptoms -> Poli Umum / Penyakit Dalam
-    "general": "umum", "general practitioner": "poli umum", "gp": "poli umum", "general clinic": "poli umum",
-    "internal medicine": "poli penyakit dalam", "internal": "penyakit dalam",
-    "cough": "poli umum", "cold": "poli umum", "flu": "poli umum", "fever": "poli umum", "nausea": "poli umum", "vomiting": "poli umum", "diarrhea": "poli umum", "weakness": "poli penyakit dalam", "stomachache": "poli penyakit dalam", "gastric": "poli penyakit dalam", "diabetes": "poli penyakit dalam", "cholesterol": "poli penyakit dalam", "hypertension": "poli penyakit dalam", "blood pressure": "poli penyakit dalam",
-
-    # Obgyn & Pediatrics
-    "obstetrics": "poli kandungan", "gynecology": "poli kandungan", "obgyn": "poli kandungan", "maternity": "poli kandungan", "pregnancy": "poli kandungan", "pregnant": "poli kandungan", "delivery": "poli kandungan", "midwife": "poli kandungan", "miscarriage": "poli kandungan",
-    "pediatrics": "poli anak", "pediatrician": "poli anak", "child": "poli anak", "kids": "poli anak", "baby": "poli anak", "infant": "poli anak", "vaccination": "poli anak", "immunization": "poli anak",
-
-    # Dental
-    "dental": "poli gigi", "dentist": "poli gigi", "toothache": "poli gigi", "teeth": "poli gigi", "tooth": "poli gigi", "braces": "poli gigi", "cavity": "poli gigi", "gums": "poli gigi",
-
-    # Eye & ent
-    "eye": "poli mata", "ophthalmology": "poli mata", "glasses": "poli mata", "vision": "poli mata", "blind": "poli mata", "cataract": "poli mata",
-    "ent": "poli tht", "ear": "poli tht", "nose": "poli tht", "throat": "poli tht", "deaf": "poli tht", "sinus": "poli tht", "tonsil": "poli tht",
-
-    # Cardiology & Neurology
-    "cardiology": "poli jantung", "heart": "poli jantung", "chest pain": "poli jantung", "palpitation": "poli jantung",
-    "neurology": "poli saraf", "nerve": "poli saraf", "stroke": "poli saraf", "paralysis": "poli saraf", "seizure": "poli saraf", "epilepsy": "poli saraf", "headache": "poli saraf", "migraine": "poli saraf", "dizzy": "poli saraf", "vertigo": "poli saraf",
-
-    # Orthopedics & Rehab
-    "orthopedics": "poli ortopedi", "bone": "poli ortopedi", "fracture": "poli ortopedi", "joint": "poli ortopedi", "muscle": "poli ortopedi", "sprain": "poli ortopedi", "rheumatism": "poli ortopedi",
-    "physiotherapy": "rehabilitasi medik", "rehab": "rehabilitasi medik", "therapy": "rehabilitasi medik", "massage": "rehabilitasi medik",
-
-    # Dermatology
-    "dermatology": "poli kulit", "skin": "poli kulit", "itchy": "poli kulit", "acne": "poli kulit", "allergy": "poli kulit", "venereal": "poli kulit", "syphilis": "poli kulit", "beauty": "poli kulit", "skincare": "poli kulit",
-
-    # Pulmonology
-    "pulmonology": "poli paru", "lung": "poli paru", "asthma": "poli paru", "tuberculosis": "poli paru", "tb": "poli paru", "bronchitis": "poli paru",
-
-    # Psychiatry
-    "psychiatry": "poli jiwa", "psychiatrist": "poli jiwa", "psychology": "poli jiwa", "stress": "poli jiwa", "depression": "poli jiwa", "crazy": "poli jiwa", "mental": "poli jiwa", "anxiety": "poli jiwa", "insomnia": "poli jiwa",
-
-    # Additional Special Facilities (Dialysis, Nutrition, Lactation, Medical Records, etc)
-    "hemodialisa": "hemodialisa", "cuci darah": "hemodialisa", "hd": "hemodialisa", "dialysis": "hemodialisa",
-    "gizi": "poli gizi", "nutrisi": "poli gizi", "diet": "poli gizi", "nutrition": "poli gizi", "dietitian": "poli gizi",
-    "laktasi": "ruang laktasi", "menyusui": "ruang laktasi", "asi": "ruang laktasi", "nursing room": "ruang laktasi", "breastfeeding": "ruang laktasi",
-    "ruang bersalin": "ruang bersalin", "vk": "ruang bersalin", "delivery room": "ruang bersalin", "labor room": "ruang bersalin",
-    "rekam medis": "rekam medis", "medical record": "rekam medis", "berkas": "rekam medis",
-    "isolasi": "ruang isolasi", "menular": "ruang isolasi", "isolation": "ruang isolasi",
-    "donor darah": "donor darah", "pmi": "donor darah", "blood donation": "donor darah",
-    "nurse station": "ruang perawat", "jaga perawat": "ruang perawat",
-
-    # Comprehensive Production Additions (Specialized Clinics, Admin, Facilities)
-    "bedah": "poli bedah", "surgery clinic": "poli bedah", "bedah umum": "poli bedah",
-    "urologi": "poli urologi", "saluran kemih": "poli urologi", "prostat": "poli urologi", "kencing batu": "poli urologi", "urology": "poli urologi",
-    "onkologi": "poli onkologi", "kanker": "poli onkologi", "tumor": "poli onkologi", "kemoterapi": "poli onkologi", "kemo": "poli onkologi", "chemo": "poli onkologi", "oncology": "poli onkologi",
-    "geriatri": "poli geriatri", "lansia": "poli geriatri", "manula": "poli geriatri", "orang tua": "poli geriatri", "geriatrics": "poli geriatri",
-    "andrologi": "poli andrologi", "fertilitas": "poli fertilitas", "bayi tabung": "poli fertilitas", "ivf": "poli fertilitas", "kesuburan": "poli fertilitas", "promil": "poli fertilitas",
-    "perinatologi": "ruang perinatologi", "inkubator": "ruang perinatologi", "ruang bayi": "ruang perinatologi", "nursery": "ruang perinatologi",
-    "paviliun": "vip", "eksekutif": "vip", "premium": "vip", "executive": "vip",
-    "jkn": "pendaftaran", "kis": "pendaftaran", "klaim": "pendaftaran", "bpjs kesehatan": "pendaftaran",
-    "minimarket": "minimarket", "koperasi": "minimarket", "mart": "minimarket", "toko": "minimarket", "swalayan": "minimarket", "convenience store": "minimarket",
-    "forensik": "kamar jenazah", "visum": "kamar jenazah", "otopsi": "kamar jenazah", "autopsi": "kamar jenazah", "forensic": "kamar jenazah",
-    "ambulans": "igd", "ambulance": "igd", "mobil jenazah": "kamar jenazah"
-}
-
-# Fungsi pembersihan teks untuk nlp
 def bersihkan_teks(teks_kotor):
     teks = teks_kotor.lower()
-    
-    # Urutkan kunci berdasarkan panjang menurun agar kata majemuk diganti sebelum kata tunggal
-    sorted_synonyms = sorted(KAMUS_SINONIM.items(), key=lambda item: len(item[0]), reverse=True)
-    
-    # Perbaikan sinonim (misal: "mau ambil obat" -> "mau ambil farmasi")
-    for slang, baku in sorted_synonyms:
-        teks = re.sub(rf'\b{slang}\b', baku, teks)
         
     teks = re.sub(r'[^\w\s]', '', teks)
     
-    # Kata tugas yang tidak relevan (id & en)
+    # Kata tugas yang tidak relevan (id & en).
     stopwords = [
         "mau", "ke", "di", "mana", "tolong", "antar", "cari", "ruang", "tempat", "saya", "ingin", "tanya", "mas", "mbak", "kasih", "tau", "arah", "jalan", "buat", "ambil",
         "tunjukkan", "bantuin", "dong", "aku", "nyari", "gimana", "caranya", "menuju", "cara", "pergi", "bisa", "tolongin", "dong", "pak", "bu", "sus", "suster", "dokter", "letak", "letaknya", "ada",
@@ -216,7 +38,7 @@ def bersihkan_teks(teks_kotor):
     
     return " ".join(kata_akhir)
 
-# Fungsi untuk melatih ulang model nlp dengan data terbaru dari Firebase
+# Fungsi untuk melatih ulang model NLP dengan data terbaru dari Firebase.
 def latih_ulang_nlp(data_kamus_baru):
     global DATABASE_RUANGAN, daftar_nama_ruangan, embeddings_ruangan
     
@@ -247,8 +69,64 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
     from app.core import state as waypoint_graph
 
     input_bersih = bersihkan_teks(input_pengunjung)
+    
+    if not input_bersih:
+         pesan = "Mohon masukkan tujuan yang lebih spesifik." if language == "id" else "Please enter a more specific destination."
+         return {"status": "error", "pesan": pesan}
 
-    # pemeriksaan kecocokan persis & irisan kata
+    # Heuristic: Deteksi jika user hanya ingin pergi ke suatu lantai (misal: "turun lantai 1", "lantai 2", dsb).
+    # Jika iya, kita akan arahkan mereka ke "Lift" di lantai tujuan tersebut.
+    teks_cek = input_bersih.replace("naik", "").replace("turun", "").strip()
+    match_lantai = re.fullmatch(r'lantai\s+(\w+)', teks_cek)  # Regex untuk menangkap angka maupun string "dasar".
+    if match_lantai:
+        target_floor = f"Lantai {match_lantai.group(1)}"
+        for r_id, room in waypoint_graph.RUANGAN_GRID.items():
+            if room.get("floor", "Lantai 1").lower() == target_floor.lower():
+                nama = room.get("name", "").lower()
+                if "lift" in nama and "tangga" not in nama:
+                    return {
+                        "status": "success",
+                        "target_id": r_id,
+                        "confidence_score": 1.0
+                    }
+
+    # Heuristic: Deteksi jika user ingin pulang/keluar
+    if "pulang" in input_bersih or "keluar" in input_bersih or "exit" in input_bersih:
+        entrance_nodes = []
+        for r_id, room in waypoint_graph.RUANGAN_GRID.items():
+            nama = room.get("name", "").lower()
+            tipe = room.get("type", "room")
+            
+            # An entrance node is typically a kiosk with "pintu" in the name, or rooms with exit-like names.
+            is_entrance = (tipe == "kiosk" and "pintu" in nama) or "pintu keluar" in nama or "pintu masuk" in nama or "exit" in nama or "entrance" in nama or "lobi" in nama or "lobby" in nama
+            
+            if is_entrance:
+                entrance_nodes.append(r_id)
+        
+        if entrance_nodes:
+            terbaik_id = entrance_nodes[0]
+            if start_node_id and start_node_id in waypoint_graph.RUANGAN_GRID:
+                start_room = waypoint_graph.RUANGAN_GRID[start_node_id]
+                sx = start_room.get("x", 0)
+                sy = start_room.get("y", 0)
+                sf = start_room.get("floor", "Lantai 1")
+                
+                min_jarak = float('inf')
+                for pk_id in entrance_nodes:
+                    pk_room = waypoint_graph.RUANGAN_GRID[pk_id]
+                    penalty = 0 if pk_room.get("floor", "Lantai 1") == sf else 10000
+                    jarak = abs(sx - pk_room.get("x", 0)) + abs(sy - pk_room.get("y", 0)) + penalty
+                    if jarak < min_jarak:
+                        min_jarak = jarak
+                        terbaik_id = pk_id
+            
+            return {
+                "status": "success",
+                "target_id": terbaik_id,
+                "confidence_score": 1.0
+            }
+
+    # Pemeriksaan kecocokan persis & irisan kata.
     perfect_matches = []
     keyword_perfect_matches = []
     substring_matches = []
@@ -264,7 +142,7 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
         room_name_lower = room.get("name", "").lower().strip()
         room_keywords = [k.lower().strip() for k in room.get("keywords", [])]
         
-        # 1. Cocokkan id Persis atau Nama Persis (Mentah)
+        # Cocokkan ID persis atau nama persis (mentah).
         if input_lower == room_name_lower or input_pengunjung == r_id:
             perfect_matches.append(r_id)
             
@@ -281,16 +159,16 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
                 mapping_kunci_ke_id[teks_bersih].append(r_id)
                 room_words.update(teks_bersih.split())
                 
-                # Kecocokan Kata Kunci Persis
+                # Kecocokan kata kunci persis.
                 if input_bersih == teks_bersih:
                     if r_id not in perfect_matches and r_id not in keyword_perfect_matches:
                         keyword_perfect_matches.append(r_id)
-                # Substring utuh
+                # Substring utuh.
                 elif input_bersih and input_bersih in teks_bersih:
                     if r_id not in perfect_matches and r_id not in keyword_perfect_matches and r_id not in substring_matches:
                         substring_matches.append(r_id)
         
-        # 2. Irisan Kata Baku
+        # Irisan kata baku.
         irisan = input_words.intersection(room_words)
         irisan_valid = [w for w in irisan if len(w) >= 3]
         if irisan_valid:
@@ -306,14 +184,15 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
     else:
         exact_matches = intersection_matches
 
-    # 3. Fuzzy Typo Match (Jika irisan dan substring gagal)
+    # Fuzzy typo match (jika irisan dan substring gagal).
     if not exact_matches and input_bersih:
-        typo_matches = difflib.get_close_matches(input_bersih, kumpulan_kata_kunci, n=1, cutoff=0.80)
+        # Rapidfuzz returns a list of tuples: [(match_string, score, index), ...]
+        typo_matches = process.extract(input_bersih, kumpulan_kata_kunci, scorer=fuzz.WRatio, limit=1, score_cutoff=70)
         if not typo_matches:
-            typo_matches = difflib.get_close_matches(input_lower, kumpulan_kata_kunci, n=1, cutoff=0.80)
+            typo_matches = process.extract(input_lower, kumpulan_kata_kunci, scorer=fuzz.WRatio, limit=1, score_cutoff=70)
             
         if typo_matches:
-            exact_matches = mapping_kunci_ke_id.get(typo_matches[0], [])
+            exact_matches = mapping_kunci_ke_id.get(typo_matches[0][0], [])
 
     if exact_matches:
         if len(exact_matches) == 1:
@@ -332,8 +211,8 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
                         m_room = waypoint_graph.RUANGAN_GRID.get(m_id)
                         if not m_room: continue
                         
-                        # Prioritaskan current_floor jika user sedang melihat lantai tertentu,
-                        # jika tidak, prioritaskan lantai tempat kiosk berada.
+                        # Prioritaskan current_floor jika user sedang melihat lantai tertentu.
+                        # Jika tidak, prioritaskan lantai tempat kiosk berada.
                         target_floor = current_floor if current_floor else start_floor
                         floor_penalty = 0 if m_room.get("floor", "Lantai 1") == target_floor else 10000
                         
@@ -343,7 +222,7 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
                             terbaik_id = m_id
                     return {"status": "success", "target_id": terbaik_id, "confidence_score": 1.0}
             
-            # Cadangan jika tidak ada start_node_id
+            # Cadangan jika tidak ada start_node_id.
             if current_floor:
                 for m_id in exact_matches:
                     m_room = waypoint_graph.RUANGAN_GRID.get(m_id)
@@ -356,10 +235,10 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
          pesan = "Mohon masukkan tujuan yang lebih spesifik." if language == "id" else "Please enter a more specific destination."
          return {"status": "error", "pesan": pesan}
 
-    # heuristic: Deteksi jika user hanya ingin pergi ke suatu lantai (misal: "turun lantai 1", "lantai 2", dsb.)
+    # Heuristic: Deteksi jika user hanya ingin pergi ke suatu lantai (misal: "turun lantai 1", "lantai 2", dsb).
     # Jika iya, kita akan arahkan mereka ke "Lift" di lantai tujuan tersebut.
     teks_cek = input_bersih.replace("naik", "").replace("turun", "").strip()
-    match_lantai = re.fullmatch(r'lantai\s+(\w+)', teks_cek) # \w+ agar menangkap angka maupun string "dasar" dsb
+    match_lantai = re.fullmatch(r'lantai\s+(\w+)', teks_cek)  # Regex untuk menangkap angka maupun string "dasar".
     if match_lantai:
         target_floor = f"Lantai {match_lantai.group(1)}"
         from app.core import state as waypoint_graph
@@ -373,6 +252,42 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
                         "confidence_score": 1.0
                     }
 
+    # Heuristic: Deteksi jika user ingin pulang/keluar
+    if "pulang" in input_bersih or "keluar" in input_bersih or "exit" in input_bersih:
+        from app.core import state as waypoint_graph
+        entrance_nodes = []
+        for r_id, room in waypoint_graph.RUANGAN_GRID.items():
+            nama = room.get("name", "").lower()
+            tipe = room.get("type", "room")
+            
+            is_entrance = (tipe == "kiosk" and "pintu" in nama) or "pintu keluar" in nama or "pintu masuk" in nama or "exit" in nama or "entrance" in nama or "lobi" in nama or "lobby" in nama or "pusat informasi" in nama
+            
+            if is_entrance:
+                entrance_nodes.append(r_id)
+        
+        if entrance_nodes:
+            terbaik_id = entrance_nodes[0]
+            if start_node_id and start_node_id in waypoint_graph.RUANGAN_GRID:
+                start_room = waypoint_graph.RUANGAN_GRID[start_node_id]
+                sx = start_room.get("x", 0)
+                sy = start_room.get("y", 0)
+                sf = start_room.get("floor", "Lantai 1")
+                
+                min_jarak = float('inf')
+                for pk_id in entrance_nodes:
+                    pk_room = waypoint_graph.RUANGAN_GRID[pk_id]
+                    penalty = 0 if pk_room.get("floor", "Lantai 1") == sf else 10000
+                    jarak = abs(sx - pk_room.get("x", 0)) + abs(sy - pk_room.get("y", 0)) + penalty
+                    if jarak < min_jarak:
+                        min_jarak = jarak
+                        terbaik_id = pk_id
+            
+            return {
+                "status": "success",
+                "target_id": terbaik_id,
+                "confidence_score": 1.0
+            }
+
     if input_bersih in NLP_CACHE:
         input_embedding = NLP_CACHE[input_bersih]
     else:
@@ -380,8 +295,8 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
         NLP_CACHE[input_bersih] = input_embedding
     skor_kemiripan = util.cos_sim(input_embedding, embeddings_ruangan)[0].cpu().numpy()
     
-    # Penalti Tangga Darurat jika user tidak secara spesifik mengetik "tangga"
-    # agar rute antar lantai via pencarian nlp selalu memprioritaskan "Lift"
+    # Penalti tangga darurat jika user tidak secara spesifik mengetik "tangga".
+    # Agar rute antar lantai via pencarian NLP selalu memprioritaskan "Lift".
     if "tangga" not in input_bersih:
         for i, r_id in enumerate(daftar_nama_ruangan):
             nama_keywords = " ".join(DATABASE_RUANGAN.get(r_id, [])).lower()
@@ -416,8 +331,8 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
                         k_x = kandidat_room.get("x", 0)
                         k_y = kandidat_room.get("y", 0)
                         
-                        # Prioritaskan current_floor jika user sedang melihat lantai tertentu,
-                        # jika tidak, prioritaskan lantai tempat kiosk berada.
+                        # Prioritaskan current_floor jika user sedang melihat lantai tertentu.
+                        # Jika tidak, prioritaskan lantai tempat kiosk berada.
                         target_floor = current_floor if current_floor else start_floor
                         floor_penalty = 0 if k_floor == target_floor else 10000 
                         
@@ -429,7 +344,7 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
                             terbaik_id = kandidat_id
                 
             if not terbaik_id:
-                # Cadangan jika tidak ada start_node_id, minimal utamakan current_floor
+                # Cadangan jika tidak ada start_node_id, minimal utamakan current_floor.
                 if current_floor:
                     for idx in kandidat_indeks:
                         kandidat_id = daftar_nama_ruangan[idx]
@@ -447,6 +362,47 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
             "confidence_score": float(max_score)
         }
     else:
+        # Cadangan Gemini jika skor lokal terlalu rendah.
+        if GEMINI_API_KEY:
+            try:
+                print(f"[NLP] Lokal gagal (max_score: {max_score:.2f}). Memanggil Gemini untuk pencarian: '{input_pengunjung}'...")
+                gemini_model = genai.GenerativeModel("gemini-2.5-flash")
+                
+                # Buat daftar ruangan untuk konteks.
+                room_list_str = ""
+                for r_id in daftar_nama_ruangan:
+                    nama_ruangan = ", ".join(DATABASE_RUANGAN.get(r_id, []))
+                    room_list_str += f"- ID: {r_id}, Deskripsi/Keywords: {nama_ruangan}\n"
+                
+                prompt = f"""
+                Kamu adalah asisten navigasi rumah sakit. Pengguna mencari: "{input_pengunjung}"
+                
+                Berikut adalah daftar ruangan yang tersedia:
+                {room_list_str}
+                
+                Berdasarkan pencarian pengguna, tentukan SATU ID ruangan yang paling tepat. 
+                Hanya kembalikan ID ruangan tersebut, tanpa teks tambahan apapun. Jika benar-benar tidak ada yang cocok, kembalikan kata "NOT_FOUND".
+                """
+                
+                response = gemini_model.generate_content(prompt)
+                gemini_answer = response.text.strip()
+                
+                if gemini_answer != "NOT_FOUND" and gemini_answer in DATABASE_RUANGAN:
+                    print(f"[NLP] Gemini berhasil mencocokkan! Memasukkan '{input_pengunjung}' ke keywords ruangan {gemini_answer}")
+                    # Update firestore agar pintar ke depannya.
+                    try:
+                        db.collection('Rooms').document(gemini_answer).update({"keywords": firestore.ArrayUnion([input_pengunjung])})
+                    except Exception as e:
+                        print(f"[NLP] Gagal mengupdate keywords di Firestore: {e}")
+                        
+                    return {
+                        "status": "success",
+                        "target_id": gemini_answer,
+                        "confidence_score": 0.99
+                    }
+            except Exception as e:
+                print(f"[NLP] Gemini Fallback Error: {e}")
+
         pesan = "Maaf, tujuan tidak dikenali. Silakan coba kata kunci lain." if language == "id" else "Sorry, destination not recognized. Please try another keyword."
         return {
             "status": "error",

@@ -12,7 +12,7 @@ import { QRCodeCanvas } from "qrcode.react";
 import LanguageSelector from "../components/LanguageSelector";
 import "./Main.css";
 
-// ── komponen ikon ──
+
 const SearchIcon = () => (
   <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="11" cy="11" r="8" />
@@ -65,7 +65,7 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [outputText, setOutputText] = useState("");
 
-  // ── status kiosk lock ──
+
   const [location, setLocation] = useState(localStorage.getItem("locked_kiosk_id") || "");
   const [isKioskLocked, setIsKioskLocked] = useState(!!localStorage.getItem("locked_kiosk_id"));
 
@@ -94,7 +94,7 @@ export default function App() {
   const [serverIp, setServerIp] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isSessionExpired, setIsSessionExpired] = useState(false);
-  // ── status room action modal ──
+
   const [roomActionModal, setRoomActionModal] = useState(null); // { room, hasSubmap }
   const [customAlert, setCustomAlert] = useState({ isOpen: false, message: '' });
 
@@ -228,13 +228,13 @@ export default function App() {
     }
   };
 
-  // ── fitur lock device & mobile handoff ──
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const lockId = params.get("set_kiosk");
     const unlock = params.get("unlock_kiosk");
 
-    // Parameter Mobile Handoff
+
     const start = params.get("start");
     const end = params.get("end");
     const mobile = params.get("mobile");
@@ -280,7 +280,7 @@ export default function App() {
   const floorOrderRef = useRef([]);
 
   useEffect(() => {
-    // 1. Listen ke Kiosks
+
     const unsubscribeKiosks = onSnapshot(collection(db, "Kiosks"), (kioskSnap) => {
       const loadedKiosks = [];
       const foundFloors = new Set(["Lantai 1"]);
@@ -317,7 +317,7 @@ export default function App() {
       }
     });
 
-    // 2. Listen ke Rooms
+
     const unsubscribeRooms = onSnapshot(collection(db, "Rooms"), (roomSnap) => {
       const foundFloors = new Set();
       const loadedRooms = [];
@@ -347,7 +347,7 @@ export default function App() {
       });
     });
 
-    // 3. Listen ke MapConfig untuk urutan lantai
+
     const unsubscribeConfig = onSnapshot(doc(db, "Settings", "MapConfig"), (docSnap) => {
       if (docSnap.exists() && docSnap.data().floorOrder) {
         floorOrderRef.current = docSnap.data().floorOrder;
@@ -418,7 +418,7 @@ export default function App() {
   const speakSteps = (langkahNavigasi, startIndex = 0, currentLang = language) => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      window.utterances = []; // solusi sementara: Mencegah Garbage Collection di browser Mobile
+      window.utterances = []; // Solusi sementara: mencegah garbage collection di browser mobile.
 
       const playNext = (index) => {
         if (!isMountedRef.current) return;
@@ -448,7 +448,7 @@ export default function App() {
               setCountdownValue(prev => prev > 0 ? prev - 1 : 0);
             }, 1000);
 
-            // Reset setelah langkah terakhir selesai dibacakan + 10 detik
+            // Reset setelah langkah terakhir selesai dibacakan + 10 detik.
             resetTimeoutRef.current = setTimeout(() => {
               if (!isMountedRef.current) return;
               setSearch("");
@@ -490,7 +490,7 @@ export default function App() {
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current);
 
-    // solusi mobile: Pancing engine suara dengan audio kosong secara sinkron dengan klik tombol
+    // Solusi mobile: pancing engine suara dengan audio kosong secara sinkron dengan klik tombol.
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       const silentUtterance = new SpeechSynthesisUtterance('');
@@ -522,10 +522,10 @@ export default function App() {
 
       let data;
       try {
-        // Baru coba ubah teks tersebut ke json
+        // Coba ubah teks tersebut ke JSON.
         data = JSON.parse(textResponse);
       } catch {
-        // Jika gagal, berarti Python mengirim error atau blank. Tampilkan aslinya!
+        // Jika gagal, berarti Python mengirim error atau blank, tampilkan aslinya.
         console.error("Server tidak mengembalikan JSON yang valid:", textResponse);
         throw new Error(`Server Backend Crash/Mati. Cek terminal Python! Respons: ${textResponse.substring(0, 50)}`);
       }

@@ -18,7 +18,7 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 def listen_to_firestore(callback):
-    """Memantau koleksi Rooms dan Kiosks secara real-time"""
+    """Memantau koleksi Rooms dan Kiosks secara real-time."""
     rooms_ref = db.collection('Rooms')
     kiosks_ref = db.collection('Kiosks')
 
@@ -47,6 +47,5 @@ def listen_to_firestore(callback):
         state["kiosks"] = updated_data
         callback(state["rooms"] + state["kiosks"])
 
-    # Mulai mendengarkan perubahan
     rooms_ref.on_snapshot(on_rooms_snapshot)
     kiosks_ref.on_snapshot(on_kiosks_snapshot)

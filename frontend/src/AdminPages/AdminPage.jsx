@@ -45,7 +45,7 @@ const formatDevice = (uaString) => {
   return parts.join(" • ") || uaString;
 };
 
-// ── komponen ikon ──
+
 const SearchIcon = () => (
   <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="11" cy="11" r="8" />
@@ -179,7 +179,7 @@ export default function App() {
   const floorOrderRef = useRef([]);
 
   useEffect(() => {
-    // 1. Listen ke Kiosks
+
     const unsubscribeKiosks = onSnapshot(collection(db, "Kiosks"), (kioskSnap) => {
       const loadedKiosks = [];
       const foundFloors = new Set(["Lantai 1"]);
@@ -216,7 +216,7 @@ export default function App() {
       }
     });
 
-    // 2. Listen ke Rooms
+
     const unsubscribeRooms = onSnapshot(collection(db, "Rooms"), (roomSnap) => {
       const foundFloors = new Set();
       const loadedRooms = [];
@@ -245,7 +245,7 @@ export default function App() {
       });
     });
 
-    // 3. Listen ke Logs
+
     const qLogs = query(collection(db, "Logs"), orderBy("timestamp", "desc"), limit(50));
     const unsubscribeLogs = onSnapshot(qLogs, (logSnap) => {
       const loadedLogs = [];
@@ -265,7 +265,7 @@ export default function App() {
         }
         
         if (timeObj && timeObj < oneMonthAgo) {
-          // Jika log lebih dari satu bulan, hapus dari database
+          // Jika log lebih dari satu bulan, hapus dari database.
           deleteDoc(doc(db, "Logs", docSnap.id)).catch(err => console.error("Error deleting old log:", err));
         } else {
           loadedLogs.push({ id: docSnap.id, timeObj, ...data });
@@ -274,7 +274,7 @@ export default function App() {
       setActivities(loadedLogs);
     });
 
-    // 4. Listen ke MapConfig untuk urutan lantai
+
     const unsubscribeConfig = onSnapshot(doc(db, "Settings", "MapConfig"), (docSnap) => {
       if (docSnap.exists() && docSnap.data().floorOrder) {
         floorOrderRef.current = docSnap.data().floorOrder;
@@ -326,7 +326,7 @@ export default function App() {
   const speakSteps = (langkahNavigasi, startIndex = 0, currentLang = language) => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      window.utterances = []; // solusi sementara: Mencegah Garbage Collection di browser Mobile
+      window.utterances = []; // Solusi sementara: mencegah garbage collection di browser mobile.
       
       const playNext = (index) => {
         if (!isMountedRef.current) return;
@@ -348,7 +348,7 @@ export default function App() {
 
         utterance.onend = () => {
           if (index === langkahNavigasi.length - 1) {
-            // Reset setelah langkah terakhir selesai dibacakan + 10 detik
+            // Reset setelah langkah terakhir selesai dibacakan + 10 detik.
             resetTimeoutRef.current = setTimeout(() => {
               if (!isMountedRef.current) return;
               setSearch("");
@@ -379,7 +379,7 @@ export default function App() {
     
     if (!searchTarget.trim()) return;
     
-    // solusi mobile: Pancing engine suara dengan audio kosong secara sinkron dengan klik tombol
+    // Solusi mobile: pancing engine suara dengan audio kosong secara sinkron dengan klik tombol.
     if ('speechSynthesis' in window) {
        const silentUtterance = new SpeechSynthesisUtterance('');
        silentUtterance.volume = 0;

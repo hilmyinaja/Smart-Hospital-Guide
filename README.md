@@ -50,8 +50,9 @@ VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
    - **Windows:** `venv\Scripts\activate`
    - **Mac/Linux:** `source venv/bin/activate`
 
-2. Install Backend dependencies:
+2. Navigate to the Backend folder and install Backend dependencies:
    ```bash
+   cd backend
    pip install -r requirements.txt
    ```
 

@@ -29,15 +29,15 @@ const ElementShape = React.memo(({ shapeProps, isSelected, onSelect, onChange, s
     });
   };
 
-  // ── rumus baru: auto shrink font ──
+  // Rumus baru: auto shrink font.
   const textContent = translateName(shapeProps.name || (shapeProps.type === 'kiosk' ? 'Kiosk' : 'Tanpa Nama'), language, shapeProps.name_en);
   const longestWordLen = Math.max(...textContent.split(' ').map(w => w.length), 1);
   const actualUsableWidth = Math.max(10, shapeProps.width - 12);
 
-  // Sesuaikan ukuran font untuk keterbacaan dan word wrapping yang lebih baik
+  // Sesuaikan ukuran font untuk keterbacaan dan word wrapping yang lebih baik.
   const maxFontSizeWidth = actualUsableWidth / (longestWordLen * 0.6);
   const maxFontSizeHeight = shapeProps.height / 2;
-  // Batasi ukuran font secara ketat agar huruf dari kata yang sama tidak terpisah
+  // Batasi ukuran font secara ketat agar huruf dari kata yang sama tidak terpisah.
   const dynamicFontSize = Math.min(maxFontSizeWidth, Math.max(9, Math.min(16, maxFontSizeHeight)));
 
   const getVisualColors = useCallback(() => {
@@ -367,7 +367,8 @@ export default function EditPage() {
             y: (data.grid_y || 0) * GRID_SIZE,
             width: (data.grid_width || 1) * GRID_SIZE,
             height: (data.grid_height || 1) * GRID_SIZE,
-            endpoints: data.endpoints && data.endpoints.length > 0 ? data.endpoints : ['bottom']
+            endpoints: data.endpoints && data.endpoints.length > 0 ? data.endpoints : ['bottom'],
+            keywords: data.keywords || []
           });
         });
 
@@ -660,26 +661,54 @@ export default function EditPage() {
       setIsSaving(true);
       try {
         const namesToTranslate = Array.from(new Set(placedElements.map(el => el.name).filter(n => n && n !== "Tanpa Nama")));
+        const namesToGenerateKeywords = Array.from(new Set(placedElements.filter(el => {
+          if (el.type !== 'room' || !el.name || el.name === "Tanpa Nama") return false;
+          const orig = originalElements.find(o => o.id === el.id);
+          const lacksKeywords = !orig || !orig.keywords || orig.keywords.length === 0;
+          const nameChanged = !orig || orig.name !== el.name;
+          return lacksKeywords || nameChanged;
+        }).map(el => el.name)));
+
         let translations = {};
+        let generatedKeywords = {};
+        
+        const fetchPromises = [];
+
         if (namesToTranslate.length > 0) {
-          try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 20000);
-            const res = await fetch("/api/translate", {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 120000);
+          fetchPromises.push(
+            fetch("/api/translate", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ names: namesToTranslate }),
               signal: controller.signal
-            });
-            clearTimeout(timeoutId);
-            const data = await res.json();
-            if (data.status === "success") {
-              translations = data.translations || {};
-            }
-          } catch (err) {
-            console.error("Gagal fetch terjemahan (timeout/error):", err);
-          }
+            })
+            .then(res => res.json())
+            .then(data => { if (data.status === "success") translations = data.translations || {}; })
+            .catch(err => console.error("Gagal fetch terjemahan:", err))
+            .finally(() => clearTimeout(timeoutId))
+          );
         }
+
+        if (namesToGenerateKeywords.length > 0) {
+          const controllerKw = new AbortController();
+          const timeoutIdKw = setTimeout(() => controllerKw.abort(), 120000);
+          fetchPromises.push(
+            fetch("/api/generate_keywords", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ names: namesToGenerateKeywords }),
+              signal: controllerKw.signal
+            })
+            .then(res => res.json())
+            .then(data => { if (data.status === "success") generatedKeywords = data.keywords || {}; })
+            .catch(err => console.error("Gagal fetch keywords:", err))
+            .finally(() => clearTimeout(timeoutIdKw))
+          );
+        }
+
+        await Promise.all(fetchPromises);
 
         const batch = writeBatch(db);
         deletedElements.forEach((id) => {
@@ -707,6 +736,9 @@ export default function EditPage() {
               docData.name = translations[el.name].id || docData.name;
               docData.name_en = translations[el.name].en || "";
             }
+          }
+          if (generatedKeywords[el.name]) {
+            docData.keywords = generatedKeywords[el.name];
           }
           Object.keys(docData).forEach(key => docData[key] === undefined && delete docData[key]);
           batch.set(doc(db, col, el.id.toString()), docData, { merge: true });

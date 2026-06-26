@@ -12,7 +12,6 @@ from app.core.database import db, listen_to_firestore
 from app.core import state as waypoint_graph
 from app.services.nlp_service import cari_target_ruangan, latih_ulang_nlp
 from app.services.a_star_service import cari_rute_grid
-from app.models.schemas import RoomModel, RoomUpdateModel
 from loguru import logger
 
 load_dotenv()
@@ -20,11 +19,11 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
 
-# Lock global untuk mencegah race condition dari Firebase thread pool
+# Lock global untuk mencegah race condition dari Firebase thread pool.
 sync_lock = threading.Lock()
 
 def sinkronisasi_peta(data):
-    """Mengupdate koordinat dan melatih ulang NLP saat database berubah"""
+    """Mengupdate koordinat dan melatih ulang NLP saat database berubah."""
     with sync_lock:
         logger.info("[FIREBASE] Pembaruan denah terdeteksi dari React UI...")
         
@@ -66,7 +65,8 @@ def sinkronisasi_peta(data):
                     "name": room_name,
                     "name_en": item.get("name_en", ""),
                     "floor": floor,
-                    "type": item.get("type", "room")
+                    "type": item.get("type", "room"),
+                    "keywords": item.get("keywords", [])
                 }
                 
                 if floor not in temp_grid:
@@ -88,7 +88,7 @@ def sinkronisasi_peta(data):
                 
                 logger.debug(f" -> Load: [{room_id}] '{room_name}' (X:{item['grid_x']}, Y:{item['grid_y']})")
 
-        # Tambahkan nama ruangan induk ke node submap untuk pencocokan nlp yang lebih baik
+        # Tambahkan nama ruangan induk ke node submap untuk pencocokan NLP yang lebih baik.
         for room_id, room in temp_ruangan.items():
             if room["floor"].startswith("submap_"):
                 parent_id = room["floor"].replace("submap_", "")
@@ -96,7 +96,7 @@ def sinkronisasi_peta(data):
                 if parent_room:
                     parent_name = parent_room["name"]
                     kunci = data_nlp_baru.get(room_id, [])
-                    # Tambahkan kombinasi nama (contoh: "Pintu Masuk Poli Gigi")
+                    # Tambahkan kombinasi nama (contoh: "Pintu Masuk Poli Gigi").
                     kunci.append(f"{room['name']} {parent_name}")
 
         waypoint_graph.RUANGAN_GRID.clear()
@@ -107,7 +107,7 @@ def sinkronisasi_peta(data):
         latih_ulang_nlp(data_nlp_baru)
         logger.info("[FIREBASE] Sinkronisasi selesai. Matriks A* dan Model NLP siap digunakan!")
 
-# Jalankan listener di thread terpisah agar tidak mengganggu FastAPI
+# Jalankan listener di thread terpisah agar tidak mengganggu FastAPI.
 threading.Thread(target=listen_to_firestore, args=(sinkronisasi_peta,), daemon=True).start()
 
 app = FastAPI(title="Smart Hospital Guide API")
@@ -190,6 +190,64 @@ Names to translate:
         "translations": translations
     }
 
+@app.post("/api/generate_keywords")
+def generate_keywords(request: RequestTranslate):
+    generated_keywords = {}
+    names_to_process = []
+    
+    for name in request.names:
+        if not name:
+            continue
+        if "lift" in name.lower() or "tangga" in name.lower():
+            generated_keywords[name] = [name]
+        else:
+            names_to_process.append(name)
+            
+    if names_to_process and GEMINI_API_KEY:
+        try:
+            model = genai.GenerativeModel('gemini-2.5-flash')
+            prompt = f"""
+You are an expert medical linguist for a smart hospital guide application.
+Your task is to generate 20-30 relevant keywords for each Indonesian hospital room name provided.
+These keywords must include related symptoms, layperson terms, slang, medical specialties, and common typos.
+CRITICAL: The keywords MUST be generated in BOTH Indonesian and English within the same array.
+Return the result as a raw JSON object (without markdown blocks like ```json) where keys are the original Indonesian names, and values are arrays of strings (the keywords).
+
+Names to process:
+{json.dumps(names_to_process)}
+"""
+            response = model.generate_content(prompt)
+            result_text = response.text.strip()
+            
+            # Ekstraksi JSON yang tangguh.
+            start_idx = result_text.find('{')
+            end_idx = result_text.rfind('}')
+            if start_idx != -1 and end_idx != -1:
+                result_text = result_text[start_idx:end_idx+1]
+            
+            keyword_dict = json.loads(result_text)
+            
+            for name in names_to_process:
+                kw_list = keyword_dict.get(name, [name])
+                if not isinstance(kw_list, list):
+                    kw_list = [str(kw_list)]
+                # Pastikan nama asli ada di dalam keywords.
+                if name not in kw_list:
+                    kw_list.append(name)
+                generated_keywords[name] = kw_list
+        except Exception as e:
+            logger.error(f"Gemini keyword generation failed: {e}")
+            for name in names_to_process:
+                generated_keywords[name] = [name]
+    else:
+        for name in names_to_process:
+            generated_keywords[name] = [name]
+
+    return {
+        "status": "success",
+        "keywords": generated_keywords
+    }
+
 @app.get("/")
 def home():
     return {
@@ -232,32 +290,4 @@ def dapatkan_rute(request: RequestRute):
         "jalur_koordinat": hasil_rute["jalur_grid"],
         "langkah_navigasi": hasil_rute["teks_navigasi"]
     }
-
-@app.post("/api/rooms/{room_id}")
-def simpan_ruangan(room_id: str, room: RoomModel):
-    try:
-        db.collection('Rooms').document(room_id).set(room.dict())
-        return {"status": "success", "message": f"Ruangan {room_id} berhasil disimpan."}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Gagal menyimpan data: {str(e)}")
-
-@app.patch("/api/rooms/{room_id}")
-def update_ruangan(room_id: str, updates: RoomUpdateModel):
-    try:
-        update_data = {k: v for k, v in updates.dict().items() if v is not None}
-        if not update_data:
-            return {"status": "success", "message": "Tidak ada data yang diubah."}
-            
-        db.collection('Rooms').document(room_id).update(update_data)
-        return {"status": "success", "message": f"Data {room_id} berhasil diperbarui."}
-    except Exception as e:
-        logger.error(f"Gagal memperbarui data {room_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Gagal memperbarui data: {str(e)}")
-
-@app.delete("/api/rooms/{room_id}")
-def hapus_ruangan(room_id: str):
-    try:
-        db.collection('Rooms').document(room_id).delete()
-        return {"status": "success", "message": f"Ruangan {room_id} berhasil dihapus."}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Gagal menghapus data: {str(e)}")
+

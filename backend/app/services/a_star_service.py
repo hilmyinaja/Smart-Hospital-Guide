@@ -86,10 +86,10 @@ def cari_pasangan_lift_terbaik(start_node, target_node, curr_floor, target_floor
     min_dist = float('inf')
     
     for l1 in lifts_start:
-        # Cari pasangan lift di lantai tujuan berdasarkan shaft yang sama (x,y paling dekat)
+        # Cari pasangan lift di lantai tujuan berdasarkan shaft yang sama (x,y paling dekat).
         l2 = min(lifts_target, key=lambda l: hitung_manhattan(l1["x"], l1["y"], l["x"], l["y"]))
         
-        # Hitung total estimasi jarak: Start -> Lift 1 -> (Pindah Lantai) -> Lift 2 -> Target
+        # Hitung total estimasi jarak: Start -> Lift 1 -> (Pindah Lantai) -> Lift 2 -> Target.
         dist1 = hitung_manhattan(start_node["x"], start_node["y"], l1["x"], l1["y"])
         dist2 = hitung_manhattan(l2["x"], l2["y"], target_node["x"], target_node["y"])
         
@@ -119,7 +119,7 @@ def cari_rute_grid(start_id, target_id, language="id"):
     
     phases = []
     
-    # 1. Keluar dari sub-map jika start di sub-map tapi target di luar
+    # Keluar dari sub-map jika start di sub-map tapi target di luar.
     curr_node = start_node
     curr_floor = start_floor
     
@@ -141,7 +141,7 @@ def cari_rute_grid(start_id, target_id, language="id"):
         curr_node = parent_room
         curr_floor = parent_room.get("floor", "Lantai 1")
         
-    # 2. Tentukan target antara (apakah target di sub-map?)
+    # Tentukan target antara (apakah target di sub-map?).
     target_parent_room = None
     target_pintu_masuk = None
     actual_target_floor = target_floor
@@ -156,36 +156,40 @@ def cari_rute_grid(start_id, target_id, language="id"):
             return {"status": "error", "pesan": msg}
         actual_target_floor = target_parent_room.get("floor", "Lantai 1")
         
-    # 3. Pindah lantai via Lift (jika beda lantai standar)
+    # Pindah lantai via Lift (jika beda lantai standar).
     if curr_floor != actual_target_floor:
         temp_target = target_parent_room if target_parent_room else target_node
         lift_start, lift_target = cari_pasangan_lift_terbaik(curr_node, temp_target, curr_floor, actual_target_floor)
         
         if not lift_start or not lift_target:
+            clean_curr = get_clean_floor_name(curr_floor, language)
+            clean_target = get_clean_floor_name(actual_target_floor, language)
             if language == "id":
-                msg = f"Tidak ditemukan Lift/Tangga antar {curr_floor} dan {actual_target_floor}."
+                msg = f"Tidak ditemukan Lift/Tangga antar {clean_curr} dan {clean_target}."
             else:
-                msg = f"No Elevator/Stairs found between {get_translated_floor(curr_floor, language)} and {get_translated_floor(actual_target_floor, language)}."
+                msg = f"No Elevator/Stairs found between {clean_curr} and {clean_target}."
             return {"status": "error", "pesan": msg}
             
         jalur_1 = _a_star_single_floor(curr_node, lift_start)
         if not jalur_1:
-            msg = f"Rute buntu menuju lift di {curr_floor}." if language == "id" else f"Dead end route to elevator on {get_translated_floor(curr_floor, language)}."
+            clean_curr = get_clean_floor_name(curr_floor, language)
+            msg = f"Rute buntu menuju lift di {clean_curr}." if language == "id" else f"Dead end route to elevator on {clean_curr}."
             return {"status": "error", "pesan": msg}
         phases.extend(jalur_1)
         
         curr_node = lift_target
         curr_floor = actual_target_floor
         
-    # 4. Berjalan di lantai tujuan menuju target akhir / ruangan induk target
+    # Berjalan di lantai tujuan menuju target akhir / ruangan induk target.
     temp_target = target_parent_room if target_parent_room else target_node
     jalur_2 = _a_star_single_floor(curr_node, temp_target)
     if not jalur_2:
-        msg = f"Rute buntu menuju tujuan di {curr_floor}." if language == "id" else f"Dead end route to destination on {get_translated_floor(curr_floor, language)}."
+        clean_curr = get_clean_floor_name(curr_floor, language)
+        msg = f"Rute buntu menuju tujuan di {clean_curr}." if language == "id" else f"Dead end route to destination on {clean_curr}."
         return {"status": "error", "pesan": msg}
     phases.extend(jalur_2)
     
-    # 5. Masuk ke sub-map tujuan (jika ada)
+    # Masuk ke sub-map tujuan (jika ada).
     if target_parent_room:
         jalur_3 = _a_star_single_floor(target_pintu_masuk, target_node)
         if not jalur_3:
@@ -199,6 +203,19 @@ def cari_rute_grid(start_id, target_id, language="id"):
         "jalur_grid": phases,
         "teks_navigasi": nav_text
     }
+
+def get_room_display_name(room_obj, language="id"):
+    if not room_obj:
+        return ""
+    name = room_obj.get("name", "Ruangan")
+    if language == "id":
+        return name
+        
+    name_en = room_obj.get("name_en")
+    if name_en:
+        return name_en
+        
+    return name
 
 def get_adjacent_room(x, y, floor, exclude_ids=None):
     if exclude_ids is None:
@@ -216,12 +233,20 @@ def get_adjacent_room(x, y, floor, exclude_ids=None):
         rw = room.get("w", 1)
         rh = room.get("h", 1)
         
-        # Cek apakah (x, y) berada dalam bounding box ruangan diperbesar 1 petak
+        # Cek apakah (x, y) berada dalam bounding box ruangan diperbesar 1 petak.
         if (rx - 1 <= x <= rx + rw) and (ry - 1 <= y <= ry + rh):
-            # Hindari Kiosk (kiosk_id biasa berawalan K) atau kita filter dari nama
+            # Hindari Kiosk (kiosk_id biasa berawalan K) atau kita filter dari nama.
             if room.get("name") and "Kiosk" not in room.get("name", ""):
-                return room["name"]
+                return room
     return None
+
+def get_clean_floor_name(floor_str, language="en"):
+    if floor_str.startswith("submap_"):
+        parent_id = floor_str.replace("submap_", "")
+        parent_name = RUANGAN_GRID.get(parent_id, {}).get("name", "Ruangan Induk")
+        if language == "id": return parent_name
+        return parent_name
+    return get_translated_floor(floor_str, language)
 
 def get_translated_floor(floor_str, language="en"):
     if language == "id": return floor_str
@@ -234,89 +259,20 @@ def get_translated_floor(floor_str, language="en"):
         return f"Floor {num}"
     return floor_str
 
-def translate_room_name(name, language="en"):
-    if language == "id" or not name: return name
-    
-    dict_en = {
-        "Poli Gigi": "Dental Clinic",
-        "Poli Mata": "Eye Clinic",
-        "Poli Kandungan": "Obstetrics Clinic",
-        "Poli Anak": "Pediatric Clinic",
-        "Poli Umum": "General Clinic",
-        "Poli Penyakit Dalam": "Internal Medicine",
-        "Poli Jantung": "Cardiology Clinic",
-        "Poli Syaraf": "Neurology Clinic",
-        "Poli Spesialis Lanjutan": "Advanced Specialist Clinic",
-        "Poli Spesialis": "Specialist Clinic",
-        "Poli": "Clinic",
-        "Ruang Operasi": "Operating Room",
-        "Ruang Tunggu": "Waiting Room",
-        "Ruang Pendaftaran": "Registration Room",
-        "Ruang Nakes": "Medical Staff Room",
-        "Pendaftaran": "Registration",
-        "Registrasi": "Registration",
-        "Ruang": "Room",
-        "Unit Gawat Darurat (IGD)": "Emergency Room (ER)",
-        "Instalasi Gawat Darurat": "Emergency Room (ER)",
-        "IGD": "Emergency Room (ER)",
-        "UGD": "Emergency Room (ER)",
-        "Gawat Darurat": "Emergency",
-        "Instalasi Rawat Inap": "Inpatient Installation",
-        "Instalasi Radiologi": "Radiology Installation",
-        "Rehabilitasi Medik": "Medical Rehabilitation",
-        "Medical Check Up (MCU)": "Medical Check Up (MCU)",
-        "Pusat Informasi": "Information Center",
-        "Apotek": "Pharmacy",
-        "Farmasi": "Pharmacy",
-        "Kasir & Administrasi": "Cashier & Administration",
-        "Kasir": "Cashier",
-        "Administrasi": "Administration",
-        "Kantin": "Canteen",
-        "Toilet": "Toilet",
-        "Kamar Mandi": "Toilet",
-        "Mushola": "Prayer Room",
-        "Masjid": "Mosque",
-        "Radiologi": "Radiology",
-        "Rawat Inap": "Inpatient Ward",
-        "Rawat Jalan": "Outpatient Clinic",
-        "Unit Rawat Jalan": "Outpatient Unit",
-        "Laboratorium Darah": "Blood Laboratory",
-        "Laboratorium": "Laboratory",
-        "Pintu Masuk": "Entrance",
-        "Pintu Keluar": "Exit",
-        "Kiosk Basement": "Basement Kiosk",
-        "Kiosk Baru": "New Kiosk",
-        "Kiosk": "Kiosk",
-        "Ruangan Induk": "Main Room",
-        "Ruangan Pintu Berlawanan": "Opposing Door Room",
-        "Ruangan 1 Pintu": "One Door Room",
-        "Ruangan 2 Pintu": "Two Door Room",
-        "Ruangan 3 Pintu": "Three Door Room",
-        "Ruangan 4 Pintu": "Four Door Room",
-        "Tangga Darurat": "Emergency Stairs",
-        "Lift": "Elevator",
-        "Tangga": "Stairs",
-        "Taman": "Garden"
-    }
-    
-    if name in dict_en: return dict_en[name]
-    
-    translated = name
-    import re
-    sorted_keys = sorted(dict_en.keys(), key=len, reverse=True)
-    for id_word in sorted_keys:
-        en_word = dict_en[id_word]
-        escaped_word = re.escape(id_word)
-        translated = re.sub(rf'\b{escaped_word}\b', en_word, translated, flags=re.IGNORECASE)
-    return translated
 
 def generate_navigation_text(path, start_id, target_id, language="id"):
     if not path or len(path) < 2:
         msg = "Anda sudah sampai di tujuan." if language == "id" else "You have reached your destination."
         return [{"teks": msg, "index_akhir": len(path) - 1 if path else 0, "floor": path[0]["floor"] if path else "Lantai 1"}]
 
-    start_name = translate_room_name(RUANGAN_GRID.get(start_id, {}).get("name", "Kiosk"), language)
-    target_name = translate_room_name(RUANGAN_GRID.get(target_id, {}).get("name", "Tujuan"), language)
+    start_room = RUANGAN_GRID.get(start_id, {})
+    target_room = RUANGAN_GRID.get(target_id, {})
+    
+    start_name = get_room_display_name(start_room, language)
+    if not start_name: start_name = "Kiosk"
+    
+    target_name = get_room_display_name(target_room, language)
+    if not target_name: target_name = "Tujuan" if language == "id" else "Destination"
     langkah = []
     current_dir = None
     is_after_transition = False
@@ -353,7 +309,7 @@ def generate_navigation_text(path, start_id, target_id, language="id"):
         p1 = path[i]
         p2 = path[i + 1]
         
-        # Pindah Ruangan / Lantai!
+        # Pindah ruangan / lantai!
         if p1["floor"] != p2["floor"]:
             if p2["floor"].startswith("submap_"):
                 parent_id = p2["floor"].replace("submap_", "")
@@ -370,7 +326,7 @@ def generate_navigation_text(path, start_id, target_id, language="id"):
             langkah.append({
                 "teks": teks_transisi,
                 "index_akhir": i,
-                "floor": p1["floor"] # Masih di floor sebelumnya untuk memicu transisi di ui
+                "floor": p1["floor"]  # Masih di floor sebelumnya untuk memicu transisi di UI.
             })
             current_dir = None
             is_after_transition = True
@@ -382,7 +338,8 @@ def generate_navigation_text(path, start_id, target_id, language="id"):
             current_dir = dir
         elif current_dir != dir:
             turn = get_turn(current_dir, dir)
-            adj_room = translate_room_name(get_adjacent_room(p1["x"], p1["y"], p1["floor"], exclude_ids), language)
+            adj_room_obj = get_adjacent_room(p1["x"], p1["y"], p1["floor"], exclude_ids)
+            adj_room = get_room_display_name(adj_room_obj, language) if adj_room_obj else None
             
             if len(langkah) == 0:
                 if language == "id": prefix = f"Dari {start_name}, berjalanlah ke arah {current_dir}"
@@ -424,8 +381,15 @@ def generate_navigation_text(path, start_id, target_id, language="id"):
             else: teks_akhir = f"From {start_name}, walk {'Up' if current_dir=='Atas' else 'Down' if current_dir=='Bawah' else 'Right' if current_dir=='Kanan' else 'Left'} and you will arrive at {target_name}."
     elif is_after_transition:
         if current_dir is None:
-            if language == "id": teks_akhir = f"Anda sudah sampai di {path[-1]['floor']}."
-            else: teks_akhir = f"You have arrived at {get_translated_floor(path[-1]['floor'], language)}."
+            final_floor = path[-1]['floor']
+            if final_floor.startswith("submap_"):
+                parent_id = final_floor.replace("submap_", "")
+                parent_name_id = RUANGAN_GRID.get(parent_id, {}).get("name", "Ruangan Induk")
+                if language == "id": teks_akhir = f"Anda sudah sampai di {parent_name_id}."
+                else: teks_akhir = f"You have arrived at {parent_name_id}."
+            else:
+                if language == "id": teks_akhir = f"Anda sudah sampai di {final_floor}."
+                else: teks_akhir = f"You have arrived at {get_translated_floor(final_floor, language)}."
         else:
             if path[-1]['floor'].startswith("submap_"):
                 if language == "id": teks_akhir = f"Setelah masuk, lurus ke arah {current_dir} dan Anda akan sampai di {target_name}."
