@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import threading
 import socket
 import os
+os.environ.pop("SSL_CERT_FILE", None)
 import json
 from dotenv import load_dotenv
 import google.generativeai as genai
