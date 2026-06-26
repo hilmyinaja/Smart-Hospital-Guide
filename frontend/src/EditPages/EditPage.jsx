@@ -22,14 +22,15 @@ const ElementShape = React.memo(({ shapeProps, isSelected, onSelect, onChange, s
   }, [isSelected]);
 
   const handleRename = () => {
-    const typeLabel = shapeProps.type === 'kiosk' ? 'Kiosk' : 'Ruangan';
-    onRequestRename(`Masukkan Nama ${typeLabel}:`, shapeProps.name || "", (newName) => {
+    const typeLabel = shapeProps.type === 'kiosk' ? (language === 'en' ? 'Kiosk' : 'Kiosk') : (language === 'en' ? 'Room' : 'Ruangan');
+    const promptText = language === 'en' ? `Enter ${typeLabel} Name:` : `Masukkan Nama ${typeLabel}:`;
+    onRequestRename(promptText, shapeProps.name || "", (newName) => {
       onChange({ ...shapeProps, name: newName });
     });
   };
 
   // ── rumus baru: auto shrink font ──
-  const textContent = translateName(shapeProps.name || (shapeProps.type === 'kiosk' ? 'Kiosk' : 'Tanpa Nama'), language);
+  const textContent = translateName(shapeProps.name || (shapeProps.type === 'kiosk' ? 'Kiosk' : 'Tanpa Nama'), language, shapeProps.name_en);
   const longestWordLen = Math.max(...textContent.split(' ').map(w => w.length), 1);
   const actualUsableWidth = Math.max(10, shapeProps.width - 12);
 
@@ -243,6 +244,7 @@ export default function EditPage() {
     const dict = {
       'save_map': { id: 'Simpan Peta', en: 'Save Map' },
       'cancel': { id: 'Batal', en: 'Cancel' },
+      'ok': { id: 'OK', en: 'OK' },
       'drag_drop_info': { id: 'Drag item ke dalam peta', en: 'Drag items into the map' },
       'room': { id: 'Ruangan', en: 'Room' },
       'kiosk': { id: 'Kios', en: 'Kiosk' },
@@ -267,6 +269,11 @@ export default function EditPage() {
       'template_elements': { id: 'Template Elemen', en: 'Element Templates' },
       'template_hint': { id: 'Tarik template langsung ke peta.', en: 'Drag templates directly onto the map.' },
       'drag_kiosk': { id: 'Kios', en: 'Kiosk' },
+      'tmpl_biasa': { id: 'Biasa', en: 'Standard' },
+      'tmpl_1_pintu': { id: '1 Pintu', en: '1 Door' },
+      'tmpl_2_pintu': { id: '2 Pintu', en: '2 Doors' },
+      'tmpl_3_pintu': { id: '3 Pintu', en: '3 Doors' },
+      'tmpl_4_pintu': { id: '4 Pintu', en: '4 Doors' },
       'del_element': { id: 'Hapus Elemen (Del)', en: 'Delete Element (Del)' },
       'enter_submap': { id: 'Masuk ke Bagian Dalam (Sub-Map)', en: 'Enter Inner Section (Sub-Map)' },
       'active_endpoint_side': { id: '📍 Sisi Endpoint Aktif', en: '📍 Active Endpoint Side' },
@@ -355,6 +362,7 @@ export default function EditPage() {
             type: 'room',
             floor: data.floor || "Lantai 1",
             name: data.name || "Tanpa Nama",
+            name_en: data.name_en || "",
             x: (data.grid_x || 0) * GRID_SIZE,
             y: (data.grid_y || 0) * GRID_SIZE,
             width: (data.grid_width || 1) * GRID_SIZE,
@@ -371,6 +379,7 @@ export default function EditPage() {
             type: 'kiosk',
             floor: data.floor || "Lantai 1",
             name: data.name || "Kiosk",
+            name_en: data.name_en || "",
             x: (data.grid_x || 0) * GRID_SIZE,
             y: (data.grid_y || 0) * GRID_SIZE,
             width: (data.grid_width || 2) * GRID_SIZE,
@@ -733,7 +742,7 @@ export default function EditPage() {
       const roomId = floorName.replace('submap_', '');
       const room = placedElements.find(el => el.id === roomId);
       if (room && room.name) {
-        return `Submap - ${translateName(room.name, language)}`;
+        return `Submap - ${translateName(room.name, language, room.name_en)}`;
       }
       return `Submap - ${roomId}`;
     }
@@ -806,6 +815,8 @@ export default function EditPage() {
         defaultValue={customPrompt.defaultValue} 
         onSubmit={customPrompt.onSubmit} 
         onCancel={() => setCustomPrompt(prev => ({ ...prev, isOpen: false }))} 
+        okText={getText('ok')}
+        cancelText={getText('cancel')}
       />
       <AlertDialog 
         isOpen={customAlert.isOpen} 
@@ -814,6 +825,7 @@ export default function EditPage() {
           setCustomAlert(prev => ({ ...prev, isOpen: false }));
           if (customAlert.onCloseCallback) customAlert.onCloseCallback();
         }} 
+        okText={getText('ok')}
       />
       <ConfirmDialog 
         isOpen={customConfirm.isOpen} 
@@ -821,6 +833,8 @@ export default function EditPage() {
         message={customConfirm.message} 
         onConfirm={customConfirm.onConfirm} 
         onCancel={() => setCustomConfirm(prev => ({ ...prev, isOpen: false }))} 
+        okText={getText('ok')}
+        cancelText={getText('cancel')}
       />
 
       {isSaving && (
@@ -981,7 +995,7 @@ export default function EditPage() {
           <h3>{getText('edit_panel')} - {formatFloorName(activeEditFloor)}</h3>
           <div className="edit-tools">
             <p className="edit-selected-text">
-              {selectedId ? `${getText('selected')}: ${translateName(placedElements.find(el => el.id === selectedId)?.name || "Kiosk", language)}` : getText('no_element_selected')}
+              {selectedId ? `${getText('selected')}: ${translateName(placedElements.find(el => el.id === selectedId)?.name || "Kiosk", language, placedElements.find(el => el.id === selectedId)?.name_en)}` : getText('no_element_selected')}
             </p>
             <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
               {selectedId && (
@@ -1091,11 +1105,11 @@ export default function EditPage() {
             <h5 style={{ margin: "5px 0 10px 0", fontSize: "12px", color: "var(--text-main)", fontWeight: "700" }}>{language === 'id' ? 'Ruangan' : 'Rooms'}</h5>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
               {[
-                { name: "Ruangan Pintu Berlawanan", shortName: "Biasa", endpoints: ['left', 'right'], color: "#4caf50", icon: "🚪" },
-                { name: "Ruangan 1 Pintu", shortName: "1 Pintu", endpoints: ['top'], color: "#4caf50", icon: "🚪" },
-                { name: "Ruangan 2 Pintu", shortName: "2 Pintu", endpoints: ['left', 'bottom'], color: "#4caf50", icon: "🚪" },
-                { name: "Ruangan 3 Pintu", shortName: "3 Pintu", endpoints: ['left', 'right', 'bottom'], color: "#4caf50", icon: "🚪" },
-                { name: "Ruangan 4 Pintu", shortName: "4 Pintu", endpoints: ['top', 'bottom', 'left', 'right'], color: "#4caf50", icon: "🚪" }
+                { name: "Ruangan Pintu Berlawanan", shortName: "tmpl_biasa", endpoints: ['left', 'right'], color: "#4caf50", icon: "🚪" },
+                { name: "Ruangan 1 Pintu", shortName: "tmpl_1_pintu", endpoints: ['top'], color: "#4caf50", icon: "🚪" },
+                { name: "Ruangan 2 Pintu", shortName: "tmpl_2_pintu", endpoints: ['left', 'bottom'], color: "#4caf50", icon: "🚪" },
+                { name: "Ruangan 3 Pintu", shortName: "tmpl_3_pintu", endpoints: ['left', 'right', 'bottom'], color: "#4caf50", icon: "🚪" },
+                { name: "Ruangan 4 Pintu", shortName: "tmpl_4_pintu", endpoints: ['top', 'bottom', 'left', 'right'], color: "#4caf50", icon: "🚪" }
               ].map(preset => (
                 <div
                   key={preset.name}
@@ -1147,7 +1161,7 @@ export default function EditPage() {
                   }}
                 >
                   <div className="template-icon">{preset.icon}</div>
-                  <p>{preset.shortName}</p>
+                  <p>{getText(preset.shortName)}</p>
                 </div>
               ))}
             </div>
