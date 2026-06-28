@@ -536,7 +536,7 @@ export default function EditPage() {
 
     setCustomConfirm({
       isOpen: true,
-      title: `${getText('confirm_delete_floor_1')} "${activeEditFloor}"?`,
+      title: `${getText('confirm_delete_floor_1')} "${formatFloorName(activeEditFloor)}"?`,
       message: getText('confirm_delete_floor_2'),
       onConfirm: () => {
         setCustomConfirm(prev => ({ ...prev, isOpen: false }));
@@ -559,7 +559,7 @@ export default function EditPage() {
   const handleRenameFloor = () => {
     setCustomPrompt({
       isOpen: true,
-      title: `${getText('prompt_rename_floor')} "${activeEditFloor}":`,
+      title: `${getText('prompt_rename_floor')} "${formatFloorName(activeEditFloor)}":`,
       defaultValue: activeEditFloor,
       onSubmit: (newFloor) => {
         setCustomPrompt(prev => ({ ...prev, isOpen: false }));

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import LogoImg from '../assets/Logo.png';
 import { useNavigate } from "react-router";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
-import { collection, onSnapshot, doc, updateDoc, query, orderBy, limit, addDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
+import { collection, onSnapshot, doc, updateDoc, query, orderBy, limit, addDoc, serverTimestamp, deleteDoc, getDocs, where } from "firebase/firestore";
 import { db } from "../firebase";
 import SharedMap from "../components/SharedMap";
 import { translateName } from "../utils/translator";
@@ -109,7 +109,9 @@ export default function App() {
         timestamp: serverTimestamp(),
         title: { id: titleId, en: titleEn },
         desc: { id: descId, en: descEn },
-        device: userAgent
+        device: userAgent,
+        ram: navigator.deviceMemory || null,
+        cores: navigator.hardwareConcurrency || null
       });
     } catch (e) {
       console.error("Failed to add activity log", e);
@@ -179,6 +181,21 @@ export default function App() {
   const floorOrderRef = useRef([]);
 
   useEffect(() => {
+    // Membersihkan semua log lama (lebih dari 1 bulan) di background
+    const cleanOldLogs = async () => {
+      try {
+        const oneMonthAgo = new Date();
+        oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+        const qOldLogs = query(collection(db, "Logs"), where("timestamp", "<", oneMonthAgo));
+        const oldLogsSnap = await getDocs(qOldLogs);
+        oldLogsSnap.forEach(docSnap => {
+          deleteDoc(doc(db, "Logs", docSnap.id)).catch(err => console.error("Error deleting old log:", err));
+        });
+      } catch (e) {
+        console.error("Failed to clean old logs", e);
+      }
+    };
+    cleanOldLogs();
 
     const unsubscribeKiosks = onSnapshot(collection(db, "Kiosks"), (kioskSnap) => {
       const loadedKiosks = [];
@@ -603,7 +620,7 @@ export default function App() {
                 <span className="stat-label">{language === 'id' ? 'Total Ruangan' : 'Total Rooms'}</span>
               </div>
               <div className="stat-card">
-                <span className="stat-value">{kiosks.length}</span>
+                <span className="stat-value">{kiosks.filter(k => !k.name?.toLowerCase().includes('pintu')).length}</span>
                 <span className="stat-label">{language === 'id' ? 'Kios Aktif' : 'Active Kiosks'}</span>
               </div>
             </div>
@@ -678,6 +695,8 @@ export default function App() {
                     {act.device && (
                       <div className="activity-device" style={{ fontSize: "0.75em", opacity: 0.7, marginTop: "4px" }}>
                         {formatDevice(act.device)}
+                        {act.ram ? ` • ${act.ram}GB RAM` : ''}
+                        {act.cores ? ` • ${act.cores} Cores` : ''}
                       </div>
                     )}
                   </div>
