@@ -150,8 +150,16 @@ def translate_names(request: RequestTranslate):
             model = genai.GenerativeModel('gemini-2.5-flash')
             prompt = f"""
 You are an expert translator for a smart hospital guide application. 
-Your task is to translate the following Indonesian hospital room names into English medical/hospital terminology.
-Return the result as a raw JSON object (without markdown blocks like ```json) where keys are the original Indonesian names, and values are the English translations.
+Your task is to process a list of hospital room names provided by the user. The names might be in Indonesian or English.
+For each name, determine its correct Indonesian version and English version (medical/hospital terminology).
+Return the result as a raw JSON object (without markdown blocks like ```json) where keys are the original input names, and values are objects with "id" (the Indonesian name) and "en" (the English name).
+
+Example output format:
+{{
+  "Ruang IGD": {{"id": "Ruang IGD", "en": "Emergency Room"}},
+  "Emergency Room": {{"id": "Ruang IGD", "en": "Emergency Room"}},
+  "ICU": {{"id": "Ruang ICU", "en": "ICU"}}
+}}
 
 Names to translate:
 {json.dumps(names_to_translate)}
@@ -166,11 +174,14 @@ Names to translate:
             translated_dict = json.loads(result_text)
             
             for name in names_to_translate:
-                en_name = translated_dict.get(name, name)
-                translations[name] = {
-                    "id": name,
-                    "en": en_name
-                }
+                if name in translated_dict and isinstance(translated_dict[name], dict) and "id" in translated_dict[name] and "en" in translated_dict[name]:
+                    translations[name] = translated_dict[name]
+                else:
+                    en_name = translated_dict.get(name, name) if not isinstance(translated_dict.get(name), dict) else name
+                    translations[name] = {
+                        "id": name,
+                        "en": en_name
+                    }
         except Exception as e:
             logger.error(f"Gemini translation failed: {e}")
             for name in names_to_translate:

@@ -922,9 +922,44 @@ export default function EditPage() {
                               isOpen: true,
                               title,
                               defaultValue: defVal,
-                              onSubmit: (val) => {
-                                onSubmit(val);
+                              onSubmit: async (val) => {
                                 setCustomPrompt(prev => ({ ...prev, isOpen: false }));
+                                if (!val || val.trim() === "") return;
+                                
+                                onSubmit(val.trim());
+                                
+                                try {
+                                  const res = await fetch("/api/translate", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ names: [val.trim()] })
+                                  });
+                                  const data = await res.json();
+                                  if (data.status === "success" && data.translations[val.trim()]) {
+                                    const trans = data.translations[val.trim()];
+                                    const idName = typeof trans === 'string' ? val.trim() : (trans.id || val.trim());
+                                    const enName = typeof trans === 'string' ? trans : (trans.en || "");
+                                    
+                                    const { placedElements, history, historyStep } = stateRef.current;
+                                    const index = placedElements.findIndex(e => e.id === rect.id);
+                                    if (index !== -1) {
+                                      const newElements = [...placedElements];
+                                      newElements[index] = { ...newElements[index], name: idName, name_en: enName };
+                                      setPlacedElements(newElements);
+                                      
+                                      let newHistory = history.slice(0, historyStep + 1);
+                                      newHistory.push(newElements);
+                                      if (newHistory.length > 50) {
+                                        newHistory = newHistory.slice(newHistory.length - 50);
+                                      }
+                                      setHistory(newHistory);
+                                      setHistoryStep(newHistory.length - 1);
+                                      stateRef.current = { placedElements: newElements, history: newHistory, historyStep: newHistory.length - 1 };
+                                    }
+                                  }
+                                } catch (error) {
+                                  console.error("Gagal real-time translate:", error);
+                                }
                               }
                             });
                           }}
