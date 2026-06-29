@@ -80,4 +80,4 @@ After executing the command:
 *(Note: Upon the first run, the backend will take about 5 seconds to load the AI model).*
 
 ## Video Demo
-[![Watch the Video](https://img.youtube.com/vi/YOUTUBE_ID/0.jpg)](https://drive.google.com/file/d/11J_qKzrjaZPY3CgueYLxJ0ID7a5MwSCY/view?usp=sharing)
+[![Watch the Demo Video](https://raw.githubusercontent.com/dentest/dentest/master/assets/play-button.png)](https://drive.google.com/file/d/11J_qKzrjaZPY3CgueYLxJ0ID7a5MwSCY/view?usp=sharing)
