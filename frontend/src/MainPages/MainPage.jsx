@@ -240,16 +240,19 @@ export default function App() {
     const mobile = params.get("mobile");
     const expires = params.get("expires");
 
-    if (mobile === "true" && start && end) {
-      if (expires && Date.now() > parseInt(expires, 10)) {
-        setIsSessionExpired(true);
-        return;
-      }
+    if (mobile === "true") {
       setIsMobileMode(true);
-      setLocation(start);
-      setSearch(end);
-
-      executeSearch(start, end);
+      if (start && end) {
+        if (expires && Date.now() > parseInt(expires, 10)) {
+          setIsSessionExpired(true);
+          return;
+        }
+        setLocation(start);
+        setSearch(end);
+        executeSearch(start, end);
+      } else {
+        setIsSessionExpired(true);
+      }
     }
 
     if (lockId) {
@@ -466,6 +469,7 @@ export default function App() {
               setActiveStepIndex(-1);
               setTargetRoomName("");
               setIsNavFinished(false);
+              setIsQrModalOpen(false);
             }, 10000);
           } else {
             playNext(index + 1);
