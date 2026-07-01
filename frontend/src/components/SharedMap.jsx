@@ -192,6 +192,7 @@ export default function SharedMap({ path = [], activePath = null, activeStepInde
         const data = docSnap.data();
         loadedKiosks.push({
           id: docSnap.id,
+          type: "kiosk",
           floor: data.floor || "Lantai 1",
           name: data.name || "Kiosk",
           name_en: data.name_en,
@@ -427,7 +428,7 @@ export default function SharedMap({ path = [], activePath = null, activeStepInde
                   // Batasi ukuran font secara ketat agar huruf dari kata yang sama tidak terpisah
                   const fontSize = Math.min(maxFontSizeWidth, Math.max(9, Math.min(16, maxFontSizeHeight)));
 
-                  const isInteractive = isPintu && onRoomClick;
+                  const isInteractive = !!onRoomClick;
 
                   return (
                     <Group

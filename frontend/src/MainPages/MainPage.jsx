@@ -1145,13 +1145,19 @@ export default function App() {
                       const clientY = e?.evt?.clientY ?? window.innerHeight / 2;
                       setRoomActionModal({ room, hasSubmap: true, x: clientX, y: clientY });
                     } else {
-
-                      const roomName = translateName(room.name, language, room.name_en);
-                      setSearch(roomName);
-                      if (location) {
-                        executeSearch(location, roomName);
+                      if (room.type === "kiosk") {
+                        setLocation(room.id);
+                        if (search) {
+                          executeSearch(room.id, search);
+                        }
                       } else {
+                        const roomName = translateName(room.name, language, room.name_en);
                         setSearch(roomName);
+                        if (location) {
+                          executeSearch(location, roomName);
+                        } else {
+                          setSearch(roomName);
+                        }
                       }
                     }
                   }}

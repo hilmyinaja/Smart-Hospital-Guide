@@ -30,7 +30,6 @@ def _a_star_single_floor(start_node, target_node):
 
     target_coords = get_valid_coords(target_node)
     
-    # Expand target_coords to include adjacent walkable cells to make stopping more flexible
     expanded_target_coords = set(target_coords)
     for tx, ty in target_coords:
         for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, 1), (-1, 1), (1, -1)]:
@@ -46,6 +45,15 @@ def _a_star_single_floor(start_node, target_node):
     f_score = {}
     
     start_coords = get_valid_coords(start_node)
+    
+    expanded_start_coords = set(start_coords)
+    for sx, sy in start_coords:
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, 1), (-1, 1), (1, -1)]:
+            nx, ny = sx + dx, sy + dy
+            if 0 <= nx < GRID_WIDTH and 0 <= ny < GRID_HEIGHT:
+                if grid[ny][nx] == 0:
+                    expanded_start_coords.add((nx, ny))
+    start_coords = expanded_start_coords
 
     for sx, sy in start_coords:
         g_score[(sx, sy)] = 0
@@ -75,18 +83,15 @@ def _a_star_single_floor(start_node, target_node):
         for nx, ny in tetangga_list:
             if 0 <= nx < GRID_WIDTH and 0 <= ny < GRID_HEIGHT:
                 if grid[ny][nx] == 0 or (nx, ny) in target_coords:
-                    # Turn penalty
                     turn_penalty = 0
                     if current in came_from:
                         prev = came_from[current]
                         if (current[0] - prev[0]) != (nx - current[0]) or (current[1] - prev[1]) != (ny - current[1]):
                             turn_penalty = 0.5
                             
-                    # Wall-hugging penalty (prefer walking in the middle of corridors)
                     wall_penalty = 0
                     for wx, wy in [(nx-1, ny), (nx+1, ny), (nx, ny-1), (nx, ny+1), (nx-1, ny-1), (nx+1, ny+1), (nx-1, ny+1), (nx+1, ny-1)]:
                         if 0 <= wx < GRID_WIDTH and 0 <= wy < GRID_HEIGHT:
-                            # If adjacent cell is a wall, add a small penalty
                             if grid[wy][wx] == 1 and (wx, wy) not in target_coords:
                                 wall_penalty += 0.1
                                 
@@ -262,11 +267,6 @@ def get_nearest_landmark(x, y, floor, exclude_ids=None):
         if room.get("floor", "Lantai 1") != floor:
             continue
             
-        # Boleh memasukkan Kiosk sebagai patokan jika ada namanya, tapi prioritas lebih rendah?
-        # User bilang "correlated to rooms or kiosk that its near", jadi kita hapus filter Kiosk!
-        # if room.get("name") and "Kiosk" in room.get("name", ""):
-        #     continue
-            
         name = room.get("name", "")
         if not name or name.lower() == "tanpa nama" or "jalan" in name.lower() or "lorong" in name.lower() or name.lower() == "pintu masuk":
             continue
@@ -347,16 +347,16 @@ def generate_navigation_text(path, start_id, target_id, language="id"):
         rw = room_obj.get("w", 1)
         rh = room_obj.get("h", 1)
         
-        if current_dir == 'Atas': # moving -y
+        if current_dir == 'Atas':
             if rx + rw - 1 < turn_x: return "kiri" if language == "id" else "left"
             if rx > turn_x: return "kanan" if language == "id" else "right"
-        elif current_dir == 'Bawah': # moving +y
+        elif current_dir == 'Bawah':
             if rx + rw - 1 < turn_x: return "kanan" if language == "id" else "right"
             if rx > turn_x: return "kiri" if language == "id" else "left"
-        elif current_dir == 'Kanan': # moving +x
+        elif current_dir == 'Kanan':
             if ry + rh - 1 < turn_y: return "kiri" if language == "id" else "left"
             if ry > turn_y: return "kanan" if language == "id" else "right"
-        elif current_dir == 'Kiri': # moving -x
+        elif current_dir == 'Kiri':
             if ry + rh - 1 < turn_y: return "kanan" if language == "id" else "right"
             if ry > turn_y: return "kiri" if language == "id" else "left"
             

@@ -110,7 +110,7 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
             nama = room.get("name", "").lower()
             tipe = room.get("type", "room")
             
-            # An entrance node is typically a kiosk with "pintu" in the name, or rooms with exit-like names.
+            # Kiosk entrance atau pintu keluar.
             is_entrance = (tipe == "kiosk" and "pintu" in nama) or "pintu keluar" in nama or "pintu masuk" in nama or "exit" in nama or "entrance" in nama or "lobi" in nama or "lobby" in nama
             
             if is_entrance:
@@ -197,9 +197,8 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
     else:
         exact_matches = intersection_matches
 
-    # Fuzzy typo match (jika irisan dan substring gagal).
+    # Koreksi typo (jika irisan dan substring gagal).
     if not exact_matches and input_bersih:
-        # Rapidfuzz returns a list of tuples: [(match_string, score, index), ...]
         typo_matches = process.extract(input_bersih, kumpulan_kata_kunci, scorer=fuzz.WRatio, limit=1, score_cutoff=70)
         if not typo_matches:
             typo_matches = process.extract(input_lower, kumpulan_kata_kunci, scorer=fuzz.WRatio, limit=1, score_cutoff=70)
