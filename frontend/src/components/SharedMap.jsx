@@ -3,7 +3,7 @@ import { Stage, Layer, Rect, Text, Line, Group, Circle } from "react-konva";
 import Konva from "konva";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
-import { translateName } from "../utils/translator";
+import { translateName, getDisplayNodeName } from "../utils/translator";
 
 function getTotalPathLength(pathPoints) {
   let total = 0;
@@ -52,7 +52,7 @@ function getPointAtDistance(pathPoints, distance) {
   return { x: lastX, y: lastY, angle: 0 };
 }
 
-export default function SharedMap({ path = [], activePath = null, activeStepIndex = 0, activeStepText = "", currentFloor = "Lantai 1", currentBuilding = "Gedung A", selectedKiosk, onRoomClick, showGrid = true, showBorder = false, language = "id", isDarkMode = false }) {
+export default function SharedMap({ path = [], activePath = null, activeStepIndex = 0, currentFloor = "Lantai 1", currentBuilding = "Gedung A", selectedKiosk, onRoomClick, showGrid = true, showBorder = false, language = "id", isDarkMode = false }) {
   const [rooms, setRooms] = useState([]);
   const [kiosks, setKiosks] = useState([]);
   const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
@@ -231,112 +231,177 @@ export default function SharedMap({ path = [], activePath = null, activeStepInde
     ]);
   }, [activePath, pathPoints, currentFloor, currentBuilding]);
 
+  // ── Persistent animation refs ──
+  const activePathPointsRef = useRef([]);
+  const walkedDistanceRef = useRef(0);
+  const prevPathLengthRef = useRef(0);
+  const activeStepIndexRef = useRef(0);
+  const animPhaseRef = useRef("idle"); // "idle" | "rotating" | "walking"
+  const rotateStartTimeRef = useRef(0);
+  const rotateFromAngleRef = useRef(0);
+  const rotateToAngleRef = useRef(0);
+  const walkStartTimeRef = useRef(0);
+  const selectedKioskRef = useRef(selectedKiosk);
+
+  // Keep kiosk ref in sync
+  useEffect(() => { selectedKioskRef.current = selectedKiosk; }, [selectedKiosk]);
+
+  // Detect path changes: extension vs. reset
+  useEffect(() => {
+    const prev = activePathPointsRef.current;
+    const next = activePathPoints;
+
+    activePathPointsRef.current = next;
+    activeStepIndexRef.current = activeStepIndex;
+
+    if (next.length < 4) {
+      // No valid path — reset everything
+      animPhaseRef.current = "idle";
+      walkedDistanceRef.current = 0;
+      prevPathLengthRef.current = 0;
+      return;
+    }
+
+    // Check if 'next' is an extension of 'prev' (same prefix)
+    const isExtension = prev.length >= 4 && next.length > prev.length &&
+      prev.every((val, i) => Math.abs(val - next[i]) < 0.01);
+
+    if (isExtension) {
+      // Path extended — keep walking from current distance, no reset.
+      // The total path length grew, so the person just has more road ahead.
+      prevPathLengthRef.current = getTotalPathLength(next);
+      // Phase stays "walking" — seamless continuation.
+    } else {
+      // Completely new path (new route, floor switch, etc.) — reset.
+      const totalLen = getTotalPathLength(next);
+      prevPathLengthRef.current = totalLen;
+      walkedDistanceRef.current = 0;
+
+      if (activeStepIndex === 0) {
+        // First step: need initial rotation from kiosk direction
+        animPhaseRef.current = "rotating";
+        rotateStartTimeRef.current = performance.now();
+
+        // Capture start/end angles for interpolation
+        const p0 = getPointAtDistance(next, 0);
+        const kiosk = kiosks.find(k => k.id === selectedKioskRef.current);
+        let fromAngle;
+        if (kiosk) {
+          const kioskCenterX = kiosk.x + kiosk.width / 2;
+          const kioskCenterY = kiosk.y + kiosk.height / 2;
+          fromAngle = Math.atan2(kioskCenterY - p0.y, kioskCenterX - p0.x) * (180 / Math.PI);
+        } else {
+          fromAngle = p0.angle + 180;
+        }
+        rotateFromAngleRef.current = fromAngle;
+        rotateToAngleRef.current = p0.angle;
+        personRef.current?.rotation(fromAngle);
+      } else {
+        // Mid-route floor switch — start walking immediately, no rotation delay
+        animPhaseRef.current = "walking";
+        walkStartTimeRef.current = performance.now();
+      }
+    }
+  }, [activePathPoints, activeStepIndex, kiosks]);
+
+  // Single persistent animation — recreated only when the line element mounts/unmounts
   useEffect(() => {
     if (!lineRef.current) return;
 
-    let totalPathLength = 0;
-    if (activePathPoints.length >= 4) {
-      totalPathLength = getTotalPathLength(activePathPoints);
-    }
-
-    // Kecepatan jalan: disesuaikan dengan durasi teks navigasi agar pas
-    // Estimasi TTS membaca: ~15 karakter per detik
-    const textLen = activeStepText ? activeStepText.length : 20;
-    const estimatedSeconds = Math.max(2, textLen * 0.07); // ~14 chars per sec
-    const WALK_SPEED = totalPathLength > 0 ? (totalPathLength / estimatedSeconds) : 15;
-    const LEG_SWING_FREQ = 0.006; // Frekuensi ayunan kaki.
+    const ROTATION_DURATION = 1000; // ms for initial kiosk turn
+    const LEG_SWING_FREQ = 0.006;
+    const WALK_SPEED = 50; // Fixed speed in px/sec — consistent natural pace
 
     const anim = new Konva.Animation((frame) => {
       if (!lineRef.current) return;
 
+      // Dash animation on active line
       const dashOffset = (frame.time / 25) % 20;
       lineRef.current.dashOffset(-dashOffset);
 
-      if (personRef.current && activePathPoints.length >= 4 && totalPathLength > 0) {
-        const DELAY = 1000; // 1 second delay for rotation
+      const pts = activePathPointsRef.current;
+      if (!personRef.current || pts.length < 4) return;
 
-        // Capture initial angle once when animation starts
-        if (personRef.current.startAngle === undefined || personRef.current.lastStepIndex !== activeStepIndex) {
-            const p0 = getPointAtDistance(activePathPoints, 0);
-            const firstAngle = p0.angle;
-            
-            if (activeStepIndex === 0) {
-                const kiosk = kiosks.find(k => k.id === selectedKiosk);
-                if (kiosk) {
-                    const kioskCenterX = kiosk.x + kiosk.width / 2;
-                    const kioskCenterY = kiosk.y + kiosk.height / 2;
-                    personRef.current.startAngle = Math.atan2(kioskCenterY - p0.y, kioskCenterX - p0.x) * (180 / Math.PI);
-                } else {
-                    personRef.current.startAngle = firstAngle + 180;
-                }
-            } else {
-                personRef.current.startAngle = personRef.current.rotation();
-            }
-            personRef.current.lastStepIndex = activeStepIndex;
+      const totalLen = prevPathLengthRef.current;
+      if (totalLen <= 0) return;
+
+      const now = performance.now();
+      const phase = animPhaseRef.current;
+
+      if (phase === "rotating") {
+        // Initial rotation at step 0
+        const elapsed = now - rotateStartTimeRef.current;
+        const progress = Math.min(elapsed / ROTATION_DURATION, 1);
+        const ease = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
+
+        const p0 = getPointAtDistance(pts, 0);
+        const fromAngle = rotateFromAngleRef.current;
+        const toAngle = rotateToAngleRef.current;
+
+        // Shortest-arc interpolation
+        let diff = toAngle - fromAngle;
+        diff = ((diff + 180) % 360 + 360) % 360 - 180;
+
+        personRef.current.x(p0.x);
+        personRef.current.y(p0.y);
+
+        if (progress < 1) {
+          personRef.current.rotation(fromAngle + diff * ease);
+        } else {
+          personRef.current.rotation(toAngle);
+          // Transition to walking
+          animPhaseRef.current = "walking";
+          walkStartTimeRef.current = now;
         }
 
-        if (frame.time < DELAY) {
-          // Standing still, rotating from startAngle to path angle
-          const p0 = getPointAtDistance(activePathPoints, 0);
-          const firstAngle = p0.angle;
-          const initialAngle = personRef.current.startAngle;
-          
-          const progress = frame.time / DELAY;
-          // easeInOutQuad
-          const ease = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
-          
-          // Interpolate angle. We want to find the shortest path from initialAngle to firstAngle
-          let diff = firstAngle - initialAngle;
-          diff = ((diff + 180) % 360 + 360) % 360 - 180;
-          
-          const currentAngle = initialAngle + (diff * ease);
-          
-          personRef.current.x(p0.x);
-          personRef.current.y(p0.y);
-          personRef.current.rotation(currentAngle);
-          
-          if (leftFootRef.current && rightFootRef.current) {
-            leftFootRef.current.x(0);
-            rightFootRef.current.x(0);
-          }
+        if (leftFootRef.current && rightFootRef.current) {
+          leftFootRef.current.x(0);
+          rightFootRef.current.x(0);
+        }
+      } else if (phase === "walking") {
+        // Advance walked distance
+        const timeDeltaSec = frame.timeDiff / 1000;
+        walkedDistanceRef.current = Math.min(
+          walkedDistanceRef.current + WALK_SPEED * timeDeltaSec,
+          totalLen
+        );
+
+        const distance = walkedDistanceRef.current;
+        const isMoving = distance < totalLen;
+        const { x, y, angle } = getPointAtDistance(pts, distance);
+
+        // Smooth rotation towards target angle
+        let targetAngle = angle;
+        let currentAngle = personRef.current.rotation();
+        let diff = targetAngle - currentAngle;
+        diff = ((diff + 180) % 360 + 360) % 360 - 180;
+
+        let turnSpeed = 400 * timeDeltaSec;
+        let newAngle;
+        if (Math.abs(diff) <= turnSpeed) {
+          newAngle = targetAngle;
         } else {
-          // Walking along path
-          const distance = Math.min(((frame.time - DELAY) / 1000) * WALK_SPEED, totalPathLength);
-          const isMoving = distance < totalPathLength;
-          const { x, y, angle } = getPointAtDistance(activePathPoints, distance);
+          newAngle = currentAngle + Math.sign(diff) * turnSpeed;
+        }
 
-          let targetAngle = angle;
-          let currentAngle = personRef.current.rotation();
-          
-          // Hitung jarak terpendek ke targetAngle
-          let diff = targetAngle - currentAngle;
-          diff = ((diff + 180) % 360 + 360) % 360 - 180;
-          
-          // Putaran mulus (sekitar 400 derajat per detik)
-          let turnSpeed = 400 * (frame.timeDiff / 1000);
-          let newAngle;
-          if (Math.abs(diff) <= turnSpeed) {
-              newAngle = targetAngle;
-          } else {
-              newAngle = currentAngle + Math.sign(diff) * turnSpeed;
-          }
+        personRef.current.x(x);
+        personRef.current.y(y);
+        personRef.current.rotation(newAngle);
 
-          personRef.current.x(x);
-          personRef.current.y(y);
-          personRef.current.rotation(newAngle);
-
-          if (leftFootRef.current && rightFootRef.current) {
-            const footSwing = isMoving ? Math.sin((frame.time - DELAY) * LEG_SWING_FREQ) * 8 : 0;
-            leftFootRef.current.x(footSwing);
-            rightFootRef.current.x(-footSwing);
-          }
+        if (leftFootRef.current && rightFootRef.current) {
+          const footSwing = isMoving ? Math.sin(frame.time * LEG_SWING_FREQ) * 8 : 0;
+          leftFootRef.current.x(footSwing);
+          rightFootRef.current.x(-footSwing);
         }
       }
+      // phase === "idle": do nothing (just dash animation on line)
     }, lineRef.current.getLayer());
 
     anim.start();
     return () => anim.stop();
-  }, [activePathPoints]);
+    // Re-run when the Line element mounts (activePathPoints drives conditional render)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePathPoints.length > 0]);
 
   const drawGrid = () => {
     const lines = [];

@@ -6,7 +6,7 @@ import { collection, onSnapshot, doc } from "firebase/firestore";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { db, auth } from "../firebase";
 import SharedMap from "../components/SharedMap";
-import { translateName } from "../utils/translator";
+import { translateName, getDisplayNodeName } from "../utils/translator";
 import { AlertDialog } from "../components/Dialogs";
 import { QRCodeCanvas } from "qrcode.react";
 import LanguageSelector from "../components/LanguageSelector";
@@ -599,9 +599,10 @@ export default function App() {
 
   const activePath = useMemo(() => {
     if (activeStepIndex === -1 || !navigationSteps.length || !pathData.length) return null;
-    const startIndex = activeStepIndex === 0 ? 0 : navigationSteps[activeStepIndex - 1].index_akhir;
+    // Cumulative: include all path points from the start through the current step's end.
+    // This lets the walking animation extend seamlessly instead of resetting per step.
     const endIndex = navigationSteps[activeStepIndex].index_akhir;
-    const rawPath = pathData.slice(startIndex, endIndex + 1);
+    const rawPath = pathData.slice(0, endIndex + 1);
     return rawPath.filter(p => (p.building || "Gedung A") === building && p.floor === floor);
   }, [pathData, navigationSteps, activeStepIndex, building, floor]);
 
@@ -1207,7 +1208,7 @@ export default function App() {
                   path={filteredPathData}
                   activePath={activePath}
                   activeStepIndex={activeStepIndex}
-                  activeStepText={activeStepIndex >= 0 && navigationSteps[activeStepIndex] ? navigationSteps[activeStepIndex].teks : ""}
+                  activeStepIndex={activeStepIndex}
                   currentFloor={floor}
                   currentBuilding={building}
                   language={language}
