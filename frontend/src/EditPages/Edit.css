@@ -76,6 +76,9 @@ body.dark-mode .edit-page-map {
   flex-direction: column;
   gap: 16px;
   overflow-y: auto;
+  overflow-x: hidden;
+  overflow-wrap: break-word;
+  word-break: normal;
   padding-right: 8px;
 }
 
@@ -119,6 +122,8 @@ body.dark-mode .edit-page-right-panel::-webkit-scrollbar-thumb {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
   font-weight: 700;
 }
 

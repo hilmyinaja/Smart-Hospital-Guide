@@ -1341,7 +1341,7 @@ export default function EditPage() {
           <p style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "-5px", marginBottom: "8px" }}>{getText('template_hint')}</p>
           <div className="dnd-zone">
             <h5 style={{ margin: "5px 0 10px 0", fontSize: "12px", color: "var(--text-main)", fontWeight: "700" }}>{language === 'id' ? 'Ruangan' : 'Rooms'}</h5>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: "8px" }}>
               {[
                 { name: "Ruangan Pintu Berlawanan", shortName: "tmpl_biasa", endpoints: ['left', 'right'], color: "#4caf50", icon: "🚪" },
                 { name: "Ruangan 1 Pintu", shortName: "tmpl_1_pintu", endpoints: ['top'], color: "#4caf50", icon: "🚪" },
@@ -1407,7 +1407,7 @@ export default function EditPage() {
             <div style={{ margin: "10px 0", borderTop: "1px solid var(--border)" }}></div>
 
             <h5 style={{ margin: "0 0 10px 0", fontSize: "12px", color: "var(--text-main)", fontWeight: "700" }}>{language === 'id' ? 'Lainnya' : 'Others'}</h5>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: "8px" }}>
               <div
                 draggable
                 style={{ touchAction: 'none' }}
