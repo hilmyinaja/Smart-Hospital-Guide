@@ -878,7 +878,7 @@ export default function App() {
                         }}
                       >
                         <option value="" disabled>{getText('select_kiosk')}</option>
-                        {kiosks.filter(k => !k.name?.toLowerCase().includes('pintu')).map((kiosk) => (
+                        {kiosks.filter(k => !k.name?.toLowerCase().includes('pintu') && k.building === building).map((kiosk) => (
                           <option key={kiosk.id} value={kiosk.id}>
                             {translateName(kiosk.name || kiosk.id, language, kiosk.name_en)}
                           </option>
