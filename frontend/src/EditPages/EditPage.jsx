@@ -449,7 +449,8 @@ export default function EditPage() {
         });
         
         setFloors(initialFloors);
-        setActiveEditFloor(initialFloors.includes("Lantai 1") ? "Lantai 1" : (initialFloors[initialFloors.length - 1] || "Lantai 1"));
+        const defaultFloor = initialFloors.find(f => f.toLowerCase() === "lantai 1" || f.toLowerCase() === "first floor") || initialFloors[0] || "Lantai 1";
+        setActiveEditFloor(defaultFloor);
       } catch (error) {
         console.error("Gagal mengambil data:", error);
       }
@@ -478,7 +479,8 @@ export default function EditPage() {
     });
     
     setFloors(newFloors);
-    setActiveEditFloor(newFloors.includes("Lantai 1") ? "Lantai 1" : newFloors[newFloors.length - 1]);
+    const targetFloor = newFloors.find(f => f.toLowerCase() === "lantai 1" || f.toLowerCase() === "first floor") || newFloors[0];
+    setActiveEditFloor(targetFloor);
   };
 
   useEffect(() => {

@@ -847,7 +847,8 @@ export default function App() {
                             if (idxB !== -1) return 1;
                             return a.localeCompare(b);
                           });
-                          setFloor(newFloors[0]);
+                          const targetFloor = newFloors.find(f => f.toLowerCase() === "lantai 1" || f.toLowerCase() === "first floor") || newFloors[0];
+                          setFloor(targetFloor);
                         }
                       }}
                     >
