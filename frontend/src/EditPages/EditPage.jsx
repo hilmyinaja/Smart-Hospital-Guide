@@ -213,6 +213,7 @@ export default function EditPage() {
   const [isDraggingElement, setIsDraggingElement] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [deletedElements, setDeletedElements] = useState([]);
+  const [clipboardElement, setClipboardElement] = useState(null);
 
   const [customPrompt, setCustomPrompt] = useState({ isOpen: false, title: '', defaultValue: '', onSubmit: null });
   const [customAlert, setCustomAlert] = useState({ isOpen: false, message: '', onCloseCallback: null });
@@ -282,8 +283,8 @@ export default function EditPage() {
       'tmpl_2_pintu': { id: '2 Pintu', en: '2 Doors' },
       'tmpl_3_pintu': { id: '3 Pintu', en: '3 Doors' },
       'tmpl_4_pintu': { id: '4 Pintu', en: '4 Doors' },
-      'del_element': { id: 'Hapus Elemen (Del)', en: 'Delete Element (Del)' },
-      'enter_submap': { id: 'Masuk ke Bagian Dalam (Sub-Map)', en: 'Enter Inner Section (Sub-Map)' },
+      'del_element': { id: 'Hapus Elemen', en: 'Delete Element' },
+      'enter_submap': { id: 'Masuk ke Bagian Dalam', en: 'Enter Inner Section' },
       'active_endpoint_side': { id: '📍 Sisi Endpoint Aktif', en: '📍 Active Endpoint Side' },
       'change_manual_hint': { id: 'Ubah manual jika template tidak sesuai:', en: 'Change manually if template does not fit:' },
       'top': { id: 'Atas', en: 'Top' },
@@ -525,12 +526,90 @@ export default function EditPage() {
     }
   }, [selectedId, placedElements, saveHistory]);
 
+  const cloneSelectedElement = useCallback(() => {
+    if (selectedId) {
+      const selectedEl = placedElements.find(el => el.id === selectedId);
+      if (selectedEl) {
+        let maxNumber = 0;
+        const prefix = selectedEl.type === 'kiosk' ? 'K' : 'R';
+        placedElements.forEach((el) => {
+          if (el.id.startsWith(prefix)) {
+            const num = parseInt(el.id.substring(1), 10);
+            if (!isNaN(num) && num > maxNumber) maxNumber = num;
+          }
+        });
+        const newId = `${prefix}${String(maxNumber + 1).padStart(3, '0')}`;
+        
+        const clonedEl = {
+          ...selectedEl,
+          id: newId,
+          x: selectedEl.x + GRID_SIZE,
+          y: selectedEl.y + GRID_SIZE
+        };
+        
+        const newElements = [...placedElements, clonedEl];
+        setPlacedElements(newElements);
+        saveHistory(newElements);
+        setSelectedId(newId);
+      }
+    }
+  }, [selectedId, placedElements, saveHistory]);
+
+  const pasteElement = useCallback(() => {
+    if (clipboardElement) {
+      let maxNumber = 0;
+      const prefix = clipboardElement.type === 'kiosk' ? 'K' : 'R';
+      placedElements.forEach((el) => {
+        if (el.id.startsWith(prefix)) {
+          const num = parseInt(el.id.substring(1), 10);
+          if (!isNaN(num) && num > maxNumber) maxNumber = num;
+        }
+      });
+      const newId = `${prefix}${String(maxNumber + 1).padStart(3, '0')}`;
+      
+      const newX = clipboardElement.x + GRID_SIZE;
+      const newY = clipboardElement.y + GRID_SIZE;
+      
+      const pastedEl = {
+        ...clipboardElement,
+        id: newId,
+        x: newX,
+        y: newY,
+        floor: activeEditFloor,
+        building: activeEditBuilding
+      };
+      
+      const newElements = [...placedElements, pastedEl];
+      setPlacedElements(newElements);
+      saveHistory(newElements);
+      setSelectedId(newId);
+      setClipboardElement(pastedEl);
+    }
+  }, [clipboardElement, placedElements, saveHistory, activeEditFloor, activeEditBuilding]);
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.target.tagName.toLowerCase() === 'input') return;
 
       if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
         deleteSelectedElement();
+      }
+      if (e.ctrlKey && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        cloneSelectedElement();
+      }
+      if (e.ctrlKey && e.key.toLowerCase() === "c") {
+        if (selectedId) {
+          e.preventDefault();
+          const selectedEl = stateRef.current.placedElements.find(el => el.id === selectedId);
+          if (selectedEl) {
+            setClipboardElement(selectedEl);
+          }
+        }
+      }
+      if (e.ctrlKey && e.key.toLowerCase() === "v") {
+        e.preventDefault();
+        pasteElement();
       }
       if (e.ctrlKey && e.key.toLowerCase() === "z") {
         e.preventDefault();
@@ -543,7 +622,7 @@ export default function EditPage() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedId, deleteSelectedElement, handleUndo, handleRedo]);
+  }, [selectedId, deleteSelectedElement, handleUndo, handleRedo, cloneSelectedElement, pasteElement]);
 
   const checkDeselect = (e) => {
     const clickedOnEmpty = e.target === e.target.getStage() || e.target.attrs.id === "bg-grid";
@@ -595,6 +674,73 @@ export default function EditPage() {
             showAlert(getText('alert_floor_exists'));
           }
         }
+      }
+    });
+  };
+  const handleRenameBuilding = () => {
+    setCustomPrompt({
+      isOpen: true,
+      title: `${language === 'id' ? 'Ubah nama gedung' : 'Rename building'} "${activeEditBuilding}":`,
+      defaultValue: activeEditBuilding,
+      onSubmit: (newBuilding) => {
+        setCustomPrompt(prev => ({ ...prev, isOpen: false }));
+        if (newBuilding && newBuilding.trim() !== "" && newBuilding.trim() !== activeEditBuilding) {
+          const formattedBuilding = newBuilding.trim();
+          if (buildings.includes(formattedBuilding)) {
+            showAlert(getText('alert_name_used'));
+            return;
+          }
+
+          const newElements = placedElements.map(el => {
+            if (el.building === activeEditBuilding) {
+              return { ...el, building: formattedBuilding };
+            }
+            return el;
+          });
+
+          setPlacedElements(newElements);
+          saveHistory(newElements);
+
+          const newBuildingsList = buildings.map(b => b === activeEditBuilding ? formattedBuilding : b);
+          setBuildings(newBuildingsList);
+          
+          if (globalFloorOrderRef.current[activeEditBuilding]) {
+            globalFloorOrderRef.current[formattedBuilding] = globalFloorOrderRef.current[activeEditBuilding];
+            delete globalFloorOrderRef.current[activeEditBuilding];
+          }
+
+          setActiveEditBuilding(formattedBuilding);
+        }
+      }
+    });
+  };
+
+  const handleDeleteBuilding = () => {
+    if (buildings.length <= 1) {
+      showAlert(language === 'id' ? 'Minimal harus ada 1 gedung!' : 'There must be at least 1 building!');
+      return;
+    }
+
+    setCustomConfirm({
+      isOpen: true,
+      title: `${language === 'id' ? 'Hapus gedung' : 'Delete building'} "${activeEditBuilding}"?`,
+      message: language === 'id' ? 'Semua elemen di gedung ini akan ikut terhapus!' : 'All elements in this building will also be deleted!',
+      onConfirm: () => {
+        setCustomConfirm(prev => ({ ...prev, isOpen: false }));
+        const elementsToDelete = placedElements.filter(el => el.building === activeEditBuilding);
+        const idsToDelete = elementsToDelete.map(el => el.id);
+        setDeletedElements(prev => [...prev, ...idsToDelete]);
+
+        const newElements = placedElements.filter(el => el.building !== activeEditBuilding);
+        setPlacedElements(newElements);
+        saveHistory(newElements);
+
+        const remainingBuildings = buildings.filter(b => b !== activeEditBuilding);
+        setBuildings(remainingBuildings);
+        
+        delete globalFloorOrderRef.current[activeEditBuilding];
+        
+        handleBuildingChange(remainingBuildings[0]);
       }
     });
   };
@@ -1108,7 +1254,7 @@ export default function EditPage() {
                 </div>
               )}
             </div>
-            <div className="edit-btn-group">
+            <div className="edit-btn-group" style={{ marginBottom: "5px" }}>
               <button onClick={() => {
                 const promptText = language === 'id' ? 'Masukkan nama gedung baru:' : 'Enter new building name:';
                 setCustomPrompt({
@@ -1126,7 +1272,9 @@ export default function EditPage() {
                     }
                   }
                 });
-              }} className="edit-btn btn-success">{language === 'id' ? 'Tambah Gedung' : 'Add Building'}</button>
+              }} className="edit-btn btn-success">{language === 'id' ? 'Tambah' : 'Add'}</button>
+              <button onClick={handleRenameBuilding} className="edit-btn btn-primary">{language === 'id' ? 'Ganti Nama' : 'Rename'}</button>
+              <button onClick={handleDeleteBuilding} className="edit-btn btn-danger">{language === 'id' ? 'Hapus' : 'Delete'}</button>
             </div>
           </div>
 
@@ -1197,153 +1345,139 @@ export default function EditPage() {
             </div>
           </div>
 
-          <div className="edit-btn-group" style={{ marginBottom: "10px" }}>
-            <button
-              onClick={handleUndo}
-              disabled={historyStep <= 0}
-              className="edit-btn btn-secondary"
-              title="Undo (Ctrl+Z)"
-            >
-              ↶ {getText('undo')}
-            </button>
-            <button
-              onClick={handleRedo}
-              disabled={historyStep >= history.length - 1}
-              className="edit-btn btn-secondary"
-              title="Redo (Ctrl+Y)"
-            >
-              {getText('redo')} ↷
-            </button>
+          <div className="edit-card" style={{ marginBottom: "16px" }}>
+            <h4 className="edit-card-title">
+              <span>🛠️ {language === 'id' ? 'Alat Global' : 'Global Tools'}</span>
+            </h4>
+            <div className="edit-btn-group" style={{ marginBottom: "10px" }}>
+              <button onClick={handleUndo} disabled={historyStep <= 0} className="edit-btn btn-secondary" title="Undo (Ctrl+Z)">
+                ↶ {getText('undo')}
+              </button>
+              <button onClick={handleRedo} disabled={historyStep >= history.length - 1} className="edit-btn btn-secondary" title="Redo (Ctrl+Y)">
+                {getText('redo')} ↷
+              </button>
+            </div>
           </div>
 
-          <h3>{getText('edit_panel')} - {formatFloorName(activeEditFloor)}</h3>
-          <div className="edit-tools">
-            <p className="edit-selected-text">
-              {selectedId ? `${getText('selected')}: ${translateName(placedElements.find(el => el.id === selectedId)?.name || "Kiosk", language, placedElements.find(el => el.id === selectedId)?.name_en)}` : getText('no_element_selected')}
-            </p>
-            <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
-              {selectedId && (
-                <button
-                  className="edit-btn btn-danger delete-btn"
-                  onClick={deleteSelectedElement}
-                  style={{ flex: 1 }}
-                >
-                  {getText('del_element')}
-                </button>
-              )}
+          <div className="edit-card" style={{ marginBottom: "16px" }}>
+            <h4 className="edit-card-title">
+              <span>📝 {getText('edit_panel')} - {formatFloorName(activeEditFloor)}</span>
+            </h4>
+            <div className="edit-tools">
+              <p className="edit-selected-text">
+                {selectedId ? `${getText('selected')}: ${translateName(placedElements.find(el => el.id === selectedId)?.name || "Kiosk", language, placedElements.find(el => el.id === selectedId)?.name_en)}` : getText('no_element_selected')}
+              </p>
+              <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
+                {selectedId && (
+                  <button className="edit-btn btn-success" onClick={cloneSelectedElement} style={{ flex: 1 }} title="Clone (Ctrl+D)">
+                    {language === 'id' ? 'Gandakan' : 'Clone'}
+                  </button>
+                )}
 
-              {selectedId && placedElements.find(el => el.id === selectedId)?.type === 'room' && (
-                <button
-                  onClick={() => {
-                    const room = placedElements.find(el => el.id === selectedId);
-                    const submapId = `submap_${room.id}`;
-                    setActiveEditFloor(submapId);
-                    setSelectedId(null);
+                {selectedId && placedElements.find(el => el.id === selectedId)?.type === 'room' && (
+                  <button onClick={() => {
+                      const room = placedElements.find(el => el.id === selectedId);
+                      const submapId = `submap_${room.id}`;
+                      setActiveEditFloor(submapId);
+                      setSelectedId(null);
+                      const hasPintuMasuk = placedElements.some(el => el.floor === submapId && el.name.toLowerCase() === 'pintu masuk');
+                      if (!hasPintuMasuk) {
+                        const newId = generateNextKioskId();
+                        const newElements = [...placedElements, {
+                          id: newId, type: 'kiosk', floor: submapId, x: 200, y: 200,
+                          width: GRID_SIZE * 2, height: GRID_SIZE * 2,
+                          name: "Pintu Masuk", fill: "#FF9800", stroke: "#E65100"
+                        }];
+                        setPlacedElements(newElements);
+                        saveHistory(newElements);
+                      }
+                    }}
+                    className="edit-btn btn-primary" style={{ flex: 1 }}>
+                    {getText('enter_submap')}
+                  </button>
+                )}
 
-                    const hasPintuMasuk = placedElements.some(el => el.floor === submapId && el.name.toLowerCase() === 'pintu masuk');
-                    if (!hasPintuMasuk) {
-                      const newId = generateNextKioskId();
-                      const newElements = [...placedElements, {
-                        id: newId, type: 'kiosk',
-                        floor: submapId,
-                        x: 200, y: 200,
-                        width: GRID_SIZE * 2, height: GRID_SIZE * 2,
-                        name: "Pintu Masuk", fill: "#FF9800", stroke: "#E65100"
-                      }];
-                      setPlacedElements(newElements);
-                      saveHistory(newElements);
-                    }
-                  }}
-                  className="edit-btn btn-primary"
-                  style={{ flex: 1 }}
-                >
-                  {getText('enter_submap')}
-                </button>
-              )}
-            </div>
+                {selectedId && (
+                  <button className="edit-btn btn-danger delete-btn" onClick={deleteSelectedElement} style={{ flex: 1 }}>
+                    {getText('del_element')}
+                  </button>
+                )}
+              </div>
 
-            {activeEditFloor.startsWith("submap_") && (
-              <button
-                className="edit-btn btn-secondary"
-                style={{ width: "100%", marginTop: "4px" }}
-                onClick={() => {
+              {activeEditFloor.startsWith("submap_") && (
+                <button className="edit-btn btn-secondary" style={{ width: "100%", marginTop: "4px", marginBottom: "10px" }} onClick={() => {
                   const parentRoomId = activeEditFloor.replace("submap_", "");
                   const parentRoom = placedElements.find(el => el.id === parentRoomId);
                   setActiveEditFloor(parentRoom ? parentRoom.floor : floors[0]);
-                }}
-              >
-                ← {getText('back_to_main_floor')}
-              </button>
-            )}
+                }}>
+                  ← {getText('back_to_main_floor')}
+                </button>
+              )}
 
-            {selectedId && (() => {
-              const el = placedElements.find(e => e.id === selectedId);
-              if (!el) return null;
-              const isRoom = el.type === 'room';
-              const isKiosk = el.type === 'kiosk';
-              if (!isRoom && !isKiosk) return null;
-              const room = el;
-              const updateRoom = (changes) => {
-                const newElements = placedElements.map(el => el.id === selectedId ? { ...el, ...changes } : el);
-                setPlacedElements(newElements);
-                saveHistory(newElements);
-              };
-              return (
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-
-                  {room.is_connector && (
+              {selectedId && (() => {
+                const el = placedElements.find(e => e.id === selectedId);
+                if (!el) return null;
+                const isRoom = el.type === 'room';
+                const isKiosk = el.type === 'kiosk';
+                if (!isRoom && !isKiosk) return null;
+                const room = el;
+                const updateRoom = (changes) => {
+                  const newElements = placedElements.map(el => el.id === selectedId ? { ...el, ...changes } : el);
+                  setPlacedElements(newElements);
+                  saveHistory(newElements);
+                };
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    {room.is_connector && (
+                      <div className="endpoint-controls edit-card-inner">
+                        <h4 className="endpoint-title">{language === 'id' ? 'Menuju Gedung' : 'Target Building'}</h4>
+                        <select 
+                          value={room.target_building || ""}
+                          onChange={(e) => updateRoom({ target_building: e.target.value })}
+                          style={{ width: "100%", padding: "5px", borderRadius: "5px", border: "1px solid #ccc", color: "black", marginTop: "5px" }}
+                        >
+                          <option value="" disabled>{language === 'id' ? 'Pilih Gedung Tujuan' : 'Select Target Building'}</option>
+                          {buildings.filter(b => b !== activeEditBuilding).map(b => (
+                            <option key={b} value={b}>{b}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                     <div className="endpoint-controls edit-card-inner">
-                      <h4 className="endpoint-title">{language === 'id' ? 'Menuju Gedung' : 'Target Building'}</h4>
-                      <select 
-                        value={room.target_building || ""}
-                        onChange={(e) => updateRoom({ target_building: e.target.value })}
-                        style={{ width: "100%", padding: "5px", borderRadius: "5px", border: "1px solid #ccc", color: "black", marginTop: "5px" }}
-                      >
-                        <option value="" disabled>{language === 'id' ? 'Pilih Gedung Tujuan' : 'Select Target Building'}</option>
-                        {buildings.filter(b => b !== activeEditBuilding).map(b => (
-                          <option key={b} value={b}>{b}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  <div className="endpoint-controls edit-card-inner">
-                    <h4 className="endpoint-title">{getText('active_endpoint_side')}</h4>
-                    <p className="endpoint-hint">{getText('change_manual_hint')}</p>
-                    <div className="endpoint-grid">
-                      {['top', 'bottom', 'left', 'right'].map(side => {
-                        const labels = { top: getText('top'), bottom: getText('bottom'), left: getText('left'), right: getText('right') };
-                        const isChecked = (room.endpoints || []).includes(side);
-                        return (
-                          <label key={side} className="endpoint-label">
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => {
+                      <h4 className="endpoint-title">{getText('active_endpoint_side')}</h4>
+                      <p className="endpoint-hint">{getText('change_manual_hint')}</p>
+                      <div className="endpoint-grid">
+                        {['top', 'bottom', 'left', 'right'].map(side => {
+                          const labels = { top: getText('top'), bottom: getText('bottom'), left: getText('left'), right: getText('right') };
+                          const isChecked = (room.endpoints || []).includes(side);
+                          return (
+                            <label key={side} className="endpoint-label">
+                              <input type="checkbox" checked={isChecked} onChange={() => {
                                 const curr = room.endpoints || [];
                                 const next = isChecked ? curr.filter(s => s !== side) : [...curr, side];
                                 updateRoom({ endpoints: next.length > 0 ? next : ['bottom'] });
-                              }}
-                            />
-                            <span className="checkbox-custom"></span>
-                            {labels[side]}
-                          </label>
-                        );
-                      })}
+                              }} />
+                              <span className="checkbox-custom"></span>
+                              {labels[side]}
+                            </label>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })()}
+                );
+              })()}
+            </div>
           </div>
 
-          <hr style={{ margin: "10px 0", border: "0.5px solid var(--border)" }} />
-
-          <h3>{getText('template_elements')}</h3>
-          <p style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "-5px", marginBottom: "8px" }}>{getText('template_hint')}</p>
-          <div className="dnd-zone">
-            <h5 style={{ margin: "5px 0 10px 0", fontSize: "12px", color: "var(--text-main)", fontWeight: "700" }}>{language === 'id' ? 'Ruangan' : 'Rooms'}</h5>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: "8px" }}>
+          <div className="edit-card">
+            <h4 className="edit-card-title">
+              <span>🧩 {getText('template_elements')}</span>
+            </h4>
+            <p style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "-5px", marginBottom: "8px" }}>{getText('template_hint')}</p>
+            <div className="dnd-zone">
+              <h5 style={{ margin: "5px 0 10px 0", fontSize: "12px", color: "var(--text-main)", fontWeight: "700" }}>{language === 'id' ? 'Ruangan' : 'Rooms'}</h5>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: "8px" }}>
               {[
                 { name: "Ruangan Pintu Berlawanan", shortName: "tmpl_biasa", endpoints: ['left', 'right'], color: "#4caf50", icon: "🚪" },
                 { name: "Ruangan 1 Pintu", shortName: "tmpl_1_pintu", endpoints: ['top'], color: "#4caf50", icon: "🚪" },
@@ -1558,7 +1692,8 @@ export default function EditPage() {
               </div>
             </div>
           </div>
-        </aside>
+        </div>
+      </aside>
       </div>
     </div>
   );
