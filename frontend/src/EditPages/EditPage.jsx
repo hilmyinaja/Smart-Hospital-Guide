@@ -285,7 +285,7 @@ export default function EditPage() {
       'tmpl_4_pintu': { id: '4 Pintu', en: '4 Doors' },
       'del_element': { id: 'Hapus Elemen', en: 'Delete Element' },
       'enter_submap': { id: 'Masuk ke Bagian Dalam', en: 'Enter Inner Section' },
-      'active_endpoint_side': { id: '📍 Sisi Endpoint Aktif', en: '📍 Active Endpoint Side' },
+      'active_endpoint_side': { id: 'Sisi Endpoint Aktif', en: 'Active Endpoint Side' },
       'change_manual_hint': { id: 'Ubah manual jika template tidak sesuai:', en: 'Change manually if template does not fit:' },
       'top': { id: 'Atas', en: 'Top' },
       'bottom': { id: 'Bawah', en: 'Bottom' },
@@ -1046,8 +1046,8 @@ export default function EditPage() {
           <label className="theme-switch" title={isDarkMode ? (language === 'id' ? 'Mode Terang' : 'Light Mode') : (language === 'id' ? 'Mode Gelap' : 'Dark Mode')}>
             <input type="checkbox" checked={isDarkMode} onChange={toggleTheme} />
             <span className="slider">
-              <span className="slider-icon">🌙</span>
-              <span className="slider-icon">☀️</span>
+              <span className="slider-icon"></span>
+              <span className="slider-icon"></span>
             </span>
           </label>
           <LanguageSelector
@@ -1224,7 +1224,7 @@ export default function EditPage() {
         <aside className="edit-page-right-panel">
           <div className="edit-card" style={{ marginBottom: "15px" }}>
             <h4 className="edit-card-title">
-              <span>🏢 {language === 'id' ? 'Gedung' : 'Building'}</span>
+              <span>{language === 'id' ? 'Gedung' : 'Building'}</span>
               <span className="badge">{buildings.length}</span>
             </h4>
             <div className="custom-floor-dropdown" style={{ marginBottom: "10px" }}>
@@ -1280,8 +1280,8 @@ export default function EditPage() {
 
           <div className="edit-card">
             <h4 className="edit-card-title">
-              <span>🏢 {getText('floor_management')}</span>
-              <span className="badge">{floors.length} {getText('floors_count')}</span>
+              <span>{getText('floor_management')}</span>
+              <span className="badge">{floors.length}</span>
             </h4>
             <div className="custom-floor-dropdown">
               <div 
@@ -1347,7 +1347,7 @@ export default function EditPage() {
 
           <div className="edit-card" style={{ marginBottom: "16px" }}>
             <h4 className="edit-card-title">
-              <span>🛠️ {language === 'id' ? 'Alat Global' : 'Global Tools'}</span>
+              <span>{language === 'id' ? 'Alat Global' : 'Global Tools'}</span>
             </h4>
             <div className="edit-btn-group" style={{ marginBottom: "10px" }}>
               <button onClick={handleUndo} disabled={historyStep <= 0} className="edit-btn btn-secondary" title="Undo (Ctrl+Z)">
@@ -1361,7 +1361,7 @@ export default function EditPage() {
 
           <div className="edit-card" style={{ marginBottom: "16px" }}>
             <h4 className="edit-card-title">
-              <span>📝 {getText('edit_panel')} - {formatFloorName(activeEditFloor)}</span>
+              <span>{getText('edit_panel')} - {formatFloorName(activeEditFloor)}</span>
             </h4>
             <div className="edit-tools">
               <p className="edit-selected-text">
@@ -1472,7 +1472,7 @@ export default function EditPage() {
 
           <div className="edit-card">
             <h4 className="edit-card-title">
-              <span>🧩 {getText('template_elements')}</span>
+              <span>{getText('template_elements')}</span>
             </h4>
             <p style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "-5px", marginBottom: "8px" }}>{getText('template_hint')}</p>
             <div className="dnd-zone">
