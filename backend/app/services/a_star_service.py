@@ -274,7 +274,7 @@ def cari_rute_grid(start_id, target_id, language="id"):
         for step in building_path:
             b_from, door_s, b_to, door_t = step
             if not door_s or not door_t:
-                return {"status": "error", "pesan": f"Pintu penghubung dari {b_from} ke {b_to} tidak ditemukan." if language == "id" else f"Connector door from {b_from} to {b_to} not found."}
+                return {"status": "error", "pesan": f"Pintu dari {b_from} menuju {b_to} tidak ditemukan." if language == "id" else f"Door from {b_from} to {b_to} not found."}
                 
             r1, err1 = _jalan_dalam_gedung(curr_node, door_s, curr_floor, door_s.get("floor", "Lantai 1"), curr_building)
             if err1: return {"status": "error", "pesan": err1}
@@ -306,6 +306,11 @@ def cari_rute_grid(start_id, target_id, language="id"):
 def get_room_display_name(room_obj, language="id"):
     if not room_obj:
         return ""
+        
+    if room_obj.get("is_connector") and room_obj.get("target_building"):
+        target_bld = room_obj.get("target_building")
+        return f"Pintu menuju {target_bld}" if language == "id" else f"Door to {target_bld}"
+        
     name = room_obj.get("name", "Ruangan")
     if language == "id":
         return name
@@ -456,7 +461,7 @@ def generate_navigation_text(path, start_id, target_id, language="id"):
         if p1.get("building") != p2.get("building"):
             b1 = p1.get("building", "Gedung Utama")
             b2 = p2.get("building", "Gedung Utama")
-            teks_transisi = f"Melewati Pintu Penghubung, keluar dari {b1} dan menuju ke {b2}." if language == "id" else f"Go through the Connector Door, exit {b1} and proceed to {b2}."
+            teks_transisi = f"Melewati pintu menuju {b2}, keluar dari {b1}." if language == "id" else f"Go through the door to {b2}, exiting {b1}."
             
             langkah.append({
                 "teks": teks_transisi,
@@ -513,8 +518,8 @@ def generate_navigation_text(path, start_id, target_id, language="id"):
                     else: prefix = f"After entering,"
                 else:
                     if last_transition_type == 'building':
-                        if language == "id": prefix = f"Setelah melewati pintu penghubung,"
-                        else: prefix = f"After passing the connector door,"
+                        if language == "id": prefix = f"Setelah sampai di {p1['building']},"
+                        else: prefix = f"After arriving at {p1['building']},"
                     else:
                         if language == "id": prefix = f"Setelah keluar di {p1['floor']},"
                         else: 
@@ -582,8 +587,8 @@ def generate_navigation_text(path, start_id, target_id, language="id"):
                 else: teks_akhir = f"After entering, go straight {'up' if current_dir=='Atas' else 'down' if current_dir=='Bawah' else 'right' if current_dir=='Kanan' else 'left'} and you will arrive at {target_name}."
             else:
                 if last_transition_type == 'building':
-                    if language == "id": teks_akhir = f"Setelah keluar dari pintu penghubung di {path[-1]['floor']}, jalan lurus ke arah {current_dir.lower() if current_dir else ''} dan Anda akan sampai di {target_name}."
-                    else: teks_akhir = f"After exiting the connector door at {get_translated_floor(path[-1]['floor'], language)}, walk straight {'up' if current_dir=='Atas' else 'down' if current_dir=='Bawah' else 'right' if current_dir=='Kanan' else 'left'} and you will arrive at {target_name}."
+                    if language == "id": teks_akhir = f"Setelah sampai di {path[-1]['building']}, jalan lurus ke arah {current_dir.lower() if current_dir else ''} dan Anda akan sampai di {target_name}."
+                    else: teks_akhir = f"After arriving at {path[-1]['building']}, walk straight {'up' if current_dir=='Atas' else 'down' if current_dir=='Bawah' else 'right' if current_dir=='Kanan' else 'left'} and you will arrive at {target_name}."
                 else:
                     if language == "id": teks_akhir = f"Dari lift di {path[-1]['floor']}, jalan lurus ke arah {current_dir.lower() if current_dir else ''} dan Anda akan sampai di {target_name}."
                     else: teks_akhir = f"From the lift at {get_translated_floor(path[-1]['floor'], language)}, walk straight {'up' if current_dir=='Atas' else 'down' if current_dir=='Bawah' else 'right' if current_dir=='Kanan' else 'left'} and you will arrive at {target_name}."

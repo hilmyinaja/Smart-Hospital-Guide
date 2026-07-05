@@ -14,7 +14,7 @@ if GEMINI_API_KEY:
 
 print("Memuat mesin NLP (Sentence Transformers)...")
 # Menggunakan model multilingual MPNet yang lebih pintar dan akurat untuk semantik.
-# Force CPU to prevent CUDA OOM errors during uvicorn --reload (GPU too small for multiple instances).
+# Paksa menggunakan CPU untuk mencegah error CUDA OOM saat uvicorn --reload (GPU terlalu kecil untuk multi-instance).
 model = SentenceTransformer('paraphrase-multilingual-mpnet-base-v2', device='cpu')
 
 DATABASE_RUANGAN = {}
@@ -79,12 +79,15 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
     # Cocokkan input dengan semua nama lantai yang ada di database (kecuali submap).
     teks_cek = input_bersih.replace("naik", "").replace("turun", "").strip()
     
-    # Kumpulkan semua nama lantai unik dari grid (abaikan submap).
+    # Kumpulkan semua nama lantai dan gedung unik dari grid (abaikan submap).
     semua_lantai = set()
+    semua_gedung = set()
     for room in waypoint_graph.RUANGAN_GRID.values():
         fl = room.get("floor", "Lantai 1")
+        bld = room.get("building", "Gedung A")
         if not fl.startswith("submap_"):
             semua_lantai.add(fl)
+        semua_gedung.add(bld)
     
     # Cocokkan input yang sudah dibersihkan dengan nama lantai.
     target_floor_match = None
@@ -103,6 +106,38 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
                         "target_id": r_id,
                         "confidence_score": 1.0
                     }
+
+    # Cocokkan input yang sudah dibersihkan dengan nama gedung.
+    target_building_match = None
+    for bld in semua_gedung:
+        if teks_cek.lower() == bld.lower():
+            target_building_match = bld
+            break
+
+    if target_building_match:
+        from app.services.a_star_service import get_pintu_gedung
+        pintu_gedung = get_pintu_gedung(target_building_match)
+        if pintu_gedung:
+            for r_id, room in waypoint_graph.RUANGAN_GRID.items():
+                if room == pintu_gedung:
+                    return {
+                        "status": "success",
+                        "target_id": r_id,
+                        "confidence_score": 1.0,
+                        "match_type": "building_entrance",
+                        "matched_building": target_building_match
+                    }
+        # Jika tidak ada pintu utama, kembalikan sembarang ruangan di gedung itu
+        for r_id, room in waypoint_graph.RUANGAN_GRID.items():
+            if room.get("building", "Gedung A") == target_building_match:
+                return {
+                    "status": "success",
+                    "target_id": r_id,
+                    "confidence_score": 1.0,
+                    "match_type": "building_entrance",
+                    "matched_building": target_building_match
+                }
+
 
     # Heuristic: Deteksi jika user ingin pulang/keluar
     if "pulang" in input_bersih or "keluar" in input_bersih or "exit" in input_bersih:
@@ -259,6 +294,53 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
             if room.get("floor", "Lantai 1").lower() == target_floor.lower():
                 nama = room.get("name", "").lower()
                 if "lift" in nama and "tangga" not in nama:
+                    return {
+                        "status": "success",
+                        "target_id": r_id,
+                        "confidence_score": 1.0
+                    }
+
+    match_gedung = re.fullmatch(r'(gedung|building)\s+(\w+)', teks_cek)
+    if match_gedung:
+        target_bld_prefix = match_gedung.group(1)
+        target_bld_suffix = match_gedung.group(2)
+        
+        # Pemetaan fonetik untuk huruf-huruf Indonesia yang sering salah didengar oleh sistem STT (Speech-to-Text)
+        phonetic_map = {
+            "a": "a", "be": "b", "ce": "c", "de": "d", "e": "e", "ef": "f",
+            "ge": "g", "ha": "h", "i": "i", "je": "j", "ka": "k", "el": "l",
+            "em": "m", "en": "n", "o": "o", "pe": "p", "ki": "q", "er": "r",
+            "es": "s", "te": "t", "u": "u", "ve": "v", "we": "w", "eks": "x",
+            "ye": "y", "zet": "z"
+        }
+        
+        if target_bld_suffix.lower() in phonetic_map:
+            target_bld_suffix = phonetic_map[target_bld_suffix.lower()]
+            
+        target_building = f"{target_bld_prefix} {target_bld_suffix}"
+        
+        from app.core import state as waypoint_graph
+        semua_gedung = {room.get("building", "Gedung A") for room in waypoint_graph.RUANGAN_GRID.values()}
+        
+        matched_bld = None
+        for b in semua_gedung:
+            if b.lower() == target_building.lower():
+                matched_bld = b
+                break
+                
+        if matched_bld:
+            from app.services.a_star_service import get_pintu_gedung
+            pintu_gedung = get_pintu_gedung(matched_bld)
+            if pintu_gedung:
+                for r_id, room in waypoint_graph.RUANGAN_GRID.items():
+                    if room == pintu_gedung:
+                        return {
+                            "status": "success",
+                            "target_id": r_id,
+                            "confidence_score": 1.0
+                        }
+            for r_id, room in waypoint_graph.RUANGAN_GRID.items():
+                if room.get("building", "Gedung A") == matched_bld:
                     return {
                         "status": "success",
                         "target_id": r_id,

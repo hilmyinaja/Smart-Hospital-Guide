@@ -231,7 +231,7 @@ export default function SharedMap({ path = [], activePath = null, activeStepInde
     ]);
   }, [activePath, pathPoints, currentFloor, currentBuilding]);
 
-  // ── Persistent animation refs ──
+  // ── Referensi Animasi Persisten ──
   const activePathPointsRef = useRef([]);
   const walkedDistanceRef = useRef(0);
   const prevPathLengthRef = useRef(0);
@@ -243,10 +243,10 @@ export default function SharedMap({ path = [], activePath = null, activeStepInde
   const walkStartTimeRef = useRef(0);
   const selectedKioskRef = useRef(selectedKiosk);
 
-  // Keep kiosk ref in sync
+  // Sinkronisasi referensi kios
   useEffect(() => { selectedKioskRef.current = selectedKiosk; }, [selectedKiosk]);
 
-  // Detect path changes: extension vs. reset
+  // Deteksi perubahan rute: ekstensi vs reset
   useEffect(() => {
     const prev = activePathPointsRef.current;
     const next = activePathPoints;
@@ -255,34 +255,34 @@ export default function SharedMap({ path = [], activePath = null, activeStepInde
     activeStepIndexRef.current = activeStepIndex;
 
     if (next.length < 4) {
-      // No valid path — reset everything
+      // Tidak ada rute valid — reset semuanya
       animPhaseRef.current = "idle";
       walkedDistanceRef.current = 0;
       prevPathLengthRef.current = 0;
       return;
     }
 
-    // Check if 'next' is an extension of 'prev' (same prefix)
+    // Cek apakah 'next' adalah ekstensi dari 'prev' (prefix yang sama)
     const isExtension = prev.length >= 4 && next.length > prev.length &&
       prev.every((val, i) => Math.abs(val - next[i]) < 0.01);
 
     if (isExtension) {
-      // Path extended — keep walking from current distance, no reset.
-      // The total path length grew, so the person just has more road ahead.
+      // Rute diperpanjang — terus berjalan dari jarak saat ini, tanpa reset.
+      // Total panjang rute bertambah, jadi animasi terus berlanjut.
       prevPathLengthRef.current = getTotalPathLength(next);
-      // Phase stays "walking" — seamless continuation.
+      // Fase tetap "walking" — transisi mulus.
     } else {
-      // Completely new path (new route, floor switch, etc.) — reset.
+      // Rute benar-benar baru (rute baru, ganti lantai, dll.) — reset.
       const totalLen = getTotalPathLength(next);
       prevPathLengthRef.current = totalLen;
       walkedDistanceRef.current = 0;
 
       if (activeStepIndex === 0) {
-        // First step: need initial rotation from kiosk direction
+        // Langkah pertama: butuh rotasi awal dari arah kios
         animPhaseRef.current = "rotating";
         rotateStartTimeRef.current = performance.now();
 
-        // Capture start/end angles for interpolation
+        // Tangkap sudut awal/akhir untuk interpolasi
         const p0 = getPointAtDistance(next, 0);
         const kiosk = kiosks.find(k => k.id === selectedKioskRef.current);
         let fromAngle;
@@ -297,25 +297,25 @@ export default function SharedMap({ path = [], activePath = null, activeStepInde
         rotateToAngleRef.current = p0.angle;
         personRef.current?.rotation(fromAngle);
       } else {
-        // Mid-route floor switch — start walking immediately, no rotation delay
+        // Ganti lantai di tengah jalan — langsung berjalan, tanpa delay rotasi
         animPhaseRef.current = "walking";
         walkStartTimeRef.current = performance.now();
       }
     }
   }, [activePathPoints, activeStepIndex, kiosks]);
 
-  // Single persistent animation — recreated only when the line element mounts/unmounts
+  // Satu animasi persisten — dibuat ulang hanya saat elemen line mount/unmount
   useEffect(() => {
     if (!lineRef.current) return;
 
-    const ROTATION_DURATION = 1000; // ms for initial kiosk turn
+    const ROTATION_DURATION = 1000; // ms untuk putaran awal dari arah kios
     const LEG_SWING_FREQ = 0.006;
-    const WALK_SPEED = 50; // Fixed speed in px/sec — consistent natural pace
+    const WALK_SPEED = 50; // Kecepatan tetap dalam px/detik — kecepatan langkah alami yang konsisten
 
     const anim = new Konva.Animation((frame) => {
       if (!lineRef.current) return;
 
-      // Dash animation on active line
+      // Animasi putus-putus pada jalur aktif
       const dashOffset = (frame.time / 25) % 20;
       lineRef.current.dashOffset(-dashOffset);
 
@@ -329,7 +329,7 @@ export default function SharedMap({ path = [], activePath = null, activeStepInde
       const phase = animPhaseRef.current;
 
       if (phase === "rotating") {
-        // Initial rotation at step 0
+        // Rotasi awal pada langkah ke-0
         const elapsed = now - rotateStartTimeRef.current;
         const progress = Math.min(elapsed / ROTATION_DURATION, 1);
         const ease = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
@@ -338,7 +338,7 @@ export default function SharedMap({ path = [], activePath = null, activeStepInde
         const fromAngle = rotateFromAngleRef.current;
         const toAngle = rotateToAngleRef.current;
 
-        // Shortest-arc interpolation
+        // Interpolasi busur terpendek
         let diff = toAngle - fromAngle;
         diff = ((diff + 180) % 360 + 360) % 360 - 180;
 
@@ -349,7 +349,7 @@ export default function SharedMap({ path = [], activePath = null, activeStepInde
           personRef.current.rotation(fromAngle + diff * ease);
         } else {
           personRef.current.rotation(toAngle);
-          // Transition to walking
+          // Transisi ke berjalan
           animPhaseRef.current = "walking";
           walkStartTimeRef.current = now;
         }
@@ -359,7 +359,7 @@ export default function SharedMap({ path = [], activePath = null, activeStepInde
           rightFootRef.current.x(0);
         }
       } else if (phase === "walking") {
-        // Advance walked distance
+        // Memajukan jarak berjalan
         const timeDeltaSec = frame.timeDiff / 1000;
         walkedDistanceRef.current = Math.min(
           walkedDistanceRef.current + WALK_SPEED * timeDeltaSec,
@@ -370,7 +370,7 @@ export default function SharedMap({ path = [], activePath = null, activeStepInde
         const isMoving = distance < totalLen;
         const { x, y, angle } = getPointAtDistance(pts, distance);
 
-        // Smooth rotation towards target angle
+        // Rotasi mulus menuju sudut target
         let targetAngle = angle;
         let currentAngle = personRef.current.rotation();
         let diff = targetAngle - currentAngle;
@@ -394,12 +394,12 @@ export default function SharedMap({ path = [], activePath = null, activeStepInde
           rightFootRef.current.x(-footSwing);
         }
       }
-      // phase === "idle": do nothing (just dash animation on line)
+      // phase === "idle": tidak ada tindakan (hanya animasi putus-putus di jalur)
     }, lineRef.current.getLayer());
 
     anim.start();
     return () => anim.stop();
-    // Re-run when the Line element mounts (activePathPoints drives conditional render)
+    // Dijalankan ulang ketika elemen Line dimuat (activePathPoints mengontrol render bersyarat)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePathPoints.length > 0]);
 

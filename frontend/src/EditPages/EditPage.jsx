@@ -421,7 +421,7 @@ export default function EditPage() {
         const finalBuildings = Array.from(uniqueBuildings).sort();
         setBuildings(finalBuildings);
         
-        // Initial building and floors calculation
+        // Perhitungan awal gedung dan lantai
         const initialBuilding = finalBuildings[0] || "Gedung A";
         setActiveEditBuilding(initialBuilding);
 
@@ -833,7 +833,7 @@ export default function EditPage() {
 
     setFloors(newFloors);
     
-    // Update global floor order while maintaining relative order
+    // Memperbarui urutan lantai global sambil mempertahankan urutan relatif
     const currentOrder = globalFloorOrderRef.current[activeEditBuilding] || [];
     const otherFloors = currentOrder.filter(f => !newFloors.includes(f));
     globalFloorOrderRef.current = {

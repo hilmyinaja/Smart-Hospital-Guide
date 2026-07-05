@@ -11,7 +11,7 @@ import google.generativeai as genai
 from app.core.database import db, listen_to_firestore 
 from app.core import state as waypoint_graph
 from app.services.nlp_service import cari_target_ruangan, latih_ulang_nlp
-from app.services.a_star_service import cari_rute_grid
+from app.services.a_star_service import cari_rute_grid, get_room_display_name
 from loguru import logger
 
 load_dotenv()
@@ -73,7 +73,9 @@ def sinkronisasi_peta(data):
                     "floor": floor,
                     "building": building,
                     "type": item.get("type", "room"),
-                    "keywords": item.get("keywords", [])
+                    "keywords": item.get("keywords", []),
+                    "is_connector": item.get("is_connector", False),
+                    "target_building": item.get("target_building", "")
                 }
                 
                 grid_key = f"{building}_{floor}"
@@ -297,13 +299,21 @@ def dapatkan_rute(request: RequestRute):
     if hasil_rute["status"] == "error":
          raise HTTPException(status_code=400, detail=hasil_rute["pesan"])
          
+    match_type = hasil_nlp.get("match_type")
+    if match_type == "building_entrance":
+        nama_ruangan = hasil_nlp.get("matched_building")
+        nama_ruangan_en = hasil_nlp.get("matched_building")
+    else:
+        nama_ruangan = get_room_display_name(waypoint_graph.RUANGAN_GRID.get(target_id, {}), "id")
+        nama_ruangan_en = get_room_display_name(waypoint_graph.RUANGAN_GRID.get(target_id, {}), "en")
+
     return {
         "status": "success",
         "pesan": "Rute grid berhasil ditemukan",
         "data_target": {
             "id_ruangan": target_id,
-            "nama_ruangan": waypoint_graph.RUANGAN_GRID.get(target_id, {}).get("name", target_id),
-            "nama_ruangan_en": waypoint_graph.RUANGAN_GRID.get(target_id, {}).get("name_en", ""),
+            "nama_ruangan": nama_ruangan,
+            "nama_ruangan_en": nama_ruangan_en,
             "confidence_nlp": hasil_nlp["confidence_score"]
         },
         "jalur_koordinat": hasil_rute["jalur_grid"],

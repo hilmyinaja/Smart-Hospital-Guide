@@ -99,24 +99,26 @@ export default function App() {
 
   const [roomActionModal, setRoomActionModal] = useState(null); // { room, hasSubmap }
   const [customAlert, setCustomAlert] = useState({ isOpen: false, message: '' });
-
   const showAlert = (message) => setCustomAlert({ isOpen: true, message });
 
   useEffect(() => {
     document.body.classList.toggle("dark-mode", isDarkMode);
   }, [isDarkMode]);
-
   const startListening = () => {
+    if (isListening) {
+      if (recognitionRef.current) recognitionRef.current.stop();
+      return;
+    }
+    
+    if (recognitionRef.current) {
+      try { recognitionRef.current.start(); } catch(e) {}
+    }
+  };
+
+  useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       showAlert(language === 'en' ? "Microphone not supported in this browser." : "Mikrofon tidak didukung di browser ini.");
-      return;
-    }
-
-    if (isListening) {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
       return;
     }
 
@@ -124,6 +126,7 @@ export default function App() {
     recognitionRef.current = recognition;
     recognition.lang = language === 'en' ? 'en-US' : 'id-ID';
     recognition.interimResults = true;
+    recognition.continuous = true;
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
@@ -140,6 +143,7 @@ export default function App() {
       }
 
       latestTranscriptRef.current = transcript;
+      lastUpdatedByVoiceRef.current = true;
       setSearch(transcript);
 
       if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
@@ -172,9 +176,7 @@ export default function App() {
         }
       }
     };
-
-    recognition.start();
-  };
+  }, [language, location]);
 
   const getText = (key) => {
     const dict = {
@@ -313,7 +315,7 @@ export default function App() {
       setKiosks(loadedKiosks);
       setBuildings(Array.from(foundBuildings).sort());
 
-      // floors dynamically calculated using useMemo
+      // lantai dihitung secara dinamis menggunakan useMemo
 
       if (floorToSwitch && !hasAutoSwitchedFloor.current) {
         setFloor(floorToSwitch);
@@ -346,7 +348,7 @@ export default function App() {
         return Array.from(combined).sort();
       });
 
-      // floors dynamically calculated
+      // lantai dihitung secara dinamis
     });
 
 
@@ -388,6 +390,23 @@ export default function App() {
   const silenceTimeoutRef = useRef(null);
   const latestTranscriptRef = useRef("");
   const recognitionRef = useRef(null);
+  const searchInputRef = useRef(null);
+
+  const wasListeningRef = useRef(false);
+
+  const scrollTextRef = useRef(null);
+  const lastUpdatedByVoiceRef = useRef(false);
+
+  useEffect(() => {
+    if (scrollTextRef.current) {
+      const timer = setTimeout(() => {
+        if (scrollTextRef.current) {
+          scrollTextRef.current.scrollLeft = 999999;
+        }
+      }, 10);
+      return () => clearTimeout(timer);
+    }
+  }, [search]);
 
   useEffect(() => {
     let timeoutId;
@@ -474,8 +493,6 @@ export default function App() {
                 setLocation("");
               }
 
-              setFloor("Lantai 1");
-              setBuilding("Gedung A");
               setPathData([]);
               setNavigationSteps([]);
               setActiveStepIndex(-1);
@@ -599,8 +616,8 @@ export default function App() {
 
   const activePath = useMemo(() => {
     if (activeStepIndex === -1 || !navigationSteps.length || !pathData.length) return null;
-    // Cumulative: include all path points from the start through the current step's end.
-    // This lets the walking animation extend seamlessly instead of resetting per step.
+    // Kumulatif: sertakan semua titik rute dari awal hingga akhir langkah saat ini.
+    // Ini memungkinkan animasi berjalan secara mulus tanpa harus reset setiap langkah.
     const endIndex = navigationSteps[activeStepIndex].index_akhir;
     const rawPath = pathData.slice(0, endIndex + 1);
     return rawPath.filter(p => (p.building || "Gedung A") === building && p.floor === floor);
@@ -893,13 +910,34 @@ export default function App() {
                   <div className="search-wrapper destination-input" style={{ position: "relative" }}>
                     <form onSubmit={(e) => { e.preventDefault(); executeSearch(location, search); }} style={{ width: "100%", margin: 0 }}>
                       <input
+                        ref={searchInputRef}
+                        inputMode={isListening ? "none" : "search"}
                         className="search-input route-search"
-                        style={{ paddingRight: "74px", width: "100%" }}
+                        style={{ paddingRight: "74px", width: "100%", color: (search && (isListening || lastUpdatedByVoiceRef.current)) ? "transparent" : "inherit" }}
                         type="search"
                         placeholder={isListening ? (language === 'en' ? 'Listening...' : 'Mendengarkan...') : getText('search_placeholder')}
                         value={search}
+                        onFocus={() => { lastUpdatedByVoiceRef.current = false; }}
                         onChange={(e) => setSearch(e.target.value)}
                       />
+                      {(search && (isListening || lastUpdatedByVoiceRef.current)) && (
+                        <div style={{
+                          position: 'absolute',
+                          left: '18px',
+                          top: '0',
+                          bottom: '0',
+                          right: '74px',
+                          pointerEvents: 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          overflow: 'hidden',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          <div ref={scrollTextRef} style={{ width: '100%', overflow: 'hidden', color: 'var(--text-main)', fontSize: '0.92rem', fontFamily: "'DM Sans', sans-serif" }}>
+                            {search}
+                          </div>
+                        </div>
+                      )}
                     </form>
 
                     {search.length > 0 ? (
