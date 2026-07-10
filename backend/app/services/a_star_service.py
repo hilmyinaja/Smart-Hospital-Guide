@@ -321,12 +321,22 @@ def get_room_display_name(room_obj, language="id"):
         
     return name
 
-def get_nearest_landmark(x, y, floor, exclude_ids=None):
+def get_nearest_landmark(x, y, floor, exclude_ids=None, building=None, direction=None):
+    """Cari ruangan terdekat sebagai patokan navigasi.
+    
+    Args:
+        x, y: Koordinat titik belok.
+        floor: Lantai saat ini.
+        exclude_ids: Set ID ruangan yang dikecualikan (asal & tujuan).
+        building: Gedung saat ini — mencegah pencocokan lintas gedung.
+        direction: Arah berjalan saat ini ('Atas'/'Bawah'/'Kanan'/'Kiri')
+                   untuk memprioritaskan ruangan di samping jalur.
+    """
     if exclude_ids is None:
         exclude_ids = set()
     
     closest_room = None
-    min_dist = float('inf')
+    best_score = float('inf')
     closest_room_center_dist = float('inf')
     
     for r_id, room in RUANGAN_GRID.items():
@@ -334,6 +344,14 @@ def get_nearest_landmark(x, y, floor, exclude_ids=None):
             continue
             
         if room.get("floor", "Lantai 1") != floor:
+            continue
+        
+        # Filter gedung — hindari pencocokan lintas gedung
+        if building and room.get("building", "Gedung Utama") != building:
+            continue
+        
+        # Kios dan konektor bukan patokan navigasi yang berguna
+        if room.get("type", "room") == "kiosk" or room.get("is_connector"):
             continue
             
         name = room.get("name", "")
@@ -350,20 +368,37 @@ def get_nearest_landmark(x, y, floor, exclude_ids=None):
         dy = max(ry - y, 0, y - (ry + rh - 1))
         dist = dx + dy
         
+        # Hanya pertimbangkan ruangan dalam jarak <= 2 tile dari titik belok
+        if dist > 2:
+            continue
+        
+        # Hitung skor — lebih rendah = lebih baik
+        score = dist
+        
+        # Jika arah berjalan diketahui, prioritaskan ruangan di SAMPING jalur
+        # (tegak lurus) daripada yang di depan/belakang (sepanjang sumbu jalan)
+        if direction and dist > 0:
+            if direction in ('Atas', 'Bawah'):
+                # Berjalan vertikal — ruangan hanya offset di Y = di depan/belakang
+                is_to_side = dx > 0
+            else:
+                # Berjalan horizontal — ruangan hanya offset di X = di depan/belakang
+                is_to_side = dy > 0
+            
+            if not is_to_side:
+                score += 3  # Penalti untuk ruangan di depan/belakang pejalan
+        
         # Tie breaker: jarak ke tengah ruangan
         cx = rx + rw / 2
         cy = ry + rh / 2
         center_dist = abs(cx - x) + abs(cy - y)
         
-        if dist < min_dist or (dist == min_dist and closest_room and center_dist < closest_room_center_dist):
-            min_dist = dist
+        if score < best_score or (score == best_score and closest_room and center_dist < closest_room_center_dist):
+            best_score = score
             closest_room = room
             closest_room_center_dist = center_dist
-            
-    # Hanya gunakan patokan jika benar-benar dekat dengan titik belok (jarak <= 2 tile).
-    if closest_room and min_dist <= 2:
-        return closest_room
-    return None
+    
+    return closest_room
 
 def get_clean_floor_name(floor_str, language="en"):
     if floor_str.startswith("submap_"):
@@ -505,7 +540,7 @@ def generate_navigation_text(path, start_id, target_id, language="id"):
             current_dir = dir
         elif current_dir != dir:
             turn = get_turn(current_dir, dir)
-            adj_room_obj = get_nearest_landmark(p1["x"], p1["y"], p1["floor"], exclude_ids)
+            adj_room_obj = get_nearest_landmark(p1["x"], p1["y"], p1["floor"], exclude_ids, building=p1.get("building"), direction=current_dir)
             adj_room = get_room_display_name(adj_room_obj, language) if adj_room_obj else None
             
             if len(langkah) == 0:
