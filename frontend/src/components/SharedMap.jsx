@@ -52,7 +52,7 @@ function getPointAtDistance(pathPoints, distance) {
   return { x: lastX, y: lastY, angle: 0 };
 }
 
-export default function SharedMap({ path = [], activePath = null, activeStepIndex = 0, currentFloor = "Lantai 1", currentBuilding = "Gedung A", selectedKiosk, onRoomClick, showGrid = true, showBorder = false, language = "id", isDarkMode = false }) {
+export default function SharedMap({ path = [], activePath = null, activeStepPath = null, activeStepIndex = 0, currentFloor = "Lantai 1", currentBuilding = "Gedung A", selectedKiosk, onRoomClick, showGrid = true, showBorder = false, language = "id", isDarkMode = false }) {
   const [rooms, setRooms] = useState([]);
   const [kiosks, setKiosks] = useState([]);
   const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
@@ -231,8 +231,17 @@ export default function SharedMap({ path = [], activePath = null, activeStepInde
     ]);
   }, [activePath, pathPoints, currentFloor, currentBuilding]);
 
+  const activeStepPathPoints = useMemo(() => {
+    if (!activeStepPath || activeStepPath.length === 0) return [];
+    const filteredPath = activeStepPath.filter(p => (!p.floor || p.floor === currentFloor) && (!p.building || p.building === currentBuilding));
+    return filteredPath.flatMap((point) => [
+      (point.x || 0) * GRID_SIZE + GRID_SIZE / 2,
+      (point.y || 0) * GRID_SIZE + GRID_SIZE / 2
+    ]);
+  }, [activeStepPath, currentFloor, currentBuilding]);
+
   // ── Referensi Animasi Persisten ──
-  const activePathPointsRef = useRef([]);
+  const activeStepPathPointsRef = useRef([]);
   const walkedDistanceRef = useRef(0);
   const prevPathLengthRef = useRef(0);
   const activeStepIndexRef = useRef(0);
@@ -246,63 +255,55 @@ export default function SharedMap({ path = [], activePath = null, activeStepInde
   // Sinkronisasi referensi kios
   useEffect(() => { selectedKioskRef.current = selectedKiosk; }, [selectedKiosk]);
 
-  // Deteksi perubahan rute: ekstensi vs reset
+  // Deteksi pergantian langkah: reset avatar dan mulai rotasi pivot per langkah
   useEffect(() => {
-    const prev = activePathPointsRef.current;
-    const next = activePathPoints;
-
-    activePathPointsRef.current = next;
+    activeStepPathPointsRef.current = activeStepPathPoints;
     activeStepIndexRef.current = activeStepIndex;
 
-    if (next.length < 4) {
-      // Tidak ada rute valid — reset semuanya
+    if (activeStepPathPoints.length < 4) {
+      // Tidak ada rute valid pada lantai ini — idle
       animPhaseRef.current = "idle";
       walkedDistanceRef.current = 0;
       prevPathLengthRef.current = 0;
       return;
     }
 
-    // Cek apakah 'next' adalah ekstensi dari 'prev' (prefix yang sama)
-    const isExtension = prev.length >= 4 && next.length > prev.length &&
-      prev.every((val, i) => Math.abs(val - next[i]) < 0.01);
+    // Setiap pergantian langkah: reset jarak dan mulai rotasi pivot
+    const totalLen = getTotalPathLength(activeStepPathPoints);
+    prevPathLengthRef.current = totalLen;
+    walkedDistanceRef.current = 0;
 
-    if (isExtension) {
-      // Rute diperpanjang — terus berjalan dari jarak saat ini, tanpa reset.
-      // Total panjang rute bertambah, jadi animasi terus berlanjut.
-      prevPathLengthRef.current = getTotalPathLength(next);
-      // Fase tetap "walking" — transisi mulus.
-    } else {
-      // Rute benar-benar baru (rute baru, ganti lantai, dll.) — reset.
-      const totalLen = getTotalPathLength(next);
-      prevPathLengthRef.current = totalLen;
-      walkedDistanceRef.current = 0;
+    animPhaseRef.current = "rotating";
+    rotateStartTimeRef.current = performance.now();
 
-      if (activeStepIndex === 0) {
-        // Langkah pertama: butuh rotasi awal dari arah kios
-        animPhaseRef.current = "rotating";
-        rotateStartTimeRef.current = performance.now();
+    const p0 = getPointAtDistance(activeStepPathPoints, 0);
 
-        // Tangkap sudut awal/akhir untuk interpolasi
-        const p0 = getPointAtDistance(next, 0);
-        const kiosk = kiosks.find(k => k.id === selectedKioskRef.current);
-        let fromAngle;
-        if (kiosk) {
-          const kioskCenterX = kiosk.x + kiosk.width / 2;
-          const kioskCenterY = kiosk.y + kiosk.height / 2;
-          fromAngle = Math.atan2(kioskCenterY - p0.y, kioskCenterX - p0.x) * (180 / Math.PI);
-        } else {
-          fromAngle = p0.angle + 180;
-        }
-        rotateFromAngleRef.current = fromAngle;
-        rotateToAngleRef.current = p0.angle;
-        personRef.current?.rotation(fromAngle);
+    // Tentukan sudut awal rotasi
+    let fromAngle;
+    if (activeStepIndex === 0) {
+      // Langkah pertama: rotasi dari arah kios
+      const kiosk = kiosks.find(k => k.id === selectedKioskRef.current);
+      if (kiosk) {
+        const kioskCenterX = kiosk.x + kiosk.width / 2;
+        const kioskCenterY = kiosk.y + kiosk.height / 2;
+        fromAngle = Math.atan2(kioskCenterY - p0.y, kioskCenterX - p0.x) * (180 / Math.PI);
       } else {
-        // Ganti lantai di tengah jalan — langsung berjalan, tanpa delay rotasi
-        animPhaseRef.current = "walking";
-        walkStartTimeRef.current = performance.now();
+        fromAngle = p0.angle + 180;
       }
+    } else {
+      // Langkah selanjutnya: rotasi dari arah terakhir avatar
+      fromAngle = personRef.current?.rotation() ?? p0.angle;
     }
-  }, [activePathPoints, activeStepIndex, kiosks]);
+
+    rotateFromAngleRef.current = fromAngle;
+    rotateToAngleRef.current = p0.angle;
+
+    // Posisikan avatar di awal segmen langkah
+    if (personRef.current) {
+      personRef.current.x(p0.x);
+      personRef.current.y(p0.y);
+    }
+  }, [activeStepPathPoints, activeStepIndex, kiosks]);
 
   // Satu animasi persisten — dibuat ulang hanya saat elemen line mount/unmount
   useEffect(() => {
@@ -319,7 +320,7 @@ export default function SharedMap({ path = [], activePath = null, activeStepInde
       const dashOffset = (frame.time / 25) % 20;
       lineRef.current.dashOffset(-dashOffset);
 
-      const pts = activePathPointsRef.current;
+      const pts = activeStepPathPointsRef.current;
       if (!personRef.current || pts.length < 4) return;
 
       const totalLen = prevPathLengthRef.current;
@@ -543,7 +544,7 @@ export default function SharedMap({ path = [], activePath = null, activeStepInde
                   {activePathPoints.length > 0 && (
                     <>
                       <Line ref={lineRef} points={activePathPoints} stroke="red" strokeWidth={5} dash={[10, 10]} lineCap="round" lineJoin="round" tension={0} />
-                      {activePathPoints.length >= 4 && (
+                      {activeStepPathPoints.length >= 4 && (
                         <Group ref={personRef}>
                           <Rect ref={leftFootRef} x={0} y={-8} width={10} height={6} fill="#333" cornerRadius={3} offsetX={5} offsetY={3} />
                           <Rect ref={rightFootRef} x={0} y={8} width={10} height={6} fill="#333" cornerRadius={3} offsetX={5} offsetY={3} />

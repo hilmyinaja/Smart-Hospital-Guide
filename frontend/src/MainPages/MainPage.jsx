@@ -623,6 +623,13 @@ export default function App() {
     return rawPath.filter(p => (p.building || "Gedung A") === building && p.floor === floor);
   }, [pathData, navigationSteps, activeStepIndex, building, floor]);
 
+  const activeStepPath = useMemo(() => {
+    if (activeStepIndex === -1 || !navigationSteps.length || !pathData.length) return null;
+    const startIndex = activeStepIndex > 0 ? navigationSteps[activeStepIndex - 1].index_akhir : 0;
+    const endIndex = navigationSteps[activeStepIndex].index_akhir;
+    return pathData.slice(startIndex, endIndex + 1);
+  }, [pathData, navigationSteps, activeStepIndex]);
+
   const filteredPathData = useMemo(() => {
     return pathData.filter(p => (p.building || "Gedung A") === building && p.floor === floor);
   }, [pathData, building, floor]);
@@ -1246,7 +1253,7 @@ export default function App() {
                 <SharedMap
                   path={filteredPathData}
                   activePath={activePath}
-                  activeStepIndex={activeStepIndex}
+                  activeStepPath={activeStepPath}
                   activeStepIndex={activeStepIndex}
                   currentFloor={floor}
                   currentBuilding={building}
