@@ -103,6 +103,7 @@ const ElementShape = React.memo(({ shapeProps, isSelected, onSelect, onChange, s
         onDblClick={handleRename}
         onDblTap={handleRename}
         ref={shapeRef}
+        id={shapeProps.id}
         {...shapeProps}
         fill={visualColors.fill}
         stroke={visualColors.stroke}
@@ -162,18 +163,7 @@ const ElementShape = React.memo(({ shapeProps, isSelected, onSelect, onChange, s
         perfectDrawEnabled={false}
       />
       {renderEndpoints()}
-      {isSelected && (
-        <Transformer
-          ref={trRef}
-          rotateEnabled={false}
-          boundBoxFunc={(oldBox, newBox) => {
-            if (newBox.width < GRID_SIZE || newBox.height < GRID_SIZE) {
-              return oldBox;
-            }
-            return newBox;
-          }}
-        />
-      )}
+      
     </React.Fragment>
   );
 }, (prev, next) => {
@@ -211,7 +201,25 @@ export default function EditPage() {
   const [confirmAction, setConfirmAction] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isDraggingElement, setIsDraggingElement] = useState(false);
-  const [selectedId, setSelectedId] = useState(null);
+  const [isShiftPressed, setIsShiftPressed] = useState(false);
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if (e.key === 'Shift') setIsShiftPressed(true);
+    };
+    const handleGlobalKeyUp = (e) => {
+      if (e.key === 'Shift') setIsShiftPressed(false);
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    window.addEventListener('keyup', handleGlobalKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown);
+      window.removeEventListener('keyup', handleGlobalKeyUp);
+    };
+  }, []);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [selectionRect, setSelectionRect] = useState({ visible: false, x: 0, y: 0, width: 0, height: 0 });
+  const selectionStartRef = useRef({ x: 0, y: 0 });
   const [deletedElements, setDeletedElements] = useState([]);
   const [clipboardElement, setClipboardElement] = useState(null);
 
@@ -317,6 +325,16 @@ export default function EditPage() {
   };
 
   const mapRef = useRef(null);
+  const trRef = useRef(null);
+  
+  useEffect(() => {
+    if (trRef.current) {
+      const stage = trRef.current.getStage();
+      const nodes = selectedIds.map(id => stage.findOne('#' + id)).filter(Boolean);
+      trRef.current.nodes(nodes);
+      trRef.current.getLayer().batchDraw();
+    }
+  }, [selectedIds, placedElements]);
   const transformRef = useRef(null);
   const GRID_SIZE = 25;
 
@@ -503,7 +521,7 @@ export default function EditPage() {
       const prevStep = historyStep - 1;
       setHistoryStep(prevStep);
       setPlacedElements(history[prevStep]);
-      setSelectedId(null);
+      setSelectedIds([]);
     }
   }, [history, historyStep]);
 
@@ -512,48 +530,54 @@ export default function EditPage() {
       const nextStep = historyStep + 1;
       setHistoryStep(nextStep);
       setPlacedElements(history[nextStep]);
-      setSelectedId(null);
+      setSelectedIds([]);
     }
   }, [history, historyStep]);
 
   const deleteSelectedElement = useCallback(() => {
-    if (selectedId) {
-      setDeletedElements((prev) => [...prev, selectedId]);
-      const newElements = placedElements.filter((el) => el.id !== selectedId);
+    if (selectedIds.length > 0) {
+      setDeletedElements((prev) => [...prev, ...selectedIds]);
+      const newElements = placedElements.filter((el) => !selectedIds.includes(el.id));
       setPlacedElements(newElements);
       saveHistory(newElements);
-      setSelectedId(null);
+      setSelectedIds([]);
     }
-  }, [selectedId, placedElements, saveHistory]);
+  }, [selectedIds, placedElements, saveHistory]);
 
   const cloneSelectedElement = useCallback(() => {
-    if (selectedId) {
-      const selectedEl = placedElements.find(el => el.id === selectedId);
-      if (selectedEl) {
-        let maxNumber = 0;
-        const prefix = selectedEl.type === 'kiosk' ? 'K' : 'R';
-        placedElements.forEach((el) => {
-          if (el.id.startsWith(prefix)) {
-            const num = parseInt(el.id.substring(1), 10);
-            if (!isNaN(num) && num > maxNumber) maxNumber = num;
-          }
-        });
-        const newId = `${prefix}${String(maxNumber + 1).padStart(3, '0')}`;
-        
-        const clonedEl = {
-          ...selectedEl,
-          id: newId,
-          x: selectedEl.x + GRID_SIZE,
-          y: selectedEl.y + GRID_SIZE
-        };
-        
-        const newElements = [...placedElements, clonedEl];
-        setPlacedElements(newElements);
-        saveHistory(newElements);
-        setSelectedId(newId);
-      }
+    if (selectedIds.length > 0) {
+      const newClonedElements = [];
+      let newElements = [...placedElements];
+      
+      selectedIds.forEach((id, index) => {
+        const selectedEl = placedElements.find(el => el.id === id);
+        if (selectedEl) {
+          let maxNumber = 0;
+          const prefix = selectedEl.type === 'kiosk' ? 'K' : 'R';
+          newElements.forEach((el) => {
+            if (el.id.startsWith(prefix)) {
+              const num = parseInt(el.id.substring(1), 10);
+              if (!isNaN(num) && num > maxNumber) maxNumber = num;
+            }
+          });
+          const newId = `${prefix}${String(maxNumber + 1).padStart(3, '0')}`;
+          
+          const clonedEl = {
+            ...selectedEl,
+            id: newId,
+            x: selectedEl.x + GRID_SIZE,
+            y: selectedEl.y + GRID_SIZE
+          };
+          newClonedElements.push(clonedEl);
+          newElements.push(clonedEl);
+        }
+      });
+      
+      setPlacedElements(newElements);
+      saveHistory(newElements);
+      setSelectedIds(newClonedElements.map(el => el.id));
     }
-  }, [selectedId, placedElements, saveHistory]);
+  }, [selectedIds, placedElements, saveHistory]);
 
   const pasteElement = useCallback(() => {
     if (clipboardElement) {
@@ -582,7 +606,7 @@ export default function EditPage() {
       const newElements = [...placedElements, pastedEl];
       setPlacedElements(newElements);
       saveHistory(newElements);
-      setSelectedId(newId);
+      setSelectedIds([newId]);
       setClipboardElement(pastedEl);
     }
   }, [clipboardElement, placedElements, saveHistory, activeEditFloor, activeEditBuilding]);
@@ -591,19 +615,23 @@ export default function EditPage() {
     const handleKeyDown = (e) => {
       if (e.target.tagName.toLowerCase() === 'input') return;
 
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedIds.length > 0) {
         deleteSelectedElement();
+      }
+      if (e.ctrlKey && e.key.toLowerCase() === "a") {
+        e.preventDefault();
+        setSelectedIds(stateRef.current.placedElements.filter(el => el.floor === activeEditFloor && el.building === activeEditBuilding).map(el => el.id));
       }
       if (e.ctrlKey && e.key.toLowerCase() === "d") {
         e.preventDefault();
         cloneSelectedElement();
       }
       if (e.ctrlKey && e.key.toLowerCase() === "c") {
-        if (selectedId) {
+        if (selectedIds.length > 0) {
           e.preventDefault();
-          const selectedEl = stateRef.current.placedElements.find(el => el.id === selectedId);
-          if (selectedEl) {
-            setClipboardElement(selectedEl);
+          const selectedEls = stateRef.current.placedElements.filter(el => selectedIds.includes(el.id));
+          if (selectedEls.length > 0) {
+            setClipboardElement(selectedEls);
           }
         }
       }
@@ -622,11 +650,77 @@ export default function EditPage() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedId, deleteSelectedElement, handleUndo, handleRedo, cloneSelectedElement, pasteElement]);
+  }, [selectedIds, deleteSelectedElement, handleUndo, handleRedo, cloneSelectedElement, pasteElement, activeEditFloor, activeEditBuilding]);
 
   const checkDeselect = (e) => {
-    const clickedOnEmpty = e.target === e.target.getStage() || e.target.attrs.id === "bg-grid";
-    if (clickedOnEmpty) setSelectedId(null);
+    // clicked on stage - clear selection
+    const clickedOnEmpty = e.target === e.target.getStage() || e.target.id() === 'bg-grid';
+    if (clickedOnEmpty) {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleStageMouseDown = (e) => {
+    if (e.evt.shiftKey) {
+      e.evt.preventDefault();
+      const pos = e.target.getStage().getPointerPosition();
+      selectionStartRef.current = { x: pos.x, y: pos.y };
+      setSelectionRect({
+        visible: true,
+        x: pos.x,
+        y: pos.y,
+        width: 0,
+        height: 0
+      });
+      return;
+    }
+    checkDeselect(e);
+  };
+
+  const handleStageMouseMove = (e) => {
+    if (!selectionRect.visible) {
+      return;
+    }
+    e.evt.preventDefault();
+    const pos = e.target.getStage().getPointerPosition();
+    const startX = selectionStartRef.current.x;
+    const startY = selectionStartRef.current.y;
+
+    setSelectionRect({
+      visible: true,
+      x: Math.min(startX, pos.x),
+      y: Math.min(startY, pos.y),
+      width: Math.abs(pos.x - startX),
+      height: Math.abs(pos.y - startY),
+    });
+  };
+
+  const handleStageMouseUp = (e) => {
+    if (!selectionRect.visible) {
+      return;
+    }
+    e.evt.preventDefault();
+    setSelectionRect(prev => ({ ...prev, visible: false }));
+
+    const shapes = activeFloorElements;
+    const box = selectionRect;
+    
+    // find all shapes intersecting with box
+    const selected = shapes.filter(shape => {
+      // simple AABB collision
+      return (
+        shape.x < box.x + box.width &&
+        shape.x + shape.width > box.x &&
+        shape.y < box.y + box.height &&
+        shape.y + shape.height > box.y
+      );
+    });
+
+    if (selected.length > 0) {
+      setSelectedIds(selected.map(s => s.id));
+    } else {
+      setSelectedIds([]);
+    }
   };
 
   const generateNextRoomId = () => {
@@ -669,7 +763,7 @@ export default function EditPage() {
               [activeEditBuilding]: [...currentOrder, formattedFloor]
             };
             setActiveEditFloor(formattedFloor);
-            setSelectedId(null);
+            setSelectedIds([]);
           } else {
             showAlert(getText('alert_floor_exists'));
           }
@@ -775,7 +869,7 @@ export default function EditPage() {
         };
         
         setActiveEditFloor(remainingFloors.includes("Lantai 1") ? "Lantai 1" : remainingFloors[remainingFloors.length - 1]);
-        setSelectedId(null);
+        setSelectedIds([]);
       }
     });
   };
@@ -882,7 +976,7 @@ export default function EditPage() {
 
       setPlacedElements(newElements);
       saveHistory(newElements);
-      setSelectedId(newId);
+      setSelectedIds([newId]);
     }
   };
 
@@ -1128,10 +1222,10 @@ export default function EditPage() {
 
       <div className="edit-page-layout">
         <main className="edit-page-map" ref={mapRef} onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}>
-          <TransformWrapper ref={transformRef} panning={{ disabled: isDraggingElement }} initialScale={1} minScale={0.05} maxScale={10} limitToBounds={false} wheel={{ step: 0.002, smooth: true }}>
+          <TransformWrapper ref={transformRef} panning={{ disabled: isDraggingElement || isShiftPressed || selectionRect.visible }} initialScale={1} minScale={0.05} maxScale={10} limitToBounds={false} wheel={{ step: 0.002, smooth: true }}>
             <TransformComponent wrapperStyle={{ width: "100%", height: "100%", cursor: isDraggingElement ? "grabbing" : "grab" }}>
               <div className="map-content" style={{ width: calculatedMapSize.width, height: calculatedMapSize.height, background: isDarkMode ? "#0f172a" : "#e0e0e0" }}>
-                <Stage width={calculatedMapSize.width} height={calculatedMapSize.height} onMouseDown={checkDeselect} onTouchStart={checkDeselect}>
+                <Stage width={calculatedMapSize.width} height={calculatedMapSize.height} onMouseDown={handleStageMouseDown} onMouseMove={handleStageMouseMove} onMouseUp={handleStageMouseUp} onTouchStart={handleStageMouseDown} onTouchMove={handleStageMouseMove} onTouchEnd={handleStageMouseUp}>
                   <Layer>
                     <Rect id="bg-grid" x={0} y={0} width={calculatedMapSize.width} height={calculatedMapSize.height} fill="transparent" />
                     {drawGrid()}
@@ -1141,16 +1235,38 @@ export default function EditPage() {
                         <ElementShape
                           key={rect.id}
                           shapeProps={rect}
-                          isSelected={rect.id === selectedId}
+                          isSelected={selectedIds.includes(rect.id)}
                           setIsDraggingElement={setIsDraggingElement}
                           GRID_SIZE={GRID_SIZE}
-                          onSelect={() => setSelectedId(rect.id)}
+                          onSelect={(e) => {
+                            const evt = e.evt || e;
+                            if (evt.shiftKey) {
+                                setSelectedIds(prev => prev.includes(rect.id) ? prev.filter(id => id !== rect.id) : [...prev, rect.id]);
+                            } else {
+                                setSelectedIds([rect.id]);
+                            }
+                          }}
                           onChange={(newAttrs) => {
                             const { placedElements, history, historyStep } = stateRef.current;
-                            const index = placedElements.findIndex(e => e.id === rect.id);
-                            if (index === -1) return;
-                            const newElements = [...placedElements];
-                            newElements[index] = newAttrs;
+                            
+                            const dx = newAttrs.x - rect.x;
+                            const dy = newAttrs.y - rect.y;
+                            
+                            const isSelectedGroup = selectedIds.includes(rect.id);
+                            
+                            const newElements = placedElements.map(e => {
+                               if (isSelectedGroup && selectedIds.includes(e.id)) {
+                                   if (e.id === rect.id) return newAttrs;
+                                   return {
+                                      ...e,
+                                      x: e.x + dx,
+                                      y: e.y + dy
+                                   };
+                               }
+                               if (e.id === rect.id) return newAttrs;
+                               return e;
+                            });
+                            
                             setPlacedElements(newElements);
                             
                             let newHistory = history.slice(0, historyStep + 1);
@@ -1160,8 +1276,6 @@ export default function EditPage() {
                             }
                             setHistory(newHistory);
                             setHistoryStep(newHistory.length - 1);
-
-                            stateRef.current = { placedElements: newElements, history: newHistory, historyStep: newHistory.length - 1 };
                           }}
                           originalElements={originalElements}
                           language={language}
@@ -1214,6 +1328,28 @@ export default function EditPage() {
                           }}
                         />
                       ))}
+                  
+                    {selectionRect.visible && (
+                      <Rect
+                        x={selectionRect.x}
+                        y={selectionRect.y}
+                        width={selectionRect.width}
+                        height={selectionRect.height}
+                        fill="rgba(0,0,255,0.1)"
+                        stroke="rgba(0,0,255,0.5)"
+                        listening={false}
+                      />
+                    )}
+                    {selectedIds.length > 0 && (
+                      <Transformer ref={trRef} rotateEnabled={false}
+                        boundBoxFunc={(oldBox, newBox) => {
+                          if (newBox.width < GRID_SIZE || newBox.height < GRID_SIZE) {
+                            return oldBox;
+                          }
+                          return newBox;
+                        }}
+                      />
+                    )}
                   </Layer>
                 </Stage>
               </div>
@@ -1244,7 +1380,7 @@ export default function EditPage() {
                       className={`custom-dropdown-item ${activeEditBuilding === b ? 'active' : ''}`}
                       onClick={() => {
                         handleBuildingChange(b);
-                        setSelectedId(null);
+                        setSelectedIds([]);
                         setIsBuildingDropdownOpen(false);
                       }}
                     >
@@ -1325,7 +1461,7 @@ export default function EditPage() {
                       onTouchEnd={handleDragSort}
                       onClick={() => {
                         setActiveEditFloor(f);
-                        setSelectedId(null);
+                        setSelectedIds([]);
                         setIsFloorDropdownOpen(false);
                       }}
                       style={{ touchAction: 'none' }}
@@ -1365,21 +1501,21 @@ export default function EditPage() {
             </h4>
             <div className="edit-tools">
               <p className="edit-selected-text">
-                {selectedId ? `${getText('selected')}: ${translateName(placedElements.find(el => el.id === selectedId)?.name || "Kiosk", language, placedElements.find(el => el.id === selectedId)?.name_en)}` : getText('no_element_selected')}
+                {selectedIds.length === 0 ? getText('no_element_selected') : (selectedIds.length === 1 ? `${getText('selected')}: ${translateName(placedElements.find(el => el.id === selectedIds[0])?.name || "Kiosk", language, placedElements.find(el => el.id === selectedIds[0])?.name_en)}` : `Banyak elemen terpilih (${selectedIds.length})`)}
               </p>
               <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
-                {selectedId && (
+                {selectedIds.length === 1 && (
                   <button className="edit-btn btn-success" onClick={cloneSelectedElement} style={{ flex: 1 }} title="Clone (Ctrl+D)">
                     {language === 'id' ? 'Gandakan' : 'Clone'}
                   </button>
                 )}
 
-                {selectedId && placedElements.find(el => el.id === selectedId)?.type === 'room' && (
+                {selectedIds.length === 1 && placedElements.find(el => el.id === selectedIds[0])?.type === 'room' && (
                   <button onClick={() => {
-                      const room = placedElements.find(el => el.id === selectedId);
+                      const room = placedElements.find(el => el.id === selectedIds[0]);
                       const submapId = `submap_${room.id}`;
                       setActiveEditFloor(submapId);
-                      setSelectedId(null);
+                      setSelectedIds([]);
                       const hasPintuMasuk = placedElements.some(el => el.floor === submapId && el.name.toLowerCase() === 'pintu masuk');
                       if (!hasPintuMasuk) {
                         const newId = generateNextKioskId();
@@ -1397,7 +1533,7 @@ export default function EditPage() {
                   </button>
                 )}
 
-                {selectedId && (
+                {selectedIds.length === 1 && (
                   <button className="edit-btn btn-danger delete-btn" onClick={deleteSelectedElement} style={{ flex: 1 }}>
                     {getText('del_element')}
                   </button>
@@ -1414,15 +1550,15 @@ export default function EditPage() {
                 </button>
               )}
 
-              {selectedId && (() => {
-                const el = placedElements.find(e => e.id === selectedId);
+              {selectedIds.length === 1 && (() => {
+                const el = placedElements.find(e => e.id === selectedIds[0]);
                 if (!el) return null;
                 const isRoom = el.type === 'room';
                 const isKiosk = el.type === 'kiosk';
                 if (!isRoom && !isKiosk) return null;
                 const room = el;
                 const updateRoom = (changes) => {
-                  const newElements = placedElements.map(el => el.id === selectedId ? { ...el, ...changes } : el);
+                  const newElements = placedElements.map(el => el.id === selectedIds[0] ? { ...el, ...changes } : el);
                   setPlacedElements(newElements);
                   saveHistory(newElements);
                 };

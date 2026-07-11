@@ -307,7 +307,6 @@ export default function SharedMap({ path = [], activePath = null, activeStepPath
 
   // Satu animasi persisten — dibuat ulang hanya saat elemen line mount/unmount
   useEffect(() => {
-    if (!lineRef.current) return;
 
     const ROTATION_DURATION = 1000; // ms untuk putaran awal dari arah kios
     const LEG_SWING_FREQ = 0.006;
@@ -328,6 +327,7 @@ export default function SharedMap({ path = [], activePath = null, activeStepPath
 
       const now = performance.now();
       const phase = animPhaseRef.current;
+
 
       if (phase === "rotating") {
         // Rotasi awal pada langkah ke-0
@@ -396,7 +396,11 @@ export default function SharedMap({ path = [], activePath = null, activeStepPath
         }
       }
       // phase === "idle": tidak ada tindakan (hanya animasi putus-putus di jalur)
-    }, lineRef.current.getLayer());
+          
+      // Manual batchDraw because getLayer() might be null at init
+      const layer = lineRef.current.getLayer();
+      if (layer) layer.batchDraw();
+    });
 
     anim.start();
     return () => anim.stop();
