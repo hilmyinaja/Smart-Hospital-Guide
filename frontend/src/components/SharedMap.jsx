@@ -404,9 +404,9 @@ export default function SharedMap({ path = [], activePath = null, activeStepPath
 
     anim.start();
     return () => anim.stop();
-    // Dijalankan ulang ketika elemen Line dimuat (activePathPoints mengontrol render bersyarat)
+    // Dijalankan ulang ketika elemen Line dimuat (activeStepPathPoints mengontrol render bersyarat)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePathPoints.length > 0]);
+  }, [activeStepPathPoints.length > 0]);
 
   const drawGrid = () => {
     const lines = [];
@@ -545,9 +545,9 @@ export default function SharedMap({ path = [], activePath = null, activeStepPath
                   <Line points={pathPoints} stroke="rgba(255, 0, 0, 0.2)" strokeWidth={5} lineCap="round" lineJoin="round" tension={0} />
 
                   {/* Rute aktif & Animasi */}
-                  {activePathPoints.length > 0 && (
+                  {activeStepPathPoints.length > 0 && (
                     <>
-                      <Line ref={lineRef} points={activePathPoints} stroke="red" strokeWidth={5} dash={[10, 10]} lineCap="round" lineJoin="round" tension={0} />
+                      <Line ref={lineRef} points={activeStepPathPoints} stroke="red" strokeWidth={5} dash={[10, 10]} lineCap="round" lineJoin="round" tension={0} />
                       {activeStepPathPoints.length >= 4 && (
                         <Group ref={personRef}>
                           <Rect ref={leftFootRef} x={0} y={-8} width={10} height={6} fill="#333" cornerRadius={3} offsetX={5} offsetY={3} />
