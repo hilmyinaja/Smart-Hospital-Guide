@@ -1255,6 +1255,7 @@ export default function App() {
                   activePath={activePath}
                   activeStepPath={activeStepPath}
                   activeStepIndex={activeStepIndex}
+                  navigationSteps={navigationSteps}
                   currentFloor={floor}
                   currentBuilding={building}
                   language={language}

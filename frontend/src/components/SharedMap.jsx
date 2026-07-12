@@ -52,7 +52,7 @@ function getPointAtDistance(pathPoints, distance) {
   return { x: lastX, y: lastY, angle: 0 };
 }
 
-export default function SharedMap({ path = [], activePath = null, activeStepPath = null, activeStepIndex = 0, currentFloor = "Lantai 1", currentBuilding = "Gedung A", selectedKiosk, onRoomClick, showGrid = true, showBorder = false, language = "id", isDarkMode = false }) {
+export default function SharedMap({ path = [], activePath = null, activeStepPath = null, activeStepIndex = 0, navigationSteps = [], currentFloor = "Lantai 1", currentBuilding = "Gedung A", selectedKiosk, onRoomClick, showGrid = true, showBorder = false, language = "id", isDarkMode = false }) {
   const [rooms, setRooms] = useState([]);
   const [kiosks, setKiosks] = useState([]);
   const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
@@ -251,9 +251,11 @@ export default function SharedMap({ path = [], activePath = null, activeStepPath
   const rotateToAngleRef = useRef(0);
   const walkStartTimeRef = useRef(0);
   const selectedKioskRef = useRef(selectedKiosk);
+  const navigationStepsRef = useRef(navigationSteps);
 
-  // Sinkronisasi referensi kios
+  // Sinkronisasi referensi kios dan navigationSteps
   useEffect(() => { selectedKioskRef.current = selectedKiosk; }, [selectedKiosk]);
+  useEffect(() => { navigationStepsRef.current = navigationSteps; }, [navigationSteps]);
 
   // Deteksi pergantian langkah: reset avatar dan mulai rotasi pivot per langkah
   useEffect(() => {
@@ -360,10 +362,22 @@ export default function SharedMap({ path = [], activePath = null, activeStepPath
           rightFootRef.current.x(0);
         }
       } else if (phase === "walking") {
+        // Menghitung kecepatan berjalan dinamis berdasarkan durasi bicara
+        let currentWalkSpeed = WALK_SPEED;
+        const currentStep = navigationStepsRef.current[activeStepIndexRef.current];
+        if (currentStep && currentStep.teks) {
+          // Perkiraan durasi bicara dalam ms (sekitar 17 karakter/detik)
+          const estimatedSpeechMs = Math.max((currentStep.teks.length / 17) * 1000, 2000);
+          const walkDurationSec = Math.max((estimatedSpeechMs - ROTATION_DURATION) / 1000, 1);
+          if (totalLen > 0) {
+            currentWalkSpeed = totalLen / walkDurationSec;
+          }
+        }
+
         // Memajukan jarak berjalan
         const timeDeltaSec = frame.timeDiff / 1000;
         walkedDistanceRef.current = Math.min(
-          walkedDistanceRef.current + WALK_SPEED * timeDeltaSec,
+          walkedDistanceRef.current + currentWalkSpeed * timeDeltaSec,
           totalLen
         );
 
