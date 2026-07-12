@@ -587,6 +587,7 @@
   color: var(--text-muted);
   transition: color 0.2s ease;
   pointer-events: none;
+  z-index: 2;
 }
 
 .input-with-icon input {

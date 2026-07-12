@@ -175,3 +175,117 @@ body.dark-mode .scrubber-btn {
   transform: scale(1.1);
   box-shadow: 0 6px 16px rgba(26, 115, 200, 0.4);
 }
+/* --- Global UI Animations --- */
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Modals and Overlays */
+.modal-content, .login-modal, .room-action-modal, .alert-dialog-content {
+  animation: popIn 0.2s ease-out forwards;
+}
+
+/* All Buttons */
+button, 
+.btn,
+.header-login-btn,
+.header-edit-btn,
+.sidebar-item,
+.action-btn,
+.back-btn,
+.room-result-item {
+  transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+}
+
+button:hover:not(:disabled),
+.btn:hover:not(:disabled),
+.header-login-btn:hover,
+.header-edit-btn:hover,
+.sidebar-item:hover,
+.action-btn:hover,
+.back-btn:hover,
+.room-result-item:hover {
+  transform: translateY(-2px);
+}
+
+button:active:not(:disabled),
+.btn:active:not(:disabled),
+.header-login-btn:active,
+.header-edit-btn:active,
+.sidebar-item:active,
+.action-btn:active,
+.back-btn:active,
+.room-result-item:active {
+  transform: scale(0.96) translateY(0);
+}
+
+/* Cards and panels */
+.admin-card, .edit-card, .sidebar, .bottom-nav, .log-item {
+  animation: slideInUp 0.3s ease-out forwards;
+}
+
+.log-item {
+  transition: transform 0.2s ease, background-color 0.2s ease !important;
+}
+
+.log-item:hover {
+  transform: translateX(4px);
+}
+
+
+/* Dropdown Arrow Animation */
+.dropdown-arrow {
+  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+}
+
+select:focus + .dropdown-arrow,
+select:active + .dropdown-arrow {
+  transform: translateY(-50%) rotate(180deg) !important;
+}
+
+
+/* --- Global Smoothness --- */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Make all structural background and text color changes smooth (useful for dark mode transitions) */
+body, .main-layout, .sidebar, .map-container, .admin-card, .edit-card, .modal-content {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease !important;
+}
+
+/* Inputs and Selects Smoothness */
+input, select, textarea {
+  transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+}
+
+input:focus, select:focus, textarea:focus {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(26, 115, 232, 0.15) !important;
+}
+
+/* Ensure smooth image scaling (if any flags or logos are scaling) */
+img, svg {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+@keyframes fadeInBlur {
+  from { opacity: 0; backdrop-filter: blur(0px); }
+  to { opacity: 1; backdrop-filter: blur(4px); }
+}
+
+.modal-overlay {
+  animation: fadeInBlur 0.2s ease-out forwards;
+}
+
