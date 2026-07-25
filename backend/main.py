@@ -294,11 +294,6 @@ def dapatkan_rute(request: RequestRute):
         raise HTTPException(status_code=400, detail=hasil_nlp["pesan"])
         
     target_id = hasil_nlp["target_id"]
-    
-    hasil_rute = cari_rute_grid(request.start_node_id, target_id, request.language)
-    if hasil_rute["status"] == "error":
-         raise HTTPException(status_code=400, detail=hasil_rute["pesan"])
-         
     match_type = hasil_nlp.get("match_type")
     if match_type == "building_entrance":
         nama_ruangan = hasil_nlp.get("matched_building")
@@ -306,6 +301,11 @@ def dapatkan_rute(request: RequestRute):
     else:
         nama_ruangan = get_room_display_name(waypoint_graph.RUANGAN_GRID.get(target_id, {}), "id")
         nama_ruangan_en = get_room_display_name(waypoint_graph.RUANGAN_GRID.get(target_id, {}), "en")
+
+    target_name_override = nama_ruangan if request.language == "id" else nama_ruangan_en
+    hasil_rute = cari_rute_grid(request.start_node_id, target_id, request.language, target_name_override=target_name_override)
+    if hasil_rute["status"] == "error":
+         raise HTTPException(status_code=400, detail=hasil_rute["pesan"])
 
     return {
         "status": "success",

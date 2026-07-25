@@ -192,7 +192,7 @@ def _cari_rute_antar_gedung(start_building, target_building):
                     
     return [(start_building, get_pintu_gedung(start_building, target_building), target_building, get_pintu_gedung(target_building, start_building))]
 
-def cari_rute_grid(start_id, target_id, language="id"):
+def cari_rute_grid(start_id, target_id, language="id", target_name_override=None):
     if start_id not in RUANGAN_GRID or target_id not in RUANGAN_GRID:
         return {"status": "error", "pesan": "Titik awal atau tujuan tidak valid di peta." if language == "id" else "Start or destination point is invalid on the map."}
 
@@ -296,7 +296,7 @@ def cari_rute_grid(start_id, target_id, language="id"):
             return {"status": "error", "pesan": msg}
         phases.extend(jalur_3)
         
-    nav_text = generate_navigation_text(phases, start_id, target_id, language)
+    nav_text = generate_navigation_text(phases, start_id, target_id, language, target_name_override=target_name_override)
     return {
         "status": "success",
         "jalur_grid": phases,
@@ -420,7 +420,7 @@ def get_translated_floor(floor_str, language="en"):
     return floor_str
 
 
-def generate_navigation_text(path, start_id, target_id, language="id"):
+def generate_navigation_text(path, start_id, target_id, language="id", target_name_override=None):
     if not path or len(path) < 2:
         msg = "Anda sudah sampai di tujuan." if language == "id" else "You have reached your destination."
         return [{"teks": msg, "index_akhir": len(path) - 1 if path else 0, "floor": path[0]["floor"] if path else "Lantai 1"}]
@@ -431,8 +431,11 @@ def generate_navigation_text(path, start_id, target_id, language="id"):
     start_name = get_room_display_name(start_room, language)
     if not start_name: start_name = "Kiosk"
     
-    target_name = get_room_display_name(target_room, language)
-    if not target_name: target_name = "Tujuan" if language == "id" else "Destination"
+    if target_name_override:
+        target_name = target_name_override
+    else:
+        target_name = get_room_display_name(target_room, language)
+        if not target_name: target_name = "Tujuan" if language == "id" else "Destination"
     langkah = []
     current_dir = None
     is_after_transition = False
@@ -607,15 +610,8 @@ def generate_navigation_text(path, start_id, target_id, language="id"):
             else: teks_akhir = f"Face {'up' if current_dir=='Atas' else 'down' if current_dir=='Bawah' else 'right' if current_dir=='Kanan' else 'left'}. Walk straight and you will arrive at {target_name}."
     elif is_after_transition:
         if current_dir is None:
-            final_floor = path[-1]['floor']
-            if final_floor.startswith("submap_"):
-                parent_id = final_floor.replace("submap_", "")
-                parent_name_id = RUANGAN_GRID.get(parent_id, {}).get("name", "Ruangan Induk")
-                if language == "id": teks_akhir = f"Anda sudah sampai di {parent_name_id}."
-                else: teks_akhir = f"You have arrived at {parent_name_id}."
-            else:
-                if language == "id": teks_akhir = f"Anda sudah sampai di {final_floor}."
-                else: teks_akhir = f"You have arrived at {get_translated_floor(final_floor, language)}."
+            if language == "id": teks_akhir = f"Anda sudah sampai di {target_name}."
+            else: teks_akhir = f"You have arrived at {target_name}."
         else:
             if path[-1]['floor'].startswith("submap_"):
                 if language == "id": teks_akhir = f"Setelah masuk, jalan lurus ke arah {current_dir.lower() if current_dir else ''} dan Anda akan sampai di {target_name}."
