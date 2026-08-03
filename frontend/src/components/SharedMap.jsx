@@ -52,7 +52,7 @@ function getPointAtDistance(pathPoints, distance) {
   return { x: lastX, y: lastY, angle: 0 };
 }
 
-export default function SharedMap({ path = [], activePath = null, activeStepPath = null, activeStepIndex = 0, navigationSteps = [], currentFloor = "Lantai 1", currentBuilding = "Gedung A", selectedKiosk, onRoomClick, showGrid = true, showBorder = false, language = "id", isDarkMode = false }) {
+export default function SharedMap({ path = [], activePath = null, activeStepPath = null, nextStepPath = null, activeStepIndex = 0, navigationSteps = [], currentFloor = "Lantai 1", currentBuilding = "Gedung A", selectedKiosk, onRoomClick, showGrid = true, showBorder = false, language = "id", isDarkMode = false }) {
   const [rooms, setRooms] = useState([]);
   const [kiosks, setKiosks] = useState([]);
   const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
@@ -240,12 +240,22 @@ export default function SharedMap({ path = [], activePath = null, activeStepPath
     ]);
   }, [activeStepPath, currentFloor, currentBuilding]);
 
+  const nextStepPathPoints = useMemo(() => {
+    if (!nextStepPath || nextStepPath.length === 0) return [];
+    const filteredPath = nextStepPath.filter(p => (!p.floor || p.floor === currentFloor) && (!p.building || p.building === currentBuilding));
+    return filteredPath.flatMap((point) => [
+      (point.x || 0) * GRID_SIZE + GRID_SIZE / 2,
+      (point.y || 0) * GRID_SIZE + GRID_SIZE / 2
+    ]);
+  }, [nextStepPath, currentFloor, currentBuilding]);
+
   // ── Referensi Animasi Persisten ──
   const activeStepPathPointsRef = useRef([]);
+  const nextStepPathPointsRef = useRef([]);
   const walkedDistanceRef = useRef(0);
   const prevPathLengthRef = useRef(0);
   const activeStepIndexRef = useRef(0);
-  const animPhaseRef = useRef("idle"); // "idle" | "rotating" | "walking"
+  const animPhaseRef = useRef("idle"); // "idle" | "rotating" | "walking" | "pre-rotating"
   const rotateStartTimeRef = useRef(0);
   const rotateFromAngleRef = useRef(0);
   const rotateToAngleRef = useRef(0);
@@ -256,6 +266,8 @@ export default function SharedMap({ path = [], activePath = null, activeStepPath
   // Sinkronisasi referensi kios dan navigationSteps
   useEffect(() => { selectedKioskRef.current = selectedKiosk; }, [selectedKiosk]);
   useEffect(() => { navigationStepsRef.current = navigationSteps; }, [navigationSteps]);
+  // Sinkronisasi nextStepPathPoints ke ref agar bisa diakses dari animasi loop
+  useEffect(() => { nextStepPathPointsRef.current = nextStepPathPoints; }, [nextStepPathPoints]);
 
   // Deteksi pergantian langkah: reset avatar dan mulai rotasi pivot per langkah
   useEffect(() => {
@@ -407,6 +419,36 @@ export default function SharedMap({ path = [], activePath = null, activeStepPath
           const footSwing = isMoving ? Math.sin(frame.time * LEG_SWING_FREQ) * 8 : 0;
           leftFootRef.current.x(footSwing);
           rightFootRef.current.x(-footSwing);
+        }
+
+        // Ketika berjalan selesai, cek next step path → pre-rotate ke arah belokan berikutnya
+        if (!isMoving) {
+          const nextPts = nextStepPathPointsRef.current;
+          if (nextPts && nextPts.length >= 4) {
+            const nextDir = getPointAtDistance(nextPts, 0);
+            animPhaseRef.current = "pre-rotating";
+            rotateStartTimeRef.current = performance.now();
+            rotateFromAngleRef.current = personRef.current.rotation();
+            rotateToAngleRef.current = nextDir.angle;
+          }
+        }
+      } else if (phase === "pre-rotating") {
+        // Rotasi di akhir langkah: animasikan belokan agar tampak saat instruksi "belok" masih aktif
+        const elapsed = now - rotateStartTimeRef.current;
+        const progress = Math.min(elapsed / ROTATION_DURATION, 1);
+        const ease = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
+
+        const fromAngle = rotateFromAngleRef.current;
+        const toAngle = rotateToAngleRef.current;
+
+        let diff = toAngle - fromAngle;
+        diff = ((diff + 180) % 360 + 360) % 360 - 180;
+
+        personRef.current.rotation(fromAngle + diff * ease);
+
+        if (leftFootRef.current && rightFootRef.current) {
+          leftFootRef.current.x(0);
+          rightFootRef.current.x(0);
         }
       }
       // phase === "idle": tidak ada tindakan (hanya animasi putus-putus di jalur)

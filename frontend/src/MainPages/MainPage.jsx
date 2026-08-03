@@ -97,6 +97,7 @@ export default function App() {
   const [isListening, setIsListening] = useState(false);
   const [isSessionExpired, setIsSessionExpired] = useState(false);
 
+
   const [roomActionModal, setRoomActionModal] = useState(null); // { room, hasSubmap }
   const [customAlert, setCustomAlert] = useState({ isOpen: false, message: '' });
   const showAlert = (message) => setCustomAlert({ isOpen: true, message });
@@ -104,6 +105,8 @@ export default function App() {
   useEffect(() => {
     document.body.classList.toggle("dark-mode", isDarkMode);
   }, [isDarkMode]);
+
+
   const startListening = () => {
     if (isListening) {
       if (recognitionRef.current) recognitionRef.current.stop();
@@ -315,8 +318,6 @@ export default function App() {
       setKiosks(loadedKiosks);
       setBuildings(Array.from(foundBuildings).sort());
 
-      // lantai dihitung secara dinamis menggunakan useMemo
-
       if (floorToSwitch && !hasAutoSwitchedFloor.current) {
         setFloor(floorToSwitch);
         if (buildingToSwitch) setBuilding(buildingToSwitch);
@@ -347,8 +348,6 @@ export default function App() {
         const combined = new Set([...prev, ...foundBuildings]);
         return Array.from(combined).sort();
       });
-
-      // lantai dihitung secara dinamis
     });
 
 
@@ -448,7 +447,7 @@ export default function App() {
   const speakSteps = (langkahNavigasi, startIndex = 0, currentLang = language) => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      window.utterances = []; // Solusi sementara: mencegah garbage collection di browser mobile.
+      window.utterances = [];
 
       const playNext = (index) => {
         if (!isMountedRef.current) return;
@@ -481,7 +480,6 @@ export default function App() {
               setCountdownValue(prev => prev > 0 ? prev - 1 : 0);
             }, 1000);
 
-            // Reset setelah langkah terakhir selesai dibacakan + 10 detik.
             resetTimeoutRef.current = setTimeout(() => {
               if (!isMountedRef.current) return;
               setSearch("");
@@ -523,7 +521,6 @@ export default function App() {
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current);
 
-    // Solusi mobile: pancing engine suara dengan audio kosong secara sinkron dengan klik tombol.
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       const silentUtterance = new SpeechSynthesisUtterance('');
@@ -555,10 +552,8 @@ export default function App() {
 
       let data;
       try {
-        // Coba ubah teks tersebut ke JSON.
         data = JSON.parse(textResponse);
       } catch {
-        // Jika gagal, berarti Python mengirim error atau blank, tampilkan aslinya.
         console.error("Server tidak mengembalikan JSON yang valid:", textResponse);
         throw new Error(`Server Backend Crash/Mati. Cek terminal Python! Respons: ${textResponse.substring(0, 50)}`);
       }
@@ -616,8 +611,6 @@ export default function App() {
 
   const activePath = useMemo(() => {
     if (activeStepIndex === -1 || !navigationSteps.length || !pathData.length) return null;
-    // Kumulatif: sertakan semua titik rute dari awal hingga akhir langkah saat ini.
-    // Ini memungkinkan animasi berjalan secara mulus tanpa harus reset setiap langkah.
     const endIndex = navigationSteps[activeStepIndex].index_akhir;
     const rawPath = pathData.slice(0, endIndex + 1);
     return rawPath.filter(p => (p.building || "Gedung A") === building && p.floor === floor);
@@ -627,6 +620,14 @@ export default function App() {
     if (activeStepIndex === -1 || !navigationSteps.length || !pathData.length) return null;
     const startIndex = activeStepIndex > 0 ? navigationSteps[activeStepIndex - 1].index_akhir : 0;
     const endIndex = navigationSteps[activeStepIndex].index_akhir;
+    return pathData.slice(startIndex, endIndex + 1);
+  }, [pathData, navigationSteps, activeStepIndex]);
+
+  const nextStepPath = useMemo(() => {
+    const nextIndex = activeStepIndex + 1;
+    if (activeStepIndex === -1 || nextIndex >= navigationSteps.length || !pathData.length) return null;
+    const startIndex = navigationSteps[activeStepIndex].index_akhir;
+    const endIndex = navigationSteps[nextIndex].index_akhir;
     return pathData.slice(startIndex, endIndex + 1);
   }, [pathData, navigationSteps, activeStepIndex]);
 
@@ -1254,6 +1255,7 @@ export default function App() {
                   path={filteredPathData}
                   activePath={activePath}
                   activeStepPath={activeStepPath}
+                  nextStepPath={nextStepPath}
                   activeStepIndex={activeStepIndex}
                   navigationSteps={navigationSteps}
                   currentFloor={floor}
