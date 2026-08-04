@@ -457,6 +457,7 @@ def generate_navigation_text(path, start_id, target_id, language="id", target_na
     current_dir = None
     is_after_transition = False
     last_transition_type = None
+    last_vertical_transport = "lift"  # default; updated when a floor transition is detected
 
     def get_direction(p1, p2):
         if p2["x"] > p1["x"]: return 'Kanan'
@@ -490,21 +491,24 @@ def generate_navigation_text(path, start_id, target_id, language="id", target_na
     def get_turn(prev_dir, next_dir):
         if prev_dir == next_dir: return None
         turns_id = {
-            'Atas': {'Kanan': 'kanan', 'Kiri': 'kiri'},
-            'Bawah': {'Kanan': 'kiri', 'Kiri': 'kanan'},
-            'Kanan': {'Atas': 'kiri', 'Bawah': 'kanan'},
-            'Kiri': {'Atas': 'kanan', 'Bawah': 'kiri'}
+            'Atas': {'Kanan': 'kanan', 'Kiri': 'kiri', 'Bawah': 'berbalik arah'},
+            'Bawah': {'Kanan': 'kiri', 'Kiri': 'kanan', 'Atas': 'berbalik arah'},
+            'Kanan': {'Atas': 'kiri', 'Bawah': 'kanan', 'Kiri': 'berbalik arah'},
+            'Kiri': {'Atas': 'kanan', 'Bawah': 'kiri', 'Kanan': 'berbalik arah'}
         }
         turns_en = {
-            'Atas': {'Kanan': 'right', 'Kiri': 'left'},
-            'Bawah': {'Kanan': 'left', 'Kiri': 'right'},
-            'Kanan': {'Atas': 'left', 'Bawah': 'right'},
-            'Kiri': {'Atas': 'right', 'Bawah': 'left'}
+            'Atas': {'Kanan': 'right', 'Kiri': 'left', 'Bawah': 'turn around'},
+            'Bawah': {'Kanan': 'left', 'Kiri': 'right', 'Atas': 'turn around'},
+            'Kanan': {'Atas': 'left', 'Bawah': 'right', 'Kiri': 'turn around'},
+            'Kiri': {'Atas': 'right', 'Bawah': 'left', 'Kanan': 'turn around'}
         }
         
         turn_map = turns_id if language == "id" else turns_en
-        fallback = "berbalik arah" if language == "id" else "turn around"
-        return turn_map.get(prev_dir, {}).get(next_dir, fallback)
+        # prev_dir or next_dir being None means direction unknown after a transition —
+        # return None so the caller does not emit a turn instruction.
+        if prev_dir is None or next_dir is None:
+            return None
+        return turn_map.get(prev_dir, {}).get(next_dir, None)
 
     exclude_ids = {start_id, target_id}
 
@@ -514,10 +518,8 @@ def generate_navigation_text(path, start_id, target_id, language="id", target_na
         
         # Pindah Gedung!
         if p1.get("building") != p2.get("building"):
-            b1 = p1.get("building", "Gedung A")
             b2 = p2.get("building", "Gedung A")
             teks_transisi = f"Jalan melalui pintu penghubung menuju {b2}." if language == "id" else f"Go through the connecting door to {b2}."
-            
             langkah.append({
                 "teks": teks_transisi,
                 "index_akhir": i,
@@ -527,8 +529,9 @@ def generate_navigation_text(path, start_id, target_id, language="id", target_na
             current_dir = None
             is_after_transition = True
             last_transition_type = 'building'
-            # Pindah ruangan / lantai!
-        if p1["floor"] != p2["floor"]:
+            continue  # Building change supersedes any same-step floor change.
+        # Pindah lantai / sub-map — mutually exclusive with building change above.
+        elif p1["floor"] != p2["floor"]:
             if p2["floor"].startswith("submap_"):
                 parent_id = p2["floor"].replace("submap_", "")
                 parent_name = RUANGAN_GRID.get(parent_id, {}).get("name", "Ruangan Induk")
@@ -539,14 +542,13 @@ def generate_navigation_text(path, start_id, target_id, language="id", target_na
                 teks_transisi = f"Keluar dari {parent_name}." if language == "id" else f"Exit from {parent_name}."
             else:
                 t_floor = get_translated_floor(p2['floor'], language)
-                is_stairs = ("tangga" in p1.get("name", "").lower() or "stairs" in p1.get("name", "").lower() or p1.get("type") == "stairs" or 
+                is_stairs = ("tangga" in p1.get("name", "").lower() or "stairs" in p1.get("name", "").lower() or p1.get("type") == "stairs" or
                              "tangga" in p2.get("name", "").lower() or "stairs" in p2.get("name", "").lower() or p2.get("type") == "stairs")
                 last_vertical_transport = "stairs" if is_stairs else "lift"
                 if is_stairs:
                     teks_transisi = f"Gunakan tangga untuk menuju ke {p2['floor']}." if language == "id" else f"Take the stairs to go to {t_floor}."
                 else:
                     teks_transisi = f"Gunakan lift untuk menuju ke {p2['floor']}." if language == "id" else f"Take the lift to go to {t_floor}."
-                
             langkah.append({
                 "teks": teks_transisi,
                 "index_akhir": i,
@@ -564,6 +566,11 @@ def generate_navigation_text(path, start_id, target_id, language="id", target_na
             current_dir = dir
         elif current_dir != dir:
             turn = get_turn(current_dir, dir)
+            # If turn is None (e.g. unknown direction), skip emitting a turn instruction.
+            if turn is None:
+                current_dir = dir
+                continue
+
             adj_room_obj = get_nearest_landmark(p1["x"], p1["y"], p1["floor"], exclude_ids, building=p1.get("building", "Gedung A"), direction=current_dir)
             adj_room = get_room_display_name(adj_room_obj, language) if adj_room_obj else None
             
@@ -585,7 +592,7 @@ def generate_navigation_text(path, start_id, target_id, language="id", target_na
                         v_type_id = "tangga" if last_vertical_transport == "stairs" else "lift"
                         v_type_en = "stairs" if last_vertical_transport == "stairs" else "lift"
                         if language == "id": prefix = f"Setelah keluar dari {v_type_id} di {p1['floor']},"
-                        else: 
+                        else:
                             t_floor1 = get_translated_floor(p1['floor'], language)
                             prefix = f"After exiting the {v_type_en} at {t_floor1},"
                 is_after_transition = False
