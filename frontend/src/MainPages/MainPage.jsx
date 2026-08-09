@@ -100,6 +100,7 @@ export default function App() {
 
   const [roomActionModal, setRoomActionModal] = useState(null); // { room, hasSubmap }
   const [customAlert, setCustomAlert] = useState({ isOpen: false, message: '' });
+  const [isSearchDropdownOpen, setIsSearchDropdownOpen] = useState(false);
   const showAlert = (message) => setCustomAlert({ isOpen: true, message });
 
   useEffect(() => {
@@ -391,9 +392,78 @@ export default function App() {
   const latestTranscriptRef = useRef("");
   const recognitionRef = useRef(null);
   const searchInputRef = useRef(null);
+  const searchWrapperRef = useRef(null);
 
   const scrollTextRef = useRef(null);
   const lastUpdatedByVoiceRef = useRef(false);
+
+  // --- Autocomplete Filtering Logic ---
+  const filteredDropdownRooms = useMemo(() => {
+    // Abaikan ruangan palsu untuk submap
+    const realRooms = rooms.filter(r => !r.floor.startsWith("submap_"));
+    
+    let rawResults = [];
+    if (!search.trim()) {
+      // Jika pencarian kosong, tampilkan semua ruangan dari semua gedung
+      rawResults = [...realRooms].sort((a, b) => {
+        if (a.building === building && b.building !== building) return -1;
+        if (a.building !== building && b.building === building) return 1;
+        if (a.building !== b.building) return (a.building || "").localeCompare(b.building || "");
+        return a.name.localeCompare(b.name);
+      });
+    } else {
+      const query = search.toLowerCase();
+      
+      const scoredRooms = realRooms.map(r => {
+        let score = 0;
+        const name = r.name.toLowerCase();
+        const nameEn = (r.name_en || "").toLowerCase();
+        const id = r.id.toLowerCase();
+        
+        if (name.includes(query) || nameEn.includes(query) || id.includes(query)) {
+          score += 10;
+          // Prioritaskan gedung saat ini
+          if (r.building === building) score += 5; 
+        }
+        return { room: r, score };
+      }).filter(item => item.score > 0);
+      
+      scoredRooms.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return a.room.name.localeCompare(b.room.name);
+      });
+      
+      // Batasi ke 15 hasil teratas untuk performa
+      rawResults = scoredRooms.slice(0, 15).map(item => item.room);
+    }
+
+    // Deduplication pass
+    const dedupMap = new Map();
+    for (const r of rawResults) {
+      const key = r.name.trim().toLowerCase();
+      if (!dedupMap.has(key)) {
+        dedupMap.set(key, { ...r, _count: 1 });
+      } else {
+        dedupMap.get(key)._count++;
+      }
+    }
+    
+    return Array.from(dedupMap.values()).map(r => ({
+      ...r,
+      isGeneric: r._count > 1 || ['toilet', 'lift', 'tangga', 'pintu masuk', 'igd'].includes(r.name.toLowerCase())
+    }));
+  }, [rooms, search, building]);
+
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchWrapperRef.current && !searchWrapperRef.current.contains(event.target)) {
+        setIsSearchDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (scrollTextRef.current) {
@@ -914,18 +984,18 @@ export default function App() {
                   )}
 
                   {/* pencarian & dropdown ruangan */}
-                  <div className="search-wrapper destination-input" style={{ position: "relative" }}>
+                  <div className="search-wrapper destination-input" style={{ position: "relative" }} ref={searchWrapperRef}>
                     <form onSubmit={(e) => { e.preventDefault(); executeSearch(location, search); }} style={{ width: "100%", margin: 0 }}>
                       <input
                         ref={searchInputRef}
                         inputMode={isListening ? "none" : "search"}
                         className="search-input route-search"
-                        style={{ paddingRight: "74px", width: "100%", color: (search && (isListening || lastUpdatedByVoiceRef.current)) ? "transparent" : "inherit" }}
+                        style={{ paddingRight: "48px", width: "100%", color: (search && (isListening || lastUpdatedByVoiceRef.current)) ? "transparent" : "inherit" }}
                         type="search"
                         placeholder={isListening ? (language === 'en' ? 'Listening...' : 'Mendengarkan...') : getText('search_placeholder')}
                         value={search}
-                        onFocus={() => { lastUpdatedByVoiceRef.current = false; }}
-                        onChange={(e) => setSearch(e.target.value)}
+                        onFocus={() => { lastUpdatedByVoiceRef.current = false; setIsSearchDropdownOpen(true); }}
+                        onChange={(e) => { setSearch(e.target.value); setIsSearchDropdownOpen(true); }}
                       />
                       {(search && (isListening || lastUpdatedByVoiceRef.current)) && (
                         <div style={{
@@ -933,7 +1003,7 @@ export default function App() {
                           left: '18px',
                           top: '0',
                           bottom: '0',
-                          right: '74px',
+                          right: '48px',
                           pointerEvents: 'none',
                           display: 'flex',
                           alignItems: 'center',
@@ -957,64 +1027,47 @@ export default function App() {
                       </div>
                     )}
 
-                    {/* dropdown Tak Terlihat di Atas Chevron */}
-                    <select
-                      className="dropdown-select route-select"
-                      style={{
-                        opacity: 0, position: "absolute", top: 0, left: 0, width: "100%", height: "100%", cursor: "pointer", zIndex: 2, clipPath: "inset(0 0 0 calc(100% - 40px))"
-                      }}
-                      value={(() => {
-                        const matchedRoom = rooms.find(r => r.name === search || r.id === search || translateName(r.name, language, r.name_en) === search);
-                        return matchedRoom ? matchedRoom.id : "";
-                      })()}
-                      onChange={(e) => {
-                        const rawId = e.target.value;
-                        const selectedRoom = rooms.find(r => r.id === rawId);
-                        if (selectedRoom) {
-                          let disp = translateName(selectedRoom.name, language, selectedRoom.name_en);
-                          if (selectedRoom.floor.startsWith("submap_")) {
-                            const pId = selectedRoom.floor.replace("submap_", "");
-                            const pRoom = rooms.find(r => r.id === pId);
-                            if (pRoom) disp += " " + translateName(pRoom.name, language, pRoom.name_en);
+                    {isSearchDropdownOpen && filteredDropdownRooms.length > 0 && (
+                      <ul className="autocomplete-dropdown">
+                        {filteredDropdownRooms.map(room => {
+                          let displayName = getDisplayNodeName(room, language);
+                          let subtitle = "";
+                          if (room.isGeneric) {
+                            subtitle = language === 'en' ? '(Nearest)' : '(Terdekat)';
+                          } else if (room.floor.startsWith("submap_")) {
+                            const parentId = room.floor.replace("submap_", "");
+                            const parentRoom = rooms.find(r => r.id === parentId);
+                            if (parentRoom) {
+                               displayName += " " + getDisplayNodeName(parentRoom, language);
+                               subtitle = `${room.building || "Gedung A"} • ${translateName(parentRoom.floor, language)}`;
+                            }
+                          } else {
+                            subtitle = `${room.building || "Gedung A"} • ${translateName(room.floor, language)}`;
                           }
-                          setSearch(disp);
-                        }
-                        executeSearch(location, rawId);
-                      }}
-                    >
-                      <option value="" disabled>{getText('select_room') || getText('search_placeholder')}</option>
-                      {floors.filter(f => !f.startsWith("submap_")).map((floorName) => (
-                        <optgroup key={floorName} label={translateName(floorName, language)}>
-                          {rooms
-                            .filter(room => {
-                              if (room.building !== building) return false;
-                              if (room.floor === floorName) return true;
-                              if (room.floor.startsWith("submap_")) {
-                                const parentId = room.floor.replace("submap_", "");
-                                const parentRoom = rooms.find(r => r.id === parentId);
-                                return parentRoom && parentRoom.floor === floorName;
-                              }
-                              return false;
-                            })
-                            .map((room) => {
-                              let displayName = getDisplayNodeName(room, language);
-                              if (room.floor.startsWith("submap_")) {
-                                const parentId = room.floor.replace("submap_", "");
-                                const parentRoom = rooms.find(r => r.id === parentId);
-                                if (parentRoom) displayName += " " + getDisplayNodeName(parentRoom, language);
-                              }
-                              return <option key={room.id} value={room.id}>{displayName}</option>;
-                            })}
-                        </optgroup>
-                      ))}
-                    </select>
-                    <ChevronIcon />
+                          
+                          return (
+                            <li 
+                              key={room.id} 
+                              className="autocomplete-item"
+                              onClick={() => {
+                                setSearch(displayName);
+                                setIsSearchDropdownOpen(false);
+                                executeSearch(location, room.isGeneric ? room.name : room.id);
+                              }}
+                            >
+                              <span className="autocomplete-item-name">{displayName}</span>
+                              <span className="autocomplete-item-subtitle">{subtitle}</span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
                   </div>
                 </div>
               </div>
 
               {/* aksi cepat — hanya tampil saat belum ada tujuan dipilih */}
-              <div className={`quick-actions-section${search.trim() ? ' quick-actions-hidden' : ''}`}>
+              <div className={`quick-actions-section${(search.trim() || isSearchDropdownOpen) ? ' quick-actions-hidden' : ''}`}>
                 <p className="quick-actions-label">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
                   {language === 'id' ? 'Pencarian Cepat' : 'Quick Searches'}
