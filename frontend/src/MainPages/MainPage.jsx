@@ -114,7 +114,7 @@ export default function App() {
     }
     
     if (recognitionRef.current) {
-      try { recognitionRef.current.start(); } catch(e) {}
+      try { recognitionRef.current.start(); } catch { /* Ignore start errors */ }
     }
   };
 
@@ -179,6 +179,7 @@ export default function App() {
         }
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language, location]);
 
   const getText = (key) => {
@@ -390,8 +391,6 @@ export default function App() {
   const latestTranscriptRef = useRef("");
   const recognitionRef = useRef(null);
   const searchInputRef = useRef(null);
-
-  const wasListeningRef = useRef(false);
 
   const scrollTextRef = useRef(null);
   const lastUpdatedByVoiceRef = useRef(false);

@@ -30,6 +30,8 @@ function getPointAtDistance(pathPoints, distance) {
     const dy = y2 - y1;
     const segLen = Math.sqrt(dx * dx + dy * dy);
 
+    if (segLen === 0) continue; // Skip redundant points
+
     if (currentDist + segLen >= distance) {
       const ratio = (distance - currentDist) / segLen;
       const x = x1 + dx * ratio;
@@ -44,15 +46,19 @@ function getPointAtDistance(pathPoints, distance) {
   const lastY = pathPoints[pathPoints.length - 1];
 
   if (pathPoints.length >= 4) {
-    const dx = pathPoints[pathPoints.length - 2] - pathPoints[pathPoints.length - 4];
-    const dy = pathPoints[pathPoints.length - 1] - pathPoints[pathPoints.length - 3];
-    const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-    return { x: lastX, y: lastY, angle };
+    for (let i = pathPoints.length - 2; i >= 2; i -= 2) {
+      const dx = pathPoints[i] - pathPoints[i - 2];
+      const dy = pathPoints[i + 1] - pathPoints[i - 1];
+      if (dx !== 0 || dy !== 0) {
+        const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+        return { x: lastX, y: lastY, angle };
+      }
+    }
   }
   return { x: lastX, y: lastY, angle: 0 };
 }
 
-export default function SharedMap({ path = [], activePath = null, activeStepPath = null, nextStepPath = null, activeStepIndex = 0, navigationSteps = [], currentFloor = "Lantai 1", currentBuilding = "Gedung A", selectedKiosk, onRoomClick, showGrid = true, showBorder = false, language = "id", isDarkMode = false }) {
+export default function SharedMap({ path = [], activeStepPath = null, nextStepPath = null, activeStepIndex = 0, navigationSteps = [], currentFloor = "Lantai 1", currentBuilding = "Gedung A", selectedKiosk, onRoomClick, showGrid = true, showBorder = false, language = "id", isDarkMode = false }) {
   const [rooms, setRooms] = useState([]);
   const [kiosks, setKiosks] = useState([]);
   const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
@@ -222,14 +228,7 @@ export default function SharedMap({ path = [], activePath = null, activeStepPath
     ]);
   }, [path, currentFloor, currentBuilding]);
 
-  const activePathPoints = useMemo(() => {
-    if (!activePath) return pathPoints;
-    const filteredPath = activePath.filter(p => (!p.floor || p.floor === currentFloor) && (!p.building || p.building === currentBuilding));
-    return filteredPath.flatMap((point) => [
-      (point.x || 0) * GRID_SIZE + GRID_SIZE / 2,
-      (point.y || 0) * GRID_SIZE + GRID_SIZE / 2
-    ]);
-  }, [activePath, pathPoints, currentFloor, currentBuilding]);
+
 
   const activeStepPathPoints = useMemo(() => {
     if (!activeStepPath || activeStepPath.length === 0) return [];
@@ -287,10 +286,27 @@ export default function SharedMap({ path = [], activePath = null, activeStepPath
     prevPathLengthRef.current = totalLen;
     walkedDistanceRef.current = 0;
 
-    animPhaseRef.current = "rotating";
-    rotateStartTimeRef.current = performance.now();
-
     const p0 = getPointAtDistance(activeStepPathPoints, 0);
+
+    let isTeleported = false;
+    if (activeStepIndex > 0) {
+      const prevStep = navigationStepsRef.current[activeStepIndex - 1];
+      const currStep = navigationStepsRef.current[activeStepIndex];
+      
+      // Deteksi perubahan lantai atau gedung
+      if (prevStep && currStep && (prevStep.floor !== currStep.floor || prevStep.building !== currStep.building)) {
+        isTeleported = true;
+      }
+      
+      // Deteksi teleportasi jarak jauh (jika avatar berpindah tempat tiba-tiba)
+      if (personRef.current) {
+        const dx = personRef.current.x() - p0.x;
+        const dy = personRef.current.y() - p0.y;
+        if (Math.sqrt(dx * dx + dy * dy) > 20) {
+          isTeleported = true;
+        }
+      }
+    }
 
     // Tentukan sudut awal rotasi
     let fromAngle;
@@ -304,6 +320,9 @@ export default function SharedMap({ path = [], activePath = null, activeStepPath
       } else {
         fromAngle = p0.angle + 180;
       }
+    } else if (isTeleported) {
+      // Jika baru keluar dari lift (beda lantai) atau teleportasi, langsung menghadap ke arah jalan
+      fromAngle = p0.angle;
     } else {
       // Langkah selanjutnya: rotasi dari arah terakhir avatar
       fromAngle = personRef.current?.rotation() ?? p0.angle;
@@ -312,12 +331,26 @@ export default function SharedMap({ path = [], activePath = null, activeStepPath
     rotateFromAngleRef.current = fromAngle;
     rotateToAngleRef.current = p0.angle;
 
+    let diff = p0.angle - fromAngle;
+    diff = ((diff + 180) % 360 + 360) % 360 - 180;
+    
+    if (Math.abs(diff) < 1) {
+      animPhaseRef.current = "walking";
+      walkStartTimeRef.current = performance.now();
+    } else {
+      animPhaseRef.current = "rotating";
+      rotateStartTimeRef.current = performance.now();
+    }
+
     // Posisikan avatar di awal segmen langkah
     if (personRef.current) {
       personRef.current.x(p0.x);
       personRef.current.y(p0.y);
+      if (Math.abs(diff) < 1) {
+        personRef.current.rotation(p0.angle);
+      }
     }
-  }, [activeStepPathPoints, activeStepIndex, kiosks]);
+  }, [activeStepPathPoints, activeStepIndex, kiosks, rooms, currentFloor, currentBuilding]);
 
   // Satu animasi persisten — dibuat ulang hanya saat elemen line mount/unmount
   useEffect(() => {
@@ -453,7 +486,7 @@ export default function SharedMap({ path = [], activePath = null, activeStepPath
       }
       // phase === "idle": tidak ada tindakan (hanya animasi putus-putus di jalur)
           
-      // Manual batchDraw because getLayer() might be null at init
+      // batchDraw manual karena getLayer() mungkin null saat inisialisasi
       const layer = lineRef.current.getLayer();
       if (layer) layer.batchDraw();
     });
@@ -610,7 +643,7 @@ export default function SharedMap({ path = [], activePath = null, activeStepPath
                           <Rect ref={rightFootRef} x={0} y={8} width={10} height={6} fill="#333" cornerRadius={3} offsetX={5} offsetY={3} />
                           <Rect x={0} y={0} width={16} height={24} fill="#2196F3" cornerRadius={8} offsetX={8} offsetY={12} />
                           <Circle x={0} y={0} radius={7} fill="#FFCCBC" stroke="#333" strokeWidth={1} />
-                          {/* Glasses */}
+                          {/* Kacamata */}
                           <Line points={[3, -4, 3, 4]} stroke="#333" strokeWidth={1.5} />
                           <Circle x={4} y={-3} radius={2.5} fill="#333" />
                           <Circle x={4} y={3} radius={2.5} fill="#333" />

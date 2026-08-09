@@ -123,11 +123,11 @@ def cari_pasangan_lift_terbaik(start_node, target_node, curr_floor, target_floor
         tipe = r.get("type", "").lower()
         return "tangga" in nama or "stairs" in nama or tipe in ("stairs", "tangga")
 
-    # Priority 1: Lift / Elevator
+    # Prioritas 1: Lift / Elevator
     lifts_start = [r for r in RUANGAN_GRID.values() if r.get("floor") == curr_floor and r.get("building", "Gedung A") == building and is_lift_node(r)]
     lifts_target = [r for r in RUANGAN_GRID.values() if r.get("floor") == target_floor and r.get("building", "Gedung A") == building and is_lift_node(r)]
     
-    # Priority 2: Tangga / Stairs jika tidak ada lift
+    # Prioritas 2: Tangga / Stairs jika tidak ada lift
     if not lifts_start or not lifts_target:
         lifts_start = [r for r in RUANGAN_GRID.values() if r.get("floor") == curr_floor and r.get("building", "Gedung A") == building and is_stairs_node(r)]
         lifts_target = [r for r in RUANGAN_GRID.values() if r.get("floor") == target_floor and r.get("building", "Gedung A") == building and is_stairs_node(r)]

@@ -356,7 +356,7 @@ export default function EditPage() {
       width: maxX + 1000,
       height: maxY + 1000
     };
-  }, [placedElements, activeEditFloor, mapSize.width, mapSize.height]);
+  }, [placedElements, activeEditFloor, activeEditBuilding, mapSize.width, mapSize.height]);
 
   const saveHistory = useCallback((newElements) => {
     let newHistory = history.slice(0, historyStep + 1);
@@ -550,7 +550,7 @@ export default function EditPage() {
       const newClonedElements = [];
       let newElements = [...placedElements];
 
-      selectedIds.forEach((id, index) => {
+      selectedIds.forEach((id) => {
         const selectedEl = placedElements.find(el => el.id === id);
         if (selectedEl) {
           let maxNumber = 0;
@@ -654,7 +654,7 @@ export default function EditPage() {
   }, [selectedIds, deleteSelectedElement, handleUndo, handleRedo, cloneSelectedElement, pasteElement, activeEditFloor, activeEditBuilding]);
 
   const checkDeselect = (e) => {
-    // clicked on stage - clear selection
+    // Klik pada stage - hapus seleksi
     const clickedOnEmpty = e.target === e.target.getStage() || e.target.id() === 'bg-grid';
     if (clickedOnEmpty) {
       setSelectedIds([]);
@@ -706,9 +706,9 @@ export default function EditPage() {
     const shapes = activeFloorElements;
     const box = selectionRect;
 
-    // find all shapes intersecting with box
+    // Cari semua bentuk yang berpotongan dengan kotak seleksi
     const selected = shapes.filter(shape => {
-      // simple AABB collision
+      // Deteksi tabrakan AABB sederhana
       return (
         shape.x < box.x + box.width &&
         shape.x + shape.width > box.x &&
