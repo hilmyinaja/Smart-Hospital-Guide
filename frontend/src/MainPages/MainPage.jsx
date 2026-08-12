@@ -919,35 +919,35 @@ export default function App() {
                   </div>
                 </div>
                 <div className="route-planner-inputs">
-                  {/* dropdown building */}
-                  <div className="dropdown-wrapper kiosk-input">
-                    <select
-                      className="dropdown-select route-select"
-                      value={building}
-                      onChange={(e) => {
-                        const newB = e.target.value;
-                        setBuilding(newB);
-                        const bFloors = new Set();
-                        kiosks.forEach(k => { if (k.building === newB && k.floor && !k.floor.startsWith("submap_")) bFloors.add(k.floor); });
-                        rooms.forEach(r => { if (r.building === newB && r.floor && !r.floor.startsWith("submap_")) bFloors.add(r.floor); });
-                        let newFloors = Array.from(bFloors);
-                        if (newFloors.length > 0) {
-                          newFloors.sort((a, b) => {
-                            const orderArray = Array.isArray(floorOrder) ? floorOrder : (floorOrder[newB] || []);
-                            const idxA = orderArray.indexOf(a);
-                            const idxB = orderArray.indexOf(b);
-                            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                            if (idxA !== -1) return -1;
-                            if (idxB !== -1) return 1;
-                            return a.localeCompare(b);
-                          });
-                          const targetFloor = newFloors.find(f => f.toLowerCase() === "lantai 1" || f.toLowerCase() === "first floor") || newFloors[0];
-                          setFloor(targetFloor);
-                        }
-                      }}
-                    >
-                      {buildings.map(b => (
-                        <option key={b} value={b}>{translateName(b, language)}</option>
+                    <div className="dropdown-wrapper kiosk-input">
+                      <select
+                        className="dropdown-select route-select"
+                        value={building}
+                        onChange={(e) => {
+                          const newB = e.target.value;
+                          setBuilding(newB);
+                          setLocation(""); // Clear the selected kiosk when building changes
+                          const bFloors = new Set();
+                          kiosks.forEach(k => { if (k.building === newB && k.floor && !k.floor.startsWith("submap_")) bFloors.add(k.floor); });
+                          rooms.forEach(r => { if (r.building === newB && r.floor && !r.floor.startsWith("submap_")) bFloors.add(r.floor); });
+                          let newFloors = Array.from(bFloors);
+                          if (newFloors.length > 0) {
+                            newFloors.sort((a, b) => {
+                              const orderArray = Array.isArray(floorOrder) ? floorOrder : (floorOrder[newB] || []);
+                              const idxA = orderArray.indexOf(a);
+                              const idxB = orderArray.indexOf(b);
+                              if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                              if (idxA !== -1) return -1;
+                              if (idxB !== -1) return 1;
+                              return a.localeCompare(b);
+                            });
+                            const targetFloor = newFloors.find(f => f.toLowerCase() === "lantai 1" || f.toLowerCase() === "first floor") || newFloors[0];
+                            setFloor(targetFloor);
+                          }
+                        }}
+                      >
+                        {buildings.map(b => (
+                          <option key={b} value={b}>{translateName(b, language)}</option>
                       ))}
                     </select>
                     <ChevronIcon />
@@ -967,6 +967,13 @@ export default function App() {
                         onChange={(e) => {
                           const newLocation = e.target.value;
                           setLocation(newLocation);
+                          
+                          const selectedKioskObj = kiosks.find(k => k.id === newLocation);
+                          if (selectedKioskObj) {
+                            if (selectedKioskObj.floor) setFloor(selectedKioskObj.floor);
+                            if (selectedKioskObj.building) setBuilding(selectedKioskObj.building);
+                          }
+
                           if (search.trim()) {
                             executeSearch(newLocation, search);
                           }

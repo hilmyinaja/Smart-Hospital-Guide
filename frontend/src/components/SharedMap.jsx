@@ -67,8 +67,67 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
   const personRef = useRef(null);
   const leftFootRef = useRef(null);
   const rightFootRef = useRef(null);
+  const idleAvatarRef = useRef(null);
+  const wavingArmRef = useRef(null);
+  const idlePositionRef = useRef(null);
+  const transitionStartRef = useRef(0);
+  const transitionFromRef = useRef({ x: 0, y: 0 });
 
   const GRID_SIZE = 25;
+
+  // Cari posisi kosong di sekitar kiosk untuk menempatkan avatar idle
+  function getIdlePosition(kiosk, floorRooms, floorKiosks) {
+    const OFFSET = 22;
+    const AV = 28; // ukuran bounding box avatar
+    const cx = kiosk.x + kiosk.width / 2;
+    const cy = kiosk.y + kiosk.height / 2;
+    // Kandidat: bawah, kanan, kiri, atas
+    const candidates = [
+      { x: cx, y: kiosk.y + kiosk.height + OFFSET },
+      { x: kiosk.x + kiosk.width + OFFSET, y: cy },
+      { x: kiosk.x - OFFSET, y: cy },
+      { x: cx, y: kiosk.y - OFFSET },
+    ];
+    const allBoxes = [...floorRooms, ...floorKiosks].filter(b => b.id !== kiosk.id);
+
+    // Dapatkan batas luar (bounding box) seluruh ruangan di lantai ini
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    [...floorRooms, ...floorKiosks].forEach(b => {
+      minX = Math.min(minX, b.x);
+      minY = Math.min(minY, b.y);
+      maxX = Math.max(maxX, b.x + b.width);
+      maxY = Math.max(maxY, b.y + b.height);
+    });
+
+    for (const pos of candidates) {
+      const ax = pos.x - AV / 2;
+      const ay = pos.y - AV / 2;
+
+      // Syarat 1: Tidak overlap dengan ruangan lain
+      const overlaps = allBoxes.some(b =>
+        ax < b.x + b.width && ax + AV > b.x && ay < b.y + b.height && ay + AV > b.y
+      );
+
+      // Syarat 2: Posisi harus tetap ada di dalam batas (bounding box) peta utama
+      // agar tidak terlempar ke area luar yang kosong
+      const isInsideBounds = ax >= minX && (ax + AV) <= maxX && ay >= minY && (ay + AV) <= maxY;
+
+      if (!overlaps && isInsideBounds) return pos;
+    }
+
+    // Jika semua kandidat gagal (misal di peta sempit), fallback ke prioritas utama 
+    // dengan mengabaikan isInsideBounds, tapi tetap hindari overlaps
+    for (const pos of candidates) {
+      const ax = pos.x - AV / 2;
+      const ay = pos.y - AV / 2;
+      const overlaps = allBoxes.some(b =>
+        ax < b.x + b.width && ax + AV > b.x && ay < b.y + b.height && ay + AV > b.y
+      );
+      if (!overlaps) return pos;
+    }
+
+    return candidates[0]; // extreme fallback
+  }
 
   const mapBounds = useMemo(() => {
     let minX = Infinity;
@@ -98,7 +157,7 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
       return null;
     }
 
-    const padding = 25;
+    const padding = 40;
     return {
       x: minX - padding,
       y: minY - padding,
@@ -220,24 +279,84 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
     return () => unsubscribeKiosks();
   }, []);
 
+  const currentFloorRooms = useMemo(() => rooms.filter(room => room.floor === currentFloor && (room.building || "Gedung A") === currentBuilding), [rooms, currentFloor, currentBuilding]);
+  const currentFloorKiosks = useMemo(() => kiosks.filter(kiosk => kiosk.floor === currentFloor && (kiosk.building || "Gedung A") === currentBuilding), [kiosks, currentFloor, currentBuilding]);
+
+  // Resolve the selected kiosk position for "You Are Here" marker
+  const selectedKioskData = useMemo(() => {
+    if (!selectedKiosk) return null;
+    return currentFloorKiosks.find(k => k.id === selectedKiosk) || null;
+  }, [selectedKiosk, currentFloorKiosks]);
+
   const pathPoints = useMemo(() => {
     const filteredPath = path.filter(p => (!p.floor || p.floor === currentFloor) && (!p.building || p.building === currentBuilding));
-    return filteredPath.flatMap((point) => [
+    let pts = filteredPath.flatMap((point) => [
       (point.x || 0) * GRID_SIZE + GRID_SIZE / 2,
       (point.y || 0) * GRID_SIZE + GRID_SIZE / 2
     ]);
-  }, [path, currentFloor, currentBuilding]);
 
+    // Sambungkan titik awal rute ke avatar dengan belokan 90 derajat jika navigasi dimulai dari kiosk ini
+    if (selectedKioskData && pts.length >= 2 && path.length > 0) {
+      const isStartingFloor = path[0].floor === currentFloor || (!path[0].floor && currentFloor === "Lantai 1");
+      if (isStartingFloor) {
+        const idlePos = getIdlePosition(selectedKioskData, currentFloorRooms, currentFloorKiosks);
+        const p0x = pts[0];
+        const p0y = pts[1];
+        const cx = selectedKioskData.x + selectedKioskData.width / 2;
 
+        let cornerX = idlePos.x;
+        let cornerY = p0y;
+        if (Math.abs(idlePos.x - cx) < 1) { // Jika idlePos ada di atas/bawah kiosk
+          cornerX = p0x;
+          cornerY = idlePos.y;
+        }
+
+        const addCorner = (Math.abs(cornerX - idlePos.x) > 1 || Math.abs(cornerY - idlePos.y) > 1) &&
+          (Math.abs(cornerX - p0x) > 1 || Math.abs(cornerY - p0y) > 1);
+
+        if (addCorner) {
+          pts = [idlePos.x, idlePos.y, cornerX, cornerY, ...pts];
+        } else {
+          pts = [idlePos.x, idlePos.y, ...pts];
+        }
+      }
+    }
+    return pts;
+  }, [path, currentFloor, currentBuilding, selectedKioskData, currentFloorRooms, currentFloorKiosks]);
 
   const activeStepPathPoints = useMemo(() => {
     if (!activeStepPath || activeStepPath.length === 0) return [];
     const filteredPath = activeStepPath.filter(p => (!p.floor || p.floor === currentFloor) && (!p.building || p.building === currentBuilding));
-    return filteredPath.flatMap((point) => [
+    let pts = filteredPath.flatMap((point) => [
       (point.x || 0) * GRID_SIZE + GRID_SIZE / 2,
       (point.y || 0) * GRID_SIZE + GRID_SIZE / 2
     ]);
-  }, [activeStepPath, currentFloor, currentBuilding]);
+
+    // Jika ini adalah step navigasi pertama di lantai ini, sambungkan ke avatar dengan belokan 90 derajat
+    if (activeStepIndex === 0 && selectedKioskData && pts.length >= 2) {
+      const idlePos = getIdlePosition(selectedKioskData, currentFloorRooms, currentFloorKiosks);
+      const p0x = pts[0];
+      const p0y = pts[1];
+      const cx = selectedKioskData.x + selectedKioskData.width / 2;
+
+      let cornerX = idlePos.x;
+      let cornerY = p0y;
+      if (Math.abs(idlePos.x - cx) < 1) { // Jika idlePos ada di atas/bawah kiosk
+        cornerX = p0x;
+        cornerY = idlePos.y;
+      }
+
+      const addCorner = (Math.abs(cornerX - idlePos.x) > 1 || Math.abs(cornerY - idlePos.y) > 1) &&
+        (Math.abs(cornerX - p0x) > 1 || Math.abs(cornerY - p0y) > 1);
+
+      if (addCorner) {
+        pts = [idlePos.x, idlePos.y, cornerX, cornerY, ...pts];
+      } else {
+        pts = [idlePos.x, idlePos.y, ...pts];
+      }
+    }
+    return pts;
+  }, [activeStepPath, currentFloor, currentBuilding, activeStepIndex, selectedKioskData, currentFloorRooms, currentFloorKiosks]);
 
   const nextStepPathPoints = useMemo(() => {
     if (!nextStepPath || nextStepPath.length === 0) return [];
@@ -254,7 +373,7 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
   const walkedDistanceRef = useRef(0);
   const prevPathLengthRef = useRef(0);
   const activeStepIndexRef = useRef(0);
-  const animPhaseRef = useRef("idle"); // "idle" | "rotating" | "walking" | "pre-rotating"
+  const animPhaseRef = useRef("idle"); // "idle" | "waving" | "transitioning" | "rotating" | "walking" | "pre-rotating"
   const rotateStartTimeRef = useRef(0);
   const rotateFromAngleRef = useRef(0);
   const rotateToAngleRef = useRef(0);
@@ -268,16 +387,82 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
   // Sinkronisasi nextStepPathPoints ke ref agar bisa diakses dari animasi loop
   useEffect(() => { nextStepPathPointsRef.current = nextStepPathPoints; }, [nextStepPathPoints]);
 
+  // Posisikan avatar idle di samping kiosk (belum navigasi)
+  useEffect(() => {
+    if (!selectedKioskData) {
+      idlePositionRef.current = null;
+      if (idleAvatarRef.current) idleAvatarRef.current.visible(false);
+      if (personRef.current) personRef.current.visible(false);
+      return;
+    }
+    // Jangan override posisi jika sedang navigasi
+    const phase = animPhaseRef.current;
+    if (phase === "walking" || phase === "rotating" || phase === "pre-rotating" || phase === "transitioning") return;
+
+    const pos = getIdlePosition(selectedKioskData, currentFloorRooms, currentFloorKiosks);
+    idlePositionRef.current = pos;
+
+    if (idleAvatarRef.current) {
+      idleAvatarRef.current.x(pos.x);
+      idleAvatarRef.current.y(pos.y);
+      idleAvatarRef.current.visible(true);
+      idleAvatarRef.current.opacity(1);
+    }
+    if (wavingArmRef.current) {
+      wavingArmRef.current.visible(true);
+      wavingArmRef.current.opacity(1);
+    }
+    // Sembunyikan walking avatar saat idle
+    if (personRef.current) personRef.current.visible(false);
+    animPhaseRef.current = "waving";
+  }, [selectedKioskData, currentFloorRooms, currentFloorKiosks]);
+
   // Deteksi pergantian langkah: reset avatar dan mulai rotasi pivot per langkah
   useEffect(() => {
+    // Cek apakah path benar-benar berubah
+    let isSamePath = true;
+    if (activeStepIndexRef.current !== activeStepIndex || activeStepPathPointsRef.current.length !== activeStepPathPoints.length) {
+      isSamePath = false;
+    } else {
+      for (let i = 0; i < activeStepPathPoints.length; i++) {
+        if (activeStepPathPoints[i] !== activeStepPathPointsRef.current[i]) {
+          isSamePath = false;
+          break;
+        }
+      }
+    }
+
     activeStepPathPointsRef.current = activeStepPathPoints;
     activeStepIndexRef.current = activeStepIndex;
 
+    // Jika path tidak berubah secara substansial, jangan reset animasi
+    if (isSamePath) return;
+
     if (activeStepPathPoints.length < 4) {
-      // Tidak ada rute valid pada lantai ini — idle
-      animPhaseRef.current = "idle";
       walkedDistanceRef.current = 0;
       prevPathLengthRef.current = 0;
+
+      // Jika kiosk terpilih → kembalikan ke posisi idle front-facing
+      if (selectedKioskData) {
+        const pos = getIdlePosition(selectedKioskData, currentFloorRooms, currentFloorKiosks);
+        idlePositionRef.current = pos;
+        if (idleAvatarRef.current) {
+          idleAvatarRef.current.x(pos.x);
+          idleAvatarRef.current.y(pos.y);
+          idleAvatarRef.current.visible(true);
+          idleAvatarRef.current.opacity(1);
+        }
+        if (wavingArmRef.current) {
+          wavingArmRef.current.visible(true);
+          wavingArmRef.current.opacity(1);
+        }
+        if (personRef.current) personRef.current.visible(false);
+        animPhaseRef.current = "waving";
+      } else if (!selectedKioskData) {
+        animPhaseRef.current = "idle";
+        if (idleAvatarRef.current) idleAvatarRef.current.visible(false);
+        if (personRef.current) personRef.current.visible(false);
+      }
       return;
     }
 
@@ -288,17 +473,20 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
 
     const p0 = getPointAtDistance(activeStepPathPoints, 0);
 
+    // Sembunyikan avatar idle, tampilkan walking avatar
+    if (idleAvatarRef.current) idleAvatarRef.current.visible(false);
+    if (personRef.current) personRef.current.visible(true);
+    if (wavingArmRef.current) wavingArmRef.current.visible(false);
+
     let isTeleported = false;
     if (activeStepIndex > 0) {
       const prevStep = navigationStepsRef.current[activeStepIndex - 1];
       const currStep = navigationStepsRef.current[activeStepIndex];
-      
-      // Deteksi perubahan lantai atau gedung
+
       if (prevStep && currStep && (prevStep.floor !== currStep.floor || prevStep.building !== currStep.building)) {
         isTeleported = true;
       }
-      
-      // Deteksi teleportasi jarak jauh (jika avatar berpindah tempat tiba-tiba)
+
       if (personRef.current) {
         const dx = personRef.current.x() - p0.x;
         const dy = personRef.current.y() - p0.y;
@@ -308,10 +496,18 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
       }
     }
 
+    // Langkah pertama + avatar sedang waving → set awal posisi
+    const wasWaving = animPhaseRef.current === "waving";
+    if (activeStepIndex === 0 && wasWaving && idlePositionRef.current) {
+      if (personRef.current) {
+        personRef.current.x(p0.x);
+        personRef.current.y(p0.y);
+      }
+    }
+
     // Tentukan sudut awal rotasi
     let fromAngle;
     if (activeStepIndex === 0) {
-      // Langkah pertama: rotasi dari arah kios
       const kiosk = kiosks.find(k => k.id === selectedKioskRef.current);
       if (kiosk) {
         const kioskCenterX = kiosk.x + kiosk.width / 2;
@@ -321,10 +517,8 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
         fromAngle = p0.angle + 180;
       }
     } else if (isTeleported) {
-      // Jika baru keluar dari lift (beda lantai) atau teleportasi, langsung menghadap ke arah jalan
       fromAngle = p0.angle;
     } else {
-      // Langkah selanjutnya: rotasi dari arah terakhir avatar
       fromAngle = personRef.current?.rotation() ?? p0.angle;
     }
 
@@ -333,7 +527,7 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
 
     let diff = p0.angle - fromAngle;
     diff = ((diff + 180) % 360 + 360) % 360 - 180;
-    
+
     if (Math.abs(diff) < 1) {
       animPhaseRef.current = "walking";
       walkStartTimeRef.current = performance.now();
@@ -342,7 +536,6 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
       rotateStartTimeRef.current = performance.now();
     }
 
-    // Posisikan avatar di awal segmen langkah
     if (personRef.current) {
       personRef.current.x(p0.x);
       personRef.current.y(p0.y);
@@ -350,34 +543,56 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
         personRef.current.rotation(p0.angle);
       }
     }
-  }, [activeStepPathPoints, activeStepIndex, kiosks, rooms, currentFloor, currentBuilding]);
+  }, [activeStepPathPoints, activeStepIndex, kiosks, rooms, currentFloor, currentBuilding, currentFloorRooms, currentFloorKiosks]);
 
-  // Satu animasi persisten — dibuat ulang hanya saat elemen line mount/unmount
+  // Satu animasi persisten — menangani waving, transition, dan walking
   useEffect(() => {
-
-    const ROTATION_DURATION = 1000; // ms untuk putaran awal dari arah kios
+    const ROTATION_DURATION = 1000;
+    const TRANSITION_DURATION = 600; // ms slide dari idle ke awal rute
     const LEG_SWING_FREQ = 0.006;
-    const WALK_SPEED = 50; // Kecepatan tetap dalam px/detik — kecepatan langkah alami yang konsisten
+    const WALK_SPEED = 50;
+    const WAVE_ARM_FREQ = 0.005; // frekuensi ayunan tangan
+    const WAVE_ARM_AMPLITUDE = 40; // derajat
+    const BODY_SWAY_FREQ = 0.002;
+    const BODY_SWAY_AMPLITUDE = 3; // piksel vertikal
 
     const anim = new Konva.Animation((frame) => {
-      if (!lineRef.current) return;
+      // Animasi putus-putus pada jalur aktif (jika ada)
+      if (lineRef.current) {
+        const dashOffset = (frame.time / 25) % 20;
+        lineRef.current.dashOffset(-dashOffset);
+      }
 
-      // Animasi putus-putus pada jalur aktif
-      const dashOffset = (frame.time / 25) % 20;
-      lineRef.current.dashOffset(-dashOffset);
-
-      const pts = activeStepPathPointsRef.current;
-      if (!personRef.current || pts.length < 4) return;
-
-      const totalLen = prevPathLengthRef.current;
-      if (totalLen <= 0) return;
+      if (!personRef.current && !idleAvatarRef.current) return;
 
       const now = performance.now();
       const phase = animPhaseRef.current;
 
+      // ── WAVING: animasi idle avatar front-facing ──
+      if (phase === "waving") {
+        if (idleAvatarRef.current && wavingArmRef.current) {
+          const swing = Math.sin(frame.time * WAVE_ARM_FREQ) * WAVE_ARM_AMPLITUDE;
+          wavingArmRef.current.rotation(swing);
+        }
+        // Bounce halus pada idle avatar
+        if (idleAvatarRef.current && idlePositionRef.current) {
+          const bounce = Math.sin(frame.time * BODY_SWAY_FREQ) * BODY_SWAY_AMPLITUDE;
+          idleAvatarRef.current.x(idlePositionRef.current.x);
+          idleAvatarRef.current.y(idlePositionRef.current.y + bounce);
+        }
+        const layer = (idleAvatarRef.current || personRef.current)?.getLayer();
+        if (layer) layer.batchDraw();
+        return;
+      }
+
+      // ── Fase navigasi: butuh path data ──
+      const pts = activeStepPathPointsRef.current;
+      if (pts.length < 4) return;
+
+      const totalLen = prevPathLengthRef.current;
+      if (totalLen <= 0) return;
 
       if (phase === "rotating") {
-        // Rotasi awal pada langkah ke-0
         const elapsed = now - rotateStartTimeRef.current;
         const progress = Math.min(elapsed / ROTATION_DURATION, 1);
         const ease = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
@@ -386,7 +601,6 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
         const fromAngle = rotateFromAngleRef.current;
         const toAngle = rotateToAngleRef.current;
 
-        // Interpolasi busur terpendek
         let diff = toAngle - fromAngle;
         diff = ((diff + 180) % 360 + 360) % 360 - 180;
 
@@ -397,7 +611,6 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
           personRef.current.rotation(fromAngle + diff * ease);
         } else {
           personRef.current.rotation(toAngle);
-          // Transisi ke berjalan
           animPhaseRef.current = "walking";
           walkStartTimeRef.current = now;
         }
@@ -407,11 +620,9 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
           rightFootRef.current.x(0);
         }
       } else if (phase === "walking") {
-        // Menghitung kecepatan berjalan dinamis berdasarkan durasi bicara
         let currentWalkSpeed = WALK_SPEED;
         const currentStep = navigationStepsRef.current[activeStepIndexRef.current];
         if (currentStep && currentStep.teks) {
-          // Perkiraan durasi bicara dalam ms (sekitar 17 karakter/detik)
           const estimatedSpeechMs = Math.max((currentStep.teks.length / 17) * 1000, 2000);
           const walkDurationSec = Math.max((estimatedSpeechMs - ROTATION_DURATION) / 1000, 1);
           if (totalLen > 0) {
@@ -419,7 +630,6 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
           }
         }
 
-        // Memajukan jarak berjalan
         const timeDeltaSec = frame.timeDiff / 1000;
         walkedDistanceRef.current = Math.min(
           walkedDistanceRef.current + currentWalkSpeed * timeDeltaSec,
@@ -430,7 +640,6 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
         const isMoving = distance < totalLen;
         const { x, y, angle } = getPointAtDistance(pts, distance);
 
-        // Rotasi mulus menuju sudut target
         let targetAngle = angle;
         let currentAngle = personRef.current.rotation();
         let diff = targetAngle - currentAngle;
@@ -454,7 +663,6 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
           rightFootRef.current.x(-footSwing);
         }
 
-        // Ketika berjalan selesai, cek next step path → pre-rotate ke arah belokan berikutnya
         if (!isMoving) {
           const nextPts = nextStepPathPointsRef.current;
           if (nextPts && nextPts.length >= 4) {
@@ -463,10 +671,24 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
             rotateStartTimeRef.current = performance.now();
             rotateFromAngleRef.current = personRef.current.rotation();
             rotateToAngleRef.current = nextDir.angle;
+          } else if (activeStepIndexRef.current === navigationStepsRef.current.length - 1) {
+            // Rute selesai sepenuhnya! Ubah avatar menjadi front-facing waving di titik tujuan
+            animPhaseRef.current = "waving";
+            idlePositionRef.current = { x, y };
+            if (idleAvatarRef.current) {
+              idleAvatarRef.current.x(x);
+              idleAvatarRef.current.y(y);
+              idleAvatarRef.current.visible(true);
+              idleAvatarRef.current.opacity(1);
+            }
+            if (personRef.current) personRef.current.visible(false);
+            if (wavingArmRef.current) {
+              wavingArmRef.current.visible(true);
+              wavingArmRef.current.opacity(1);
+            }
           }
         }
       } else if (phase === "pre-rotating") {
-        // Rotasi di akhir langkah: animasikan belokan agar tampak saat instruksi "belok" masih aktif
         const elapsed = now - rotateStartTimeRef.current;
         const progress = Math.min(elapsed / ROTATION_DURATION, 1);
         const ease = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
@@ -484,18 +706,17 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
           rightFootRef.current.x(0);
         }
       }
-      // phase === "idle": tidak ada tindakan (hanya animasi putus-putus di jalur)
-          
-      // batchDraw manual karena getLayer() mungkin null saat inisialisasi
-      const layer = lineRef.current.getLayer();
+
+      // batchDraw — coba dari personRef sebagai fallback jika lineRef null
+      const layerNode = lineRef.current || personRef.current;
+      const layer = layerNode?.getLayer();
       if (layer) layer.batchDraw();
     });
 
     anim.start();
     return () => anim.stop();
-    // Dijalankan ulang ketika elemen Line dimuat (activeStepPathPoints mengontrol render bersyarat)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeStepPathPoints.length > 0]);
+  }, [!!selectedKioskData || activeStepPathPoints.length > 0]);
 
   const drawGrid = () => {
     const lines = [];
@@ -510,8 +731,6 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
     return lines;
   };
 
-  const currentFloorRooms = useMemo(() => rooms.filter(room => room.floor === currentFloor && (room.building || "Gedung A") === currentBuilding), [rooms, currentFloor, currentBuilding]);
-  const currentFloorKiosks = useMemo(() => kiosks.filter(kiosk => kiosk.floor === currentFloor && (kiosk.building || "Gedung A") === currentBuilding), [kiosks, currentFloor, currentBuilding]);
 
   return (
     <div ref={containerRef} style={{ width: "100%", height: "100%", background: isDarkMode ? "#0f172a" : "#f5f5f5" }}>
@@ -585,7 +804,7 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
                   const isPintu = kiosk.name?.toLowerCase().includes('pintu');
                   const fillCol = isPintu ? "#4CAF50" : "#2196F3";
                   const strokeCol = isPintu ? "#2E7D32" : "#0D47A1";
-                  
+
                   const longestWordLen = Math.max(...textContent.split(' ').map(w => w.length), 1);
                   const actualUsableWidth = Math.max(10, kiosk.width - 12);
 
@@ -627,31 +846,53 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
           {/* Layer Animasi Terpisah (penting untuk performa mobile) */}
           <Layer>
             <Group scaleX={scaleAndOffset.scale} scaleY={scaleAndOffset.scale} x={scaleAndOffset.x} y={scaleAndOffset.y}>
-              {/* Garis Rute & Animasi Orang Berjalan */}
+              {/* Garis Rute */}
               {pathPoints.length > 0 && (
                 <>
-                  {/* Rute keseluruhan (redup) */}
                   <Line points={pathPoints} stroke="rgba(255, 0, 0, 0.2)" strokeWidth={5} lineCap="round" lineJoin="round" tension={0} />
-
-                  {/* Rute aktif & Animasi */}
                   {activeStepPathPoints.length > 0 && (
-                    <>
-                      <Line ref={lineRef} points={activeStepPathPoints} stroke="red" strokeWidth={5} dash={[10, 10]} lineCap="round" lineJoin="round" tension={0} />
-                      {activeStepPathPoints.length >= 4 && (
-                        <Group ref={personRef}>
-                          <Rect ref={leftFootRef} x={0} y={-8} width={10} height={6} fill="#333" cornerRadius={3} offsetX={5} offsetY={3} />
-                          <Rect ref={rightFootRef} x={0} y={8} width={10} height={6} fill="#333" cornerRadius={3} offsetX={5} offsetY={3} />
-                          <Rect x={0} y={0} width={16} height={24} fill="#2196F3" cornerRadius={8} offsetX={8} offsetY={12} />
-                          <Circle x={0} y={0} radius={7} fill="#FFCCBC" stroke="#333" strokeWidth={1} />
-                          {/* Kacamata */}
-                          <Line points={[3, -4, 3, 4]} stroke="#333" strokeWidth={1.5} />
-                          <Circle x={4} y={-3} radius={2.5} fill="#333" />
-                          <Circle x={4} y={3} radius={2.5} fill="#333" />
-                        </Group>
-                      )}
-                    </>
+                    <Line ref={lineRef} points={activeStepPathPoints} stroke="red" strokeWidth={5} dash={[10, 10]} lineCap="round" lineJoin="round" tension={0} />
                   )}
                 </>
+              )}
+
+              {/* Front-facing idle avatar — tampil saat kiosk dipilih, tanpa rotasi */}
+              <Group ref={idleAvatarRef} listening={false}>
+                {/* Kepala */}
+                <Circle x={0} y={-16} radius={7} fill="#FFCCBC" stroke="#333" strokeWidth={1} />
+                {/* Kacamata (front view) */}
+                <Line points={[-3, -17, 3, -17]} stroke="#333" strokeWidth={1.5} />
+                <Circle x={-3.5} y={-17} radius={2} fill="rgba(100,100,100,0.3)" stroke="#333" strokeWidth={0.8} />
+                <Circle x={3.5} y={-17} radius={2} fill="rgba(100,100,100,0.3)" stroke="#333" strokeWidth={0.8} />
+                {/* Badan */}
+                <Rect x={0} y={-2} width={14} height={16} fill="#2196F3" cornerRadius={4} offsetX={7} offsetY={8} />
+                {/* Lengan kiri (diam) */}
+                <Line points={[-7, -8, -10, 2, -8, 8]} stroke="#FFCCBC" strokeWidth={3} lineCap="round" lineJoin="round" />
+                {/* Lengan kanan (melambai) — pivot di bahu kanan */}
+                <Group ref={wavingArmRef} x={7} y={-8}>
+                  <Line points={[0, 0, 4, -8, 6, -12]} stroke="#FFCCBC" strokeWidth={3} lineCap="round" lineJoin="round" />
+                  {/* Tangan kecil */}
+                  <Circle x={6} y={-12} radius={2} fill="#FFCCBC" />
+                </Group>
+                {/* Kaki */}
+                <Line points={[-3, 6, -4, 16]} stroke="#333" strokeWidth={3} lineCap="round" />
+                <Line points={[3, 6, 4, 16]} stroke="#333" strokeWidth={3} lineCap="round" />
+                {/* Sepatu */}
+                <Rect x={-6} y={15} width={5} height={3} fill="#333" cornerRadius={1} />
+                <Rect x={2} y={15} width={5} height={3} fill="#333" cornerRadius={1} />
+              </Group>
+
+              {/* Top-down walking avatar — tampil saat navigasi aktif */}
+              {(selectedKioskData || activeStepPathPoints.length >= 4) && (
+                <Group ref={personRef} listening={false}>
+                  <Rect ref={leftFootRef} x={0} y={-8} width={10} height={6} fill="#333" cornerRadius={3} offsetX={5} offsetY={3} />
+                  <Rect ref={rightFootRef} x={0} y={8} width={10} height={6} fill="#333" cornerRadius={3} offsetX={5} offsetY={3} />
+                  <Rect x={0} y={0} width={16} height={24} fill="#2196F3" cornerRadius={8} offsetX={8} offsetY={12} />
+                  <Circle x={0} y={0} radius={7} fill="#FFCCBC" stroke="#333" strokeWidth={1} />
+                  <Line points={[3, -4, 3, 4]} stroke="#333" strokeWidth={1.5} />
+                  <Circle x={4} y={-3} radius={2.5} fill="#333" />
+                  <Circle x={4} y={3} radius={2.5} fill="#333" />
+                </Group>
               )}
             </Group>
           </Layer>
