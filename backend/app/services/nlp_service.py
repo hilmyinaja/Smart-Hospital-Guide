@@ -13,8 +13,6 @@ if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
 
 print("Memuat mesin NLP (Sentence Transformers)...")
-# Menggunakan model multilingual MPNet yang lebih pintar dan akurat untuk semantik.
-# Paksa menggunakan CPU untuk mencegah error CUDA OOM saat uvicorn --reload (GPU terlalu kecil untuk multi-instance).
 model = SentenceTransformer('paraphrase-multilingual-mpnet-base-v2', device='cpu')
 
 DATABASE_RUANGAN = {}
@@ -29,7 +27,6 @@ def bersihkan_teks(teks_kotor):
         
     teks = re.sub(r'[^\w\s]', '', teks)
     
-    # Kata tugas yang tidak relevan (id & en).
     stopwords = [
         "mau", "ke", "di", "mana", "tolong", "antar", "cari", "ruang", "tempat", "saya", "ingin", "tanya", "mas", "mbak", "kasih", "tau", "arah", "jalan", "buat", "ambil",
         "tunjukkan", "bantuin", "dong", "aku", "nyari", "gimana", "caranya", "menuju", "cara", "pergi", "bisa", "tolongin", "dong", "pak", "bu", "sus", "suster", "dokter", "letak", "letaknya", "ada",
@@ -39,7 +36,6 @@ def bersihkan_teks(teks_kotor):
     
     return " ".join(kata_akhir)
 
-# Fungsi untuk melatih ulang model NLP dengan data terbaru dari Firebase.
 def latih_ulang_nlp(data_kamus_baru):
     global DATABASE_RUANGAN, daftar_nama_ruangan, embeddings_ruangan
     
@@ -76,10 +72,8 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
          return {"status": "error", "pesan": pesan}
 
     # Heuristic: Deteksi jika user hanya ingin pergi ke suatu lantai.
-    # Cocokkan input dengan semua nama lantai yang ada di database (kecuali submap).
     teks_cek = input_bersih.replace("naik", "").replace("turun", "").strip()
     
-    # Kumpulkan semua nama lantai dan gedung unik dari grid (abaikan submap).
     semua_lantai = set()
     semua_gedung = set()
     for room in waypoint_graph.RUANGAN_GRID.values():
@@ -89,7 +83,6 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
             semua_lantai.add(fl)
         semua_gedung.add(bld)
     
-    # Cocokkan input yang sudah dibersihkan dengan nama lantai.
     target_floor_match = None
     for fl in semua_lantai:
         if teks_cek.lower() == fl.lower():
@@ -107,7 +100,6 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
                         "confidence_score": 1.0
                     }
 
-    # Cocokkan input yang sudah dibersihkan dengan nama gedung.
     target_building_match = None
     for bld in semua_gedung:
         if teks_cek.lower() == bld.lower():
@@ -127,7 +119,6 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
                         "match_type": "building_entrance",
                         "matched_building": target_building_match
                     }
-        # Jika tidak ada pintu utama, kembalikan sembarang ruangan di gedung itu
         for r_id, room in waypoint_graph.RUANGAN_GRID.items():
             if room.get("building", "Gedung A") == target_building_match:
                 return {
@@ -146,7 +137,6 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
             nama = room.get("name", "").lower()
             tipe = room.get("type", "room")
             
-            # Kiosk entrance atau pintu keluar.
             is_entrance = (tipe == "kiosk" and "pintu" in nama) or "pintu keluar" in nama or "pintu masuk" in nama or "exit" in nama or "entrance" in nama or "lobi" in nama or "lobby" in nama
             
             if is_entrance:
@@ -191,7 +181,6 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
         room_name_lower = room.get("name", "").lower().strip()
         room_keywords = [k.lower().strip() for k in room.get("keywords", [])]
         
-        # Cocokkan ID persis atau nama persis (mentah).
         if input_lower == room_name_lower or input_pengunjung == r_id:
             perfect_matches.append(r_id)
             
@@ -212,12 +201,10 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
                 if input_bersih == teks_bersih:
                     if r_id not in perfect_matches and r_id not in keyword_perfect_matches:
                         keyword_perfect_matches.append(r_id)
-                # Substring utuh.
                 elif input_bersih and input_bersih in teks_bersih:
                     if r_id not in perfect_matches and r_id not in keyword_perfect_matches and r_id not in substring_matches:
                         substring_matches.append(r_id)
         
-        # Irisan kata baku.
         irisan = input_words.intersection(room_words)
         irisan_valid = [w for w in irisan if len(w) >= 3]
         if irisan_valid:
@@ -233,7 +220,6 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
     else:
         exact_matches = intersection_matches
 
-    # Koreksi typo (jika irisan dan substring gagal).
     if not exact_matches and input_bersih:
         typo_matches = process.extract(input_bersih, kumpulan_kata_kunci, scorer=fuzz.WRatio, limit=1, score_cutoff=70)
         if not typo_matches:
@@ -268,9 +254,9 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
                         if jarak < terbaik_jarak:
                             terbaik_jarak = jarak
                             terbaik_id = m_id
+                            terbaik_id = m_id
                     return {"status": "success", "target_id": terbaik_id, "confidence_score": 1.0}
             
-            # Cadangan jika tidak ada start_node_id.
             if current_floor:
                 for m_id in exact_matches:
                     m_room = waypoint_graph.RUANGAN_GRID.get(m_id)
@@ -284,9 +270,8 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
          return {"status": "error", "pesan": pesan}
 
     # Heuristic: Deteksi jika user hanya ingin pergi ke suatu lantai (misal: "turun lantai 1", "lantai 2", dsb).
-    # Jika iya, kita akan arahkan mereka ke "Lift" di lantai tujuan tersebut.
     teks_cek = input_bersih.replace("naik", "").replace("turun", "").strip()
-    match_lantai = re.fullmatch(r'lantai\s+(\w+)', teks_cek)  # Regex untuk menangkap angka maupun string "dasar".
+    match_lantai = re.fullmatch(r'lantai\s+(\w+)', teks_cek)
     if match_lantai:
         target_floor = f"Lantai {match_lantai.group(1)}"
         from app.core import state as waypoint_graph
@@ -391,7 +376,6 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
     skor_kemiripan = util.cos_sim(input_embedding, embeddings_ruangan)[0].cpu().numpy()
     
     # Penalti tangga darurat jika user tidak secara spesifik mengetik "tangga".
-    # Agar rute antar lantai via pencarian NLP selalu memprioritaskan "Lift".
     if "tangga" not in input_bersih:
         for i, r_id in enumerate(daftar_nama_ruangan):
             nama_keywords = " ".join(DATABASE_RUANGAN.get(r_id, [])).lower()
@@ -426,8 +410,6 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
                         k_x = kandidat_room.get("x", 0)
                         k_y = kandidat_room.get("y", 0)
                         
-                        # Prioritaskan current_floor jika user sedang melihat lantai tertentu.
-                        # Jika tidak, prioritaskan lantai tempat kiosk berada.
                         target_floor = current_floor if current_floor else start_floor
                         floor_penalty = 0 if k_floor == target_floor else 10000 
                         
@@ -439,7 +421,6 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
                             terbaik_id = kandidat_id
                 
             if not terbaik_id:
-                # Cadangan jika tidak ada start_node_id, minimal utamakan current_floor.
                 if current_floor:
                     for idx in kandidat_indeks:
                         kandidat_id = daftar_nama_ruangan[idx]
@@ -463,7 +444,6 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
                 print(f"[NLP] Lokal gagal (max_score: {max_score:.2f}). Memanggil Gemini untuk pencarian: '{input_pengunjung}'...")
                 gemini_model = genai.GenerativeModel("gemini-2.5-flash")
                 
-                # Buat daftar ruangan untuk konteks.
                 room_list_str = ""
                 for r_id in daftar_nama_ruangan:
                     nama_ruangan = ", ".join(DATABASE_RUANGAN.get(r_id, []))
@@ -484,7 +464,6 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
                 
                 if gemini_answer != "NOT_FOUND" and gemini_answer in DATABASE_RUANGAN:
                     print(f"[NLP] Gemini berhasil mencocokkan! Memasukkan '{input_pengunjung}' ke keywords ruangan {gemini_answer}")
-                    # Update firestore agar pintar ke depannya.
                     try:
                         db.collection('Rooms').document(gemini_answer).update({"keywords": firestore.ArrayUnion([input_pengunjung])})
                     except Exception as e:

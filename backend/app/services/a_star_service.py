@@ -45,6 +45,12 @@ def _a_star_single_floor(start_node, target_node):
     g_score = {}
     f_score = {}
     
+    # O(1) Heuristic bounding box setup
+    min_tx = min(tx for tx, ty in target_coords)
+    max_tx = max(tx for tx, ty in target_coords)
+    min_ty = min(ty for tx, ty in target_coords)
+    max_ty = max(ty for tx, ty in target_coords)
+    
     start_coords = get_valid_coords(start_node)
     
     expanded_start_coords = set(start_coords)
@@ -58,10 +64,9 @@ def _a_star_single_floor(start_node, target_node):
 
     for sx, sy in start_coords:
         g_score[(sx, sy)] = 0
-        min_h = float('inf')
-        for tx, ty in target_coords:
-            h = hitung_manhattan(sx, sy, tx, ty)
-            if h < min_h: min_h = h
+        h_dx = max(min_tx - sx, 0, sx - max_tx)
+        h_dy = max(min_ty - sy, 0, sy - max_ty)
+        min_h = h_dx + h_dy
         f_score[(sx, sy)] = min_h
         heapq.heappush(open_set, (min_h, (sx, sy)))
             
@@ -76,7 +81,24 @@ def _a_star_single_floor(start_node, target_node):
                 curr = came_from[curr]
             jalur.append({"x": curr[0], "y": curr[1], "floor": floor, "building": building})
             jalur.reverse()
-            return jalur
+            
+            compressed_jalur = []
+            if len(jalur) > 0:
+                compressed_jalur.append(jalur[0])
+                for i in range(1, len(jalur) - 1):
+                    prev_p = compressed_jalur[-1]
+                    curr_p = jalur[i]
+                    next_p = jalur[i+1]
+                    dx1 = curr_p["x"] - prev_p["x"]
+                    dy1 = curr_p["y"] - prev_p["y"]
+                    dx2 = next_p["x"] - curr_p["x"]
+                    dy2 = next_p["y"] - curr_p["y"]
+                    if dx1 * dy2 != dx2 * dy1:
+                        compressed_jalur.append(curr_p)
+                if len(jalur) > 1:
+                    compressed_jalur.append(jalur[-1])
+            return compressed_jalur
+            
             
         cx, cy = current
         tetangga_list = [(cx, cy-1), (cx, cy+1), (cx-1, cy), (cx+1, cy)]
@@ -101,10 +123,9 @@ def _a_star_single_floor(start_node, target_node):
                     if (nx, ny) not in g_score or tentative_g < g_score[(nx, ny)]:
                         came_from[(nx, ny)] = current
                         g_score[(nx, ny)] = tentative_g
-                        min_h = float('inf')
-                        for tx, ty in target_coords:
-                            h = hitung_manhattan(nx, ny, tx, ty)
-                            if h < min_h: min_h = h
+                        h_dx = max(min_tx - nx, 0, nx - max_tx)
+                        h_dy = max(min_ty - ny, 0, ny - max_ty)
+                        min_h = h_dx + h_dy
                         f_score[(nx, ny)] = tentative_g + min_h
                         heapq.heappush(open_set, (f_score[(nx, ny)], (nx, ny)))
                         
@@ -139,10 +160,8 @@ def cari_pasangan_lift_terbaik(start_node, target_node, curr_floor, target_floor
     min_dist = float('inf')
     
     for l1 in lifts_start:
-        # Cari pasangan di lantai tujuan berdasarkan koordinat paling dekat.
         l2 = min(lifts_target, key=lambda l: hitung_manhattan(l1["x"], l1["y"], l["x"], l["y"]))
         
-        # Hitung total estimasi jarak: Start -> Lift 1 -> Lift 2 -> Target.
         dist1 = hitung_manhattan(start_node["x"], start_node["y"], l1["x"], l1["y"])
         dist2 = hitung_manhattan(l2["x"], l2["y"], target_node["x"], target_node["y"])
         
@@ -363,11 +382,9 @@ def get_nearest_landmark(x, y, floor, exclude_ids=None, building=None, direction
         if room.get("floor", "Lantai 1") != floor:
             continue
         
-        # Filter gedung — hindari pencocokan lintas gedung
         if building and room.get("building", "Gedung Utama") != building:
             continue
         
-        # Kios dan konektor bukan patokan navigasi yang berguna
         if room.get("type", "room") == "kiosk" or room.get("is_connector"):
             continue
             
@@ -380,32 +397,26 @@ def get_nearest_landmark(x, y, floor, exclude_ids=None, building=None, direction
         rw = room.get("w", 1)
         rh = room.get("h", 1)
         
-        # Hitung jarak terpendek dari titik (x,y) ke kotak ruangan (bounding box)
         dx = max(rx - x, 0, x - (rx + rw - 1))
         dy = max(ry - y, 0, y - (ry + rh - 1))
         dist = dx + dy
         
-        # Hanya pertimbangkan ruangan dalam jarak <= 2 tile dari titik belok
         if dist > 2:
             continue
         
-        # Hitung skor — lebih rendah = lebih baik
         score = dist
         
         # Jika arah berjalan diketahui, prioritaskan ruangan di SAMPING jalur
         # (tegak lurus) daripada yang di depan/belakang (sepanjang sumbu jalan)
         if direction and dist > 0:
             if direction in ('Atas', 'Bawah'):
-                # Berjalan vertikal — ruangan hanya offset di Y = di depan/belakang
                 is_to_side = dx > 0
             else:
-                # Berjalan horizontal — ruangan hanya offset di X = di depan/belakang
                 is_to_side = dy > 0
             
             if not is_to_side:
                 score += 3  # Penalti untuk ruangan di depan/belakang pejalan
         
-        # Tie breaker: jarak ke tengah ruangan
         cx = rx + rw / 2
         cy = ry + rh / 2
         center_dist = abs(cx - x) + abs(cy - y)
@@ -504,8 +515,6 @@ def generate_navigation_text(path, start_id, target_id, language="id", target_na
         }
         
         turn_map = turns_id if language == "id" else turns_en
-        # prev_dir or next_dir being None means direction unknown after a transition —
-        # return None so the caller does not emit a turn instruction.
         if prev_dir is None or next_dir is None:
             return None
         return turn_map.get(prev_dir, {}).get(next_dir, None)
@@ -566,7 +575,6 @@ def generate_navigation_text(path, start_id, target_id, language="id", target_na
             current_dir = dir
         elif current_dir != dir:
             turn = get_turn(current_dir, dir)
-            # If turn is None (e.g. unknown direction), skip emitting a turn instruction.
             if turn is None:
                 current_dir = dir
                 continue

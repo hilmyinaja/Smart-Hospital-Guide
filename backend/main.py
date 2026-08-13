@@ -106,7 +106,6 @@ def sinkronisasi_peta(data):
                 if parent_room:
                     parent_name = parent_room["name"]
                     kunci = data_nlp_baru.get(room_id, [])
-                    # Tambahkan kombinasi nama (contoh: "Pintu Masuk Poli Gigi").
                     kunci.append(f"{room['name']} {parent_name}")
 
         waypoint_graph.RUANGAN_GRID.clear()
@@ -240,7 +239,6 @@ Names to process:
             response = model.generate_content(prompt)
             result_text = response.text.strip()
             
-            # Ekstraksi JSON yang tangguh.
             start_idx = result_text.find('{')
             end_idx = result_text.rfind('}')
             if start_idx != -1 and end_idx != -1:
@@ -252,7 +250,6 @@ Names to process:
                 kw_list = keyword_dict.get(name, [name])
                 if not isinstance(kw_list, list):
                     kw_list = [str(kw_list)]
-                # Pastikan nama asli ada di dalam keywords.
                 if name not in kw_list:
                     kw_list.append(name)
                 generated_keywords[name] = kw_list

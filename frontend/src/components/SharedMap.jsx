@@ -70,18 +70,16 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
   const idleAvatarRef = useRef(null);
   const wavingArmRef = useRef(null);
   const idlePositionRef = useRef(null);
-  const transitionStartRef = useRef(0);
-  const transitionFromRef = useRef({ x: 0, y: 0 });
 
   const GRID_SIZE = 25;
 
-  // Cari posisi kosong di sekitar kiosk untuk menempatkan avatar idle
+  // Hitung dan cari posisi kosong di sekitar kiosk untuk menempatkan avatar idle.
   function getIdlePosition(kiosk, floorRooms, floorKiosks) {
     const OFFSET = 22;
-    const AV = 28; // ukuran bounding box avatar
+    const AV = 28;
     const cx = kiosk.x + kiosk.width / 2;
     const cy = kiosk.y + kiosk.height / 2;
-    // Kandidat: bawah, kanan, kiri, atas
+    
     const candidates = [
       { x: cx, y: kiosk.y + kiosk.height + OFFSET },
       { x: kiosk.x + kiosk.width + OFFSET, y: cy },
@@ -90,7 +88,6 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
     ];
     const allBoxes = [...floorRooms, ...floorKiosks].filter(b => b.id !== kiosk.id);
 
-    // Dapatkan batas luar (bounding box) seluruh ruangan di lantai ini
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     [...floorRooms, ...floorKiosks].forEach(b => {
       minX = Math.min(minX, b.x);
@@ -103,20 +100,15 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
       const ax = pos.x - AV / 2;
       const ay = pos.y - AV / 2;
 
-      // Syarat 1: Tidak overlap dengan ruangan lain
       const overlaps = allBoxes.some(b =>
         ax < b.x + b.width && ax + AV > b.x && ay < b.y + b.height && ay + AV > b.y
       );
 
-      // Syarat 2: Posisi harus tetap ada di dalam batas (bounding box) peta utama
-      // agar tidak terlempar ke area luar yang kosong
       const isInsideBounds = ax >= minX && (ax + AV) <= maxX && ay >= minY && (ay + AV) <= maxY;
 
       if (!overlaps && isInsideBounds) return pos;
     }
 
-    // Jika semua kandidat gagal (misal di peta sempit), fallback ke prioritas utama 
-    // dengan mengabaikan isInsideBounds, tapi tetap hindari overlaps
     for (const pos of candidates) {
       const ax = pos.x - AV / 2;
       const ay = pos.y - AV / 2;
@@ -126,7 +118,7 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
       if (!overlaps) return pos;
     }
 
-    return candidates[0]; // extreme fallback
+    return candidates[0];
   }
 
   const mapBounds = useMemo(() => {
@@ -175,7 +167,7 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
     const availableHeight = mapSize.height - padding * 2;
     const scaleX = availableWidth / mapBounds.width;
     const scaleY = availableHeight / mapBounds.height;
-    const scale = Math.min(scaleX, scaleY, 2); // Batasi skala maksimum ke 2x untuk menghindari peregangan berlebihan.
+    const scale = Math.min(scaleX, scaleY, 2);
 
 
     const x = (mapSize.width - mapBounds.width * scale) / 2 - mapBounds.x * scale;
@@ -282,7 +274,6 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
   const currentFloorRooms = useMemo(() => rooms.filter(room => room.floor === currentFloor && (room.building || "Gedung A") === currentBuilding), [rooms, currentFloor, currentBuilding]);
   const currentFloorKiosks = useMemo(() => kiosks.filter(kiosk => kiosk.floor === currentFloor && (kiosk.building || "Gedung A") === currentBuilding), [kiosks, currentFloor, currentBuilding]);
 
-  // Resolve the selected kiosk position for "You Are Here" marker
   const selectedKioskData = useMemo(() => {
     if (!selectedKiosk) return null;
     return currentFloorKiosks.find(k => k.id === selectedKiosk) || null;
@@ -381,13 +372,10 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
   const selectedKioskRef = useRef(selectedKiosk);
   const navigationStepsRef = useRef(navigationSteps);
 
-  // Sinkronisasi referensi kios dan navigationSteps
   useEffect(() => { selectedKioskRef.current = selectedKiosk; }, [selectedKiosk]);
   useEffect(() => { navigationStepsRef.current = navigationSteps; }, [navigationSteps]);
-  // Sinkronisasi nextStepPathPoints ke ref agar bisa diakses dari animasi loop
   useEffect(() => { nextStepPathPointsRef.current = nextStepPathPoints; }, [nextStepPathPoints]);
 
-  // Posisikan avatar idle di samping kiosk (belum navigasi)
   useEffect(() => {
     if (!selectedKioskData) {
       idlePositionRef.current = null;
@@ -395,7 +383,6 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
       if (personRef.current) personRef.current.visible(false);
       return;
     }
-    // Jangan override posisi jika sedang navigasi
     const phase = animPhaseRef.current;
     if (phase === "walking" || phase === "rotating" || phase === "pre-rotating" || phase === "transitioning") return;
 
@@ -412,14 +399,12 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
       wavingArmRef.current.visible(true);
       wavingArmRef.current.opacity(1);
     }
-    // Sembunyikan walking avatar saat idle
     if (personRef.current) personRef.current.visible(false);
     animPhaseRef.current = "waving";
   }, [selectedKioskData, currentFloorRooms, currentFloorKiosks]);
 
-  // Deteksi pergantian langkah: reset avatar dan mulai rotasi pivot per langkah
+  // Deteksi pergantian langkah navigasi untuk mengatur rotasi dan posisi avatar.
   useEffect(() => {
-    // Cek apakah path benar-benar berubah
     let isSamePath = true;
     if (activeStepIndexRef.current !== activeStepIndex || activeStepPathPointsRef.current.length !== activeStepPathPoints.length) {
       isSamePath = false;
@@ -435,14 +420,12 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
     activeStepPathPointsRef.current = activeStepPathPoints;
     activeStepIndexRef.current = activeStepIndex;
 
-    // Jika path tidak berubah secara substansial, jangan reset animasi
     if (isSamePath) return;
 
     if (activeStepPathPoints.length < 4) {
       walkedDistanceRef.current = 0;
       prevPathLengthRef.current = 0;
 
-      // Jika kiosk terpilih → kembalikan ke posisi idle front-facing
       if (selectedKioskData) {
         const pos = getIdlePosition(selectedKioskData, currentFloorRooms, currentFloorKiosks);
         idlePositionRef.current = pos;
@@ -466,14 +449,12 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
       return;
     }
 
-    // Setiap pergantian langkah: reset jarak dan mulai rotasi pivot
     const totalLen = getTotalPathLength(activeStepPathPoints);
     prevPathLengthRef.current = totalLen;
     walkedDistanceRef.current = 0;
 
     const p0 = getPointAtDistance(activeStepPathPoints, 0);
 
-    // Sembunyikan avatar idle, tampilkan walking avatar
     if (idleAvatarRef.current) idleAvatarRef.current.visible(false);
     if (personRef.current) personRef.current.visible(true);
     if (wavingArmRef.current) wavingArmRef.current.visible(false);
@@ -496,7 +477,6 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
       }
     }
 
-    // Langkah pertama + avatar sedang waving → set awal posisi
     const wasWaving = animPhaseRef.current === "waving";
     if (activeStepIndex === 0 && wasWaving && idlePositionRef.current) {
       if (personRef.current) {
@@ -505,7 +485,6 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
       }
     }
 
-    // Tentukan sudut awal rotasi
     let fromAngle;
     if (activeStepIndex === 0) {
       const kiosk = kiosks.find(k => k.id === selectedKioskRef.current);
@@ -543,21 +522,20 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
         personRef.current.rotation(p0.angle);
       }
     }
-  }, [activeStepPathPoints, activeStepIndex, kiosks, rooms, currentFloor, currentBuilding, currentFloorRooms, currentFloorKiosks]);
+  }, [activeStepPathPoints, activeStepIndex, kiosks, rooms, currentFloor, currentBuilding, currentFloorRooms, currentFloorKiosks, selectedKioskData]);
 
   // Satu animasi persisten — menangani waving, transition, dan walking
   useEffect(() => {
     const ROTATION_DURATION = 1000;
-    const TRANSITION_DURATION = 600; // ms slide dari idle ke awal rute
+    const TRANSITION_DURATION = 600;
     const LEG_SWING_FREQ = 0.006;
     const WALK_SPEED = 50;
-    const WAVE_ARM_FREQ = 0.005; // frekuensi ayunan tangan
-    const WAVE_ARM_AMPLITUDE = 40; // derajat
+    const WAVE_ARM_FREQ = 0.005;
+    const WAVE_ARM_AMPLITUDE = 40;
     const BODY_SWAY_FREQ = 0.002;
-    const BODY_SWAY_AMPLITUDE = 3; // piksel vertikal
+    const BODY_SWAY_AMPLITUDE = 3;
 
     const anim = new Konva.Animation((frame) => {
-      // Animasi putus-putus pada jalur aktif (jika ada)
       if (lineRef.current) {
         const dashOffset = (frame.time / 25) % 20;
         lineRef.current.dashOffset(-dashOffset);
@@ -574,7 +552,6 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
           const swing = Math.sin(frame.time * WAVE_ARM_FREQ) * WAVE_ARM_AMPLITUDE;
           wavingArmRef.current.rotation(swing);
         }
-        // Bounce halus pada idle avatar
         if (idleAvatarRef.current && idlePositionRef.current) {
           const bounce = Math.sin(frame.time * BODY_SWAY_FREQ) * BODY_SWAY_AMPLITUDE;
           idleAvatarRef.current.x(idlePositionRef.current.x);
@@ -707,7 +684,6 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
         }
       }
 
-      // batchDraw — coba dari personRef sebagai fallback jika lineRef null
       const layerNode = lineRef.current || personRef.current;
       const layer = layerNode?.getLayer();
       if (layer) layer.batchDraw();
@@ -740,7 +716,6 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
             <Group scaleX={scaleAndOffset.scale} scaleY={scaleAndOffset.scale} x={scaleAndOffset.x} y={scaleAndOffset.y}>
               {showGrid && drawGrid()}
 
-              {/* Kotak Pembatas Visual (Garis Warp/Wrap) */}
               {showBorder && mapBounds && (
                 <Rect
                   x={mapBounds.x}
@@ -768,10 +743,8 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
                   const longestWordLen = Math.max(...textContent.split(' ').map(w => w.length), 1);
                   const actualUsableWidth = Math.max(10, room.width - 12);
 
-                  // Sesuaikan ukuran font untuk keterbacaan dan word wrapping yang lebih baik.
                   const maxFontSizeWidth = actualUsableWidth / (longestWordLen * 0.6);
                   const maxFontSizeHeight = room.height / 2;
-                  // Batasi ukuran font secara ketat agar huruf dari kata yang sama tidak terpisah.
                   const fontSize = Math.min(maxFontSizeWidth, Math.max(9, Math.min(16, maxFontSizeHeight)));
 
                   return (
@@ -796,7 +769,6 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
                   );
                 })}
 
-              {/* Render Kiosks (biru) dan Pintu Masuk (hijau) */}
               {currentFloorKiosks
                 .map((kiosk) => {
                   let textContent = getDisplayNodeName(kiosk, language);
