@@ -68,6 +68,7 @@ def sinkronisasi_peta(data):
                     "w": gw,
                     "h": gh,
                     "door_coords": door_coords,
+                    "endpoints": item.get("endpoints", ["bottom"]),
                     "name": room_name,
                     "name_en": item.get("name_en", ""),
                     "floor": floor,

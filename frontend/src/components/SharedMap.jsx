@@ -496,7 +496,39 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
         fromAngle = p0.angle + 180;
       }
     } else if (isTeleported) {
-      fromAngle = p0.angle;
+      let exitAngle = personRef.current ? (personRef.current.rotation() + 180) % 360 : p0.angle + 180;
+      let startRoom = rooms.find(r => 
+        r.floor === currentFloor && 
+        (r.building || "Gedung A") === currentBuilding &&
+        p0.x >= r.x && p0.x <= r.x + r.width &&
+        p0.y >= r.y && p0.y <= r.y + r.height
+      );
+
+      if (!startRoom) {
+        // Fallback: cari lift terdekat di lantai ini
+        const lifts = rooms.filter(r => 
+          r.floor === currentFloor && 
+          (r.building || "Gedung A") === currentBuilding &&
+          (r.name.toLowerCase().includes("lift") || r.name.toLowerCase().includes("elevator"))
+        );
+        if (lifts.length > 0) {
+          lifts.sort((a, b) => {
+            const distA = Math.hypot((a.x + a.width/2) - p0.x, (a.y + a.height/2) - p0.y);
+            const distB = Math.hypot((b.x + b.width/2) - p0.x, (b.y + b.height/2) - p0.y);
+            return distA - distB;
+          });
+          startRoom = lifts[0];
+        }
+      }
+      if (startRoom && startRoom.endpoints && startRoom.endpoints.length > 0) {
+        const ep = startRoom.endpoints[0];
+        if (ep === 'top') exitAngle = 270;
+        else if (ep === 'bottom') exitAngle = 90;
+        else if (ep === 'left') exitAngle = 180;
+        else if (ep === 'right') exitAngle = 0;
+      }
+      console.log(`[DEBUG] Teleport detected! p0.x=${p0.x}, p0.y=${p0.y}, p0.angle=${p0.angle}, startRoom=${startRoom?.name}, exitAngle=${exitAngle}`);
+      fromAngle = exitAngle;
     } else {
       fromAngle = personRef.current?.rotation() ?? p0.angle;
     }
