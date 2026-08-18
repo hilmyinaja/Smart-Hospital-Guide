@@ -66,7 +66,13 @@ export default function App() {
   const [outputText, setOutputText] = useState("");
 
 
-  const [location, setLocation] = useState(localStorage.getItem("locked_kiosk_id") || "");
+  const [location, setLocation] = useState(() => {
+    const locked = localStorage.getItem("locked_kiosk_id");
+    if (locked && (locked.toLowerCase().includes("entrance") || locked.toLowerCase().includes("pintu"))) {
+      return "";
+    }
+    return locked || "";
+  });
   const [isKioskLocked, setIsKioskLocked] = useState(!!localStorage.getItem("locked_kiosk_id"));
 
   const [isMobileMode, setIsMobileMode] = useState(false);
@@ -74,15 +80,28 @@ export default function App() {
 
   const [floor, setFloor] = useState("Lantai 1");
   const [floorOrder, setFloorOrder] = useState({});
-  const [building, setBuilding] = useState("Gedung A");
-  const [buildings, setBuildings] = useState(["Gedung A"]);
+  const [building,    setBuilding]    = useState("");
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [isShaking, setIsShaking] = useState(false);
   const [kiosks, setKiosks] = useState([]);
-  const [rooms, setRooms] = useState([]);
+  const [rooms,       setRooms]       = useState([]);
+  const buildings = useMemo(() => {
+    const bSet = new Set();
+    kiosks.forEach(k => { if (k.building) bSet.add(k.building); });
+    rooms.forEach(r => { if (r.building) bSet.add(r.building); });
+    const arr = Array.from(bSet).sort();
+    return arr.length > 0 ? arr : ["Gedung A"];
+  }, [kiosks, rooms]);
+
+  // Auto-select first building when buildings list changes
+  useEffect(() => {
+    if (buildings.length > 0 && !buildings.includes(building)) {
+      setBuilding(buildings[0]);
+    }
+  }, [buildings, building]);
   const [pathData, setPathData] = useState([]);
   const [targetRoomName, setTargetRoomName] = useState("");
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -300,7 +319,7 @@ export default function App() {
     const unsubscribeKiosks = onSnapshot(collection(db, "Kiosks"), (kioskSnap) => {
       const loadedKiosks = [];
       const foundFloors = new Set(["Lantai 1"]);
-      const foundBuildings = new Set(["Gedung A"]);
+      const foundBuildings = new Set();
 
       let floorToSwitch = null;
       let buildingToSwitch = null;
@@ -318,7 +337,6 @@ export default function App() {
         }
       });
       setKiosks(loadedKiosks);
-      setBuildings(Array.from(foundBuildings).sort());
 
       if (floorToSwitch && !hasAutoSwitchedFloor.current) {
         setFloor(floorToSwitch);
@@ -345,11 +363,6 @@ export default function App() {
 
       loadedRooms.sort((a, b) => a.name.localeCompare(b.name));
       setRooms(loadedRooms);
-      
-      setBuildings(prev => {
-        const combined = new Set([...prev, ...foundBuildings]);
-        return Array.from(combined).sort();
-      });
     });
 
 

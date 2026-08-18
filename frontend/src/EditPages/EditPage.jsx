@@ -233,8 +233,8 @@ export default function EditPage() {
 
   const [floors, setFloors] = useState(["Lantai 1"]);
   const [activeEditFloor, setActiveEditFloor] = useState("Lantai 1");
-  const [buildings, setBuildings] = useState(["Gedung A"]);
-  const [activeEditBuilding, setActiveEditBuilding] = useState("Gedung A");
+  const [buildings, setBuildings] = useState([]);
+  const [activeEditBuilding, setActiveEditBuilding] = useState("");
   const [isFloorDropdownOpen, setIsFloorDropdownOpen] = useState(false);
   const [isBuildingDropdownOpen, setIsBuildingDropdownOpen] = useState(false);
   const dragItemIndexRef = useRef(null);
@@ -381,7 +381,7 @@ export default function EditPage() {
 
         const allElements = [];
         const uniqueFloors = new Set(["Lantai 1"]);
-        const uniqueBuildings = new Set(["Gedung A"]);
+        const uniqueBuildings = new Set();
 
         roomsSnapshot.forEach((docSnap) => {
           const data = docSnap.data();
@@ -1050,14 +1050,28 @@ export default function EditPage() {
           );
         }
 
-        await Promise.all(fetchPromises);
-
         const batch = writeBatch(db);
-        deletedElements.forEach((id) => {
-          const col = id.startsWith('K') ? "Kiosks" : "Rooms";
+        
+        // Compute elements to delete
+        const currentIds = new Set(placedElements.map(el => el.id));
+        const originalMap = new Map(originalElements.map(el => [el.id, el]));
+
+        const idsToDelete = new Set(deletedElements);
+        for (const orig of originalElements) {
+          if (!currentIds.has(orig.id)) {
+            idsToDelete.add(orig.id);
+          }
+        }
+
+        idsToDelete.forEach((id) => {
+          const orig = originalMap.get(id);
+          const col = orig
+            ? (orig.type === 'kiosk' ? "Kiosks" : "Rooms")
+            : (id.startsWith('K') ? "Kiosks" : "Rooms");
           batch.delete(doc(db, col, id));
         });
 
+        // Save structure immediately WITHOUT waiting for slow LLMs
         placedElements.forEach((el) => {
           const col = el.type === 'kiosk' ? "Kiosks" : "Rooms";
           if (!el.id) return;
@@ -1073,27 +1087,50 @@ export default function EditPage() {
             ...((el.type === 'room' || el.type === 'kiosk') && { endpoints: el.endpoints || ['bottom'] }),
             ...(el.is_connector && { is_connector: true, target_building: el.target_building || "" })
           };
-          if (translations[el.name]) {
-            if (typeof translations[el.name] === 'string') {
-              docData.name_en = translations[el.name] || "";
-            } else {
-              docData.name = translations[el.name].id || docData.name;
-              docData.name_en = translations[el.name].en || "";
-            }
-          }
-          if (generatedKeywords[el.name]) {
-            docData.keywords = generatedKeywords[el.name];
-          }
+          
           Object.keys(docData).forEach(key => docData[key] === undefined && delete docData[key]);
           batch.set(doc(db, col, el.id.toString()), docData, { merge: true });
         });
 
-        batch.set(doc(db, "Settings", "MapConfig"), { floorOrder: globalFloorOrderRef.current }, { merge: true });
+        batch.set(doc(db, "Settings", "MapConfig"), { floorOrder: globalFloorOrderRef.current });
 
+        // Commit structural changes instantly
         await batch.commit();
+        
+        // Let the user know the map is saved instantly
         showAlert(getText('alert_save_success'), () => {
           navigate("/admin", { state: { authorized: true } });
         });
+
+        // Now wait for translations and keywords in the background
+        if (fetchPromises.length > 0) {
+            Promise.all(fetchPromises).then(() => {
+               const backgroundBatch = writeBatch(db);
+               placedElements.forEach((el) => {
+                 const col = el.type === 'kiosk' ? "Kiosks" : "Rooms";
+                 if (!el.id) return;
+                 let backgroundData = {};
+                 
+                 if (translations[el.name]) {
+                   if (typeof translations[el.name] === 'string') {
+                     backgroundData.name_en = translations[el.name] || "";
+                   } else {
+                     backgroundData.name = translations[el.name].id || (el.name || "Tanpa Nama");
+                     backgroundData.name_en = translations[el.name].en || "";
+                   }
+                 }
+                 if (generatedKeywords[el.name]) {
+                   backgroundData.keywords = generatedKeywords[el.name];
+                 }
+                 
+                 if (Object.keys(backgroundData).length > 0) {
+                   backgroundBatch.set(doc(db, col, el.id.toString()), backgroundData, { merge: true });
+                 }
+               });
+               backgroundBatch.commit().catch(err => console.error("Background LLM update failed:", err));
+            }).catch(err => console.error("Background LLM processing failed:", err));
+        }
+
       } catch (error) {
         console.error("Gagal simpan:", error);
         showAlert(getText('alert_save_fail') + " " + error.message);

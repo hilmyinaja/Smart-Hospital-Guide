@@ -80,8 +80,7 @@ export default function App() {
   const [outputText,  setOutputText]  = useState("");
   const [location,    setLocation]    = useState(""); 
   const [floor,       setFloor]       = useState("Lantai 1");
-  const [building,    setBuilding]    = useState("Gedung A");
-  const [buildings,   setBuildings]   = useState(["Gedung A"]);
+  const [building,    setBuilding]    = useState("");
   const [floorOrder,  setFloorOrder]  = useState({});
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [lockedKiosk, setLockedKiosk] = useState(localStorage.getItem("locked_kiosk_id") || "");
@@ -90,6 +89,21 @@ export default function App() {
   const [isUnlockConfirmOpen, setIsUnlockConfirmOpen] = useState(false);
   const [kiosks,      setKiosks]      = useState([]);
   const [rooms,       setRooms]       = useState([]);
+
+  const buildings = useMemo(() => {
+    const bSet = new Set();
+    kiosks.forEach(k => { if (k.building) bSet.add(k.building); });
+    rooms.forEach(r => { if (r.building) bSet.add(r.building); });
+    const arr = Array.from(bSet).sort();
+    return arr.length > 0 ? arr : ["Gedung A"];
+  }, [kiosks, rooms]);
+
+  // Auto-select first building when buildings list changes
+  useEffect(() => {
+    if (buildings.length > 0 && !buildings.includes(building)) {
+      setBuilding(buildings[0]);
+    }
+  }, [buildings, building]);
   const [pathData,    setPathData]    = useState([]);
   const [targetRoomName, setTargetRoomName] = useState("");
   const [navigationSteps, setNavigationSteps] = useState([]);
@@ -217,8 +231,6 @@ export default function App() {
         }
       });
       setKiosks(loadedKiosks);
-      
-      setBuildings(prev => Array.from(new Set([...prev, ...foundBuildings])).sort());
 
       if (floorToSwitch && !hasAutoSwitchedFloor.current) {
         setFloor(floorToSwitch);
@@ -242,8 +254,6 @@ export default function App() {
 
       loadedRooms.sort((a, b) => a.name.localeCompare(b.name));
       setRooms(loadedRooms);
-
-      setBuildings(prev => Array.from(new Set([...prev, ...foundBuildings])).sort());
     });
 
 

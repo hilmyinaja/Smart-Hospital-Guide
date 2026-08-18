@@ -3,17 +3,24 @@ import re
 import numpy as np
 from sentence_transformers import SentenceTransformer, util
 from rapidfuzz import process, fuzz
-import google.generativeai as genai
+from google import genai
 from firebase_admin import firestore
 from app.core.database import db
 
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+gemini_client = None
 if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
+    gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 
-print("Memuat mesin NLP (Sentence Transformers)...")
-model = SentenceTransformer('paraphrase-multilingual-mpnet-base-v2', device='cpu')
+model = None
+
+def get_model():
+    global model
+    if model is None:
+        print("Memuat mesin NLP (Sentence Transformers)...")
+        model = SentenceTransformer('paraphrase-multilingual-mpnet-base-v2', device='cpu')
+    return model
 
 DATABASE_RUANGAN = {}
 daftar_nama_ruangan = []
@@ -48,7 +55,7 @@ def latih_ulang_nlp(data_kamus_baru):
         teks_gabungan = " ".join(sinonim)
         korpus_dokumen.append(bersihkan_teks(teks_gabungan))
 
-    new_embeddings = model.encode(korpus_dokumen, convert_to_tensor=True)
+    new_embeddings = get_model().encode(korpus_dokumen, convert_to_tensor=True)
     
     DATABASE_RUANGAN = data_kamus_baru
     daftar_nama_ruangan = list(DATABASE_RUANGAN.keys())
@@ -93,7 +100,8 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
         for r_id, room in waypoint_graph.RUANGAN_GRID.items():
             if room.get("floor", "Lantai 1") == target_floor_match:
                 nama = room.get("name", "").lower()
-                if "lift" in nama and "tangga" not in nama:
+                is_vertical = ("lift" in nama or "tangga" in nama) and "darurat" not in nama
+                if is_vertical:
                     return {
                         "status": "success",
                         "target_id": r_id,
@@ -278,7 +286,8 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
         for r_id, room in waypoint_graph.RUANGAN_GRID.items():
             if room.get("floor", "Lantai 1").lower() == target_floor.lower():
                 nama = room.get("name", "").lower()
-                if "lift" in nama and "tangga" not in nama:
+                is_vertical = ("lift" in nama or "tangga" in nama) and "darurat" not in nama
+                if is_vertical:
                     return {
                         "status": "success",
                         "target_id": r_id,
@@ -371,7 +380,7 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
     if input_bersih in NLP_CACHE:
         input_embedding = NLP_CACHE[input_bersih]
     else:
-        input_embedding = model.encode(input_bersih, convert_to_tensor=True)
+        input_embedding = get_model().encode(input_bersih, convert_to_tensor=True)
         NLP_CACHE[input_bersih] = input_embedding
     skor_kemiripan = util.cos_sim(input_embedding, embeddings_ruangan)[0].cpu().numpy()
     
@@ -442,7 +451,6 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
         if GEMINI_API_KEY:
             try:
                 print(f"[NLP] Lokal gagal (max_score: {max_score:.2f}). Memanggil Gemini untuk pencarian: '{input_pengunjung}'...")
-                gemini_model = genai.GenerativeModel("gemini-2.5-flash")
                 
                 room_list_str = ""
                 for r_id in daftar_nama_ruangan:
@@ -459,7 +467,10 @@ def cari_target_ruangan(input_pengunjung, start_node_id=None, language="id", cur
                 Hanya kembalikan ID ruangan tersebut, tanpa teks tambahan apapun. Jika benar-benar tidak ada yang cocok, kembalikan kata "NOT_FOUND".
                 """
                 
-                response = gemini_model.generate_content(prompt)
+                response = gemini_client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=prompt
+                )
                 gemini_answer = response.text.strip()
                 
                 if gemini_answer != "NOT_FOUND" and gemini_answer in DATABASE_RUANGAN:

@@ -8,5 +8,5 @@ torch
 numpy
 python-dotenv
 loguru
-google-generativeai
+google-genai
 rapidfuzz

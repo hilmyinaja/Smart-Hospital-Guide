@@ -9,7 +9,7 @@ def _a_star_single_floor(start_node, target_node):
     def get_valid_coords(node):
         coords = set()
         is_kiosk = node.get("type") == "kiosk"
-        is_entrance = is_kiosk and "pintu" in node.get("name", "").lower()
+        is_entrance = "pintu" in node.get("name", "").lower()
         
         if is_kiosk and not is_entrance:
             if "door_coords" in node and node["door_coords"]:
@@ -134,33 +134,26 @@ def _a_star_single_floor(start_node, target_node):
 def cari_pasangan_lift_terbaik(start_node, target_node, curr_floor, target_floor, building="Gedung A"):
     from app.core.state import hitung_manhattan
     
-    def is_lift_node(r):
+    def is_vertical_transport_node(r):
         nama = r.get("name", "").lower()
         tipe = r.get("type", "").lower()
-        return ("lift" in nama or "elevator" in nama or tipe in ("lift", "elevator")) and "tangga" not in nama and "stairs" not in nama
+        is_lift = ("lift" in nama or "elevator" in nama or tipe in ("lift", "elevator"))
+        is_stairs = ("tangga" in nama or "stairs" in nama or tipe in ("stairs", "tangga"))
+        is_emergency = ("darurat" in nama or "emergency" in nama)
+        return (is_lift or is_stairs) and not is_emergency
 
-    def is_stairs_node(r):
-        nama = r.get("name", "").lower()
-        tipe = r.get("type", "").lower()
-        return "tangga" in nama or "stairs" in nama or tipe in ("stairs", "tangga")
-
-    # Prioritas 1: Lift / Elevator
-    lifts_start = [r for r in RUANGAN_GRID.values() if r.get("floor") == curr_floor and r.get("building", "Gedung A") == building and is_lift_node(r)]
-    lifts_target = [r for r in RUANGAN_GRID.values() if r.get("floor") == target_floor and r.get("building", "Gedung A") == building and is_lift_node(r)]
+    # Gabungkan Lift dan Tangga (kecuali darurat) menjadi satu prioritas
+    transports_start = [r for r in RUANGAN_GRID.values() if r.get("floor") == curr_floor and r.get("building", "Gedung A") == building and is_vertical_transport_node(r)]
+    transports_target = [r for r in RUANGAN_GRID.values() if r.get("floor") == target_floor and r.get("building", "Gedung A") == building and is_vertical_transport_node(r)]
     
-    # Prioritas 2: Tangga / Stairs jika tidak ada lift
-    if not lifts_start or not lifts_target:
-        lifts_start = [r for r in RUANGAN_GRID.values() if r.get("floor") == curr_floor and r.get("building", "Gedung A") == building and is_stairs_node(r)]
-        lifts_target = [r for r in RUANGAN_GRID.values() if r.get("floor") == target_floor and r.get("building", "Gedung A") == building and is_stairs_node(r)]
-
-    if not lifts_start or not lifts_target:
+    if not transports_start or not transports_target:
         return None, None
         
     best_pair = None
     min_dist = float('inf')
     
-    for l1 in lifts_start:
-        l2 = min(lifts_target, key=lambda l: hitung_manhattan(l1["x"], l1["y"], l["x"], l["y"]))
+    for l1 in transports_start:
+        l2 = min(transports_target, key=lambda l: hitung_manhattan(l1["x"], l1["y"], l["x"], l["y"]))
         
         dist1 = hitung_manhattan(start_node["x"], start_node["y"], l1["x"], l1["y"])
         dist2 = hitung_manhattan(l2["x"], l2["y"], target_node["x"], target_node["y"])

@@ -271,8 +271,15 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
     return () => unsubscribeKiosks();
   }, []);
 
-  const currentFloorRooms = useMemo(() => rooms.filter(room => room.floor === currentFloor && (room.building || "Gedung A") === currentBuilding), [rooms, currentFloor, currentBuilding]);
-  const currentFloorKiosks = useMemo(() => kiosks.filter(kiosk => kiosk.floor === currentFloor && (kiosk.building || "Gedung A") === currentBuilding), [kiosks, currentFloor, currentBuilding]);
+  const currentFloorRooms = useMemo(() => {
+    const r = rooms.filter(room => room.floor === currentFloor && (room.building || "Gedung A") === currentBuilding);
+    const kAsR = kiosks.filter(kiosk => kiosk.floor === currentFloor && (kiosk.building || "Gedung A") === currentBuilding && kiosk.name?.toLowerCase().includes('pintu'));
+    return [...r, ...kAsR];
+  }, [rooms, kiosks, currentFloor, currentBuilding]);
+
+  const currentFloorKiosks = useMemo(() => {
+    return kiosks.filter(kiosk => kiosk.floor === currentFloor && (kiosk.building || "Gedung A") === currentBuilding && !kiosk.name?.toLowerCase().includes('pintu'));
+  }, [kiosks, currentFloor, currentBuilding]);
 
   const selectedKioskData = useMemo(() => {
     if (!selectedKiosk) return null;
@@ -779,6 +786,11 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
                   const maxFontSizeHeight = room.height / 2;
                   const fontSize = Math.min(maxFontSizeWidth, Math.max(9, Math.min(16, maxFontSizeHeight)));
 
+                  const isPintu = room.name?.toLowerCase().includes('pintu');
+                  const fillCol = isPintu ? "#4CAF50" : (isDarkMode ? "#1e293b" : "#f8f9fa");
+                  const strokeCol = isPintu ? "#2E7D32" : (isDarkMode ? "#334155" : "#dae0e5");
+                  const textFill = isPintu ? "#ffffff" : (isDarkMode ? "#f8fafc" : "#495057");
+
                   return (
                     <Group
                       key={room.id}
@@ -787,11 +799,11 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
                       onMouseEnter={(e) => { if (onRoomClick) { e.target.getStage().container().style.cursor = 'pointer'; } }}
                       onMouseLeave={(e) => { if (onRoomClick) { e.target.getStage().container().style.cursor = 'default'; } }}
                     >
-                      <Rect x={room.x} y={room.y} width={room.width} height={room.height} fill={isDarkMode ? "#1e293b" : "#f8f9fa"} stroke={isDarkMode ? "#334155" : "#dae0e5"} strokeWidth={2} perfectDrawEnabled={false} shadowForStrokeEnabled={false} />
+                      <Rect x={room.x} y={room.y} width={room.width} height={room.height} fill={fillCol} stroke={strokeCol} strokeWidth={2} perfectDrawEnabled={false} shadowForStrokeEnabled={false} />
                       <Text
                         text={textContent}
                         x={room.x} y={room.y} width={room.width} height={room.height}
-                        fontSize={fontSize} fontStyle="bold" fill={isDarkMode ? "#f8fafc" : "#495057"}
+                        fontSize={fontSize} fontStyle="bold" fill={textFill}
                         align="center" verticalAlign="middle" padding={5}
                         wrap="word" ellipsis={false}
                         perfectDrawEnabled={false}
@@ -805,9 +817,8 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
                 .map((kiosk) => {
                   let textContent = getDisplayNodeName(kiosk, language);
                   if (!textContent) textContent = "Kiosk";
-                  const isPintu = kiosk.name?.toLowerCase().includes('pintu');
-                  const fillCol = isPintu ? "#4CAF50" : "#2196F3";
-                  const strokeCol = isPintu ? "#2E7D32" : "#0D47A1";
+                  const fillCol = "#2196F3";
+                  const strokeCol = "#0D47A1";
 
                   const longestWordLen = Math.max(...textContent.split(' ').map(w => w.length), 1);
                   const actualUsableWidth = Math.max(10, kiosk.width - 12);

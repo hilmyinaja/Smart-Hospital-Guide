@@ -7,7 +7,7 @@ import os
 os.environ.pop("SSL_CERT_FILE", None)
 import json
 from dotenv import load_dotenv
-import google.generativeai as genai
+from google import genai
 from app.core.database import db, listen_to_firestore 
 from app.core import state as waypoint_graph
 from app.services.nlp_service import cari_target_ruangan, latih_ulang_nlp
@@ -16,8 +16,9 @@ from loguru import logger
 
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+gemini_client = None
 if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
+    gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 
 # Lock global untuk mencegah race condition dari Firebase thread pool.
 sync_lock = threading.Lock()
@@ -157,7 +158,6 @@ def translate_names(request: RequestTranslate):
             
     if names_to_translate and GEMINI_API_KEY:
         try:
-            model = genai.GenerativeModel('gemini-2.5-flash')
             prompt = f"""
 You are an expert translator for a smart hospital guide application. 
 Your task is to process a list of hospital room names provided by the user. The names might be in Indonesian or English.
@@ -174,7 +174,10 @@ Example output format:
 Names to translate:
 {json.dumps(names_to_translate)}
 """
-            response = model.generate_content(prompt)
+            response = gemini_client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt
+            )
             result_text = response.text.strip()
             if result_text.startswith("```json"):
                 result_text = result_text.replace("```json", "").replace("```", "").strip()
@@ -226,7 +229,6 @@ def generate_keywords(request: RequestTranslate):
             
     if names_to_process and GEMINI_API_KEY:
         try:
-            model = genai.GenerativeModel('gemini-2.5-flash')
             prompt = f"""
 You are an expert medical linguist for a smart hospital guide application.
 Your task is to generate 20-30 relevant keywords for each Indonesian hospital room name provided.
@@ -237,7 +239,10 @@ Return the result as a raw JSON object (without markdown blocks like ```json) wh
 Names to process:
 {json.dumps(names_to_process)}
 """
-            response = model.generate_content(prompt)
+            response = gemini_client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt
+            )
             result_text = response.text.strip()
             
             start_idx = result_text.find('{')
