@@ -512,19 +512,18 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
       );
 
       if (!startRoom) {
-        // Fallback: cari lift terdekat di lantai ini
-        const lifts = rooms.filter(r => 
+        // Fallback: cari room terdekat di lantai ini (Lift, Tangga, Connector)
+        const candidates = rooms.filter(r => 
           r.floor === currentFloor && 
-          (r.building || "Gedung A") === currentBuilding &&
-          (r.name.toLowerCase().includes("lift") || r.name.toLowerCase().includes("elevator"))
+          (r.building || "Gedung A") === currentBuilding
         );
-        if (lifts.length > 0) {
-          lifts.sort((a, b) => {
+        if (candidates.length > 0) {
+          candidates.sort((a, b) => {
             const distA = Math.hypot((a.x + a.width/2) - p0.x, (a.y + a.height/2) - p0.y);
             const distB = Math.hypot((b.x + b.width/2) - p0.x, (b.y + b.height/2) - p0.y);
             return distA - distB;
           });
-          startRoom = lifts[0];
+          startRoom = candidates[0];
         }
       }
       if (startRoom && startRoom.endpoints && startRoom.endpoints.length > 0) {
@@ -779,17 +778,33 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
                 .map((room) => {
                   let textContent = getDisplayNodeName(room, language);
                   if (!textContent) textContent = translateName("Tanpa Nama", language);
+                  const textContentLen = Math.max(1, textContent.length);
                   const longestWordLen = Math.max(...textContent.split(' ').map(w => w.length), 1);
-                  const actualUsableWidth = Math.max(10, room.width - 12);
+                  const actualUsableWidth = Math.max(10, room.width - 10);
+                  const actualUsableHeight = Math.max(10, room.height - 10);
 
-                  const maxFontSizeWidth = actualUsableWidth / (longestWordLen * 0.6);
-                  const maxFontSizeHeight = room.height / 2;
-                  const fontSize = Math.min(maxFontSizeWidth, Math.max(9, Math.min(16, maxFontSizeHeight)));
+                  const maxFontSizeWord = actualUsableWidth / (longestWordLen * 0.65);
+                  const safetyFactor = textContent.split(' ').length > 1 ? 1.5 : 1.1;
+                  const maxFontSizeArea = Math.sqrt((actualUsableWidth * actualUsableHeight) / (textContentLen * 0.65 * 1.2 * safetyFactor));
+                  const maxFontSizeSingleLine = actualUsableHeight / 1.2;
+
+                  const fontSize = Math.max(9, Math.min(maxFontSizeWord, maxFontSizeArea, maxFontSizeSingleLine));
 
                   const isPintu = room.name?.toLowerCase().includes('pintu');
-                  const fillCol = isPintu ? "#4CAF50" : (isDarkMode ? "#1e293b" : "#f8f9fa");
-                  const strokeCol = isPintu ? "#2E7D32" : (isDarkMode ? "#334155" : "#dae0e5");
-                  const textFill = isPintu ? "#ffffff" : (isDarkMode ? "#f8fafc" : "#495057");
+                  const isLift = room.name?.toLowerCase().includes('lift');
+                  const isStairs = room.name?.toLowerCase().includes('tangga') || room.name?.toLowerCase().includes('stairs');
+                  
+                  let fillCol = isDarkMode ? "#1e293b" : "#f8f9fa";
+                  let strokeCol = isDarkMode ? "#334155" : "#dae0e5";
+                  let textFill = isDarkMode ? "#f8fafc" : "#495057";
+
+                  if (isPintu) {
+                    fillCol = "#4CAF50"; strokeCol = "#2E7D32"; textFill = "#ffffff";
+                  } else if (isLift) {
+                    fillCol = "#9C27B0"; strokeCol = "#6A1B9A"; textFill = "#ffffff";
+                  } else if (isStairs) {
+                    fillCol = "#FF9800"; strokeCol = "#E65100"; textFill = "#ffffff";
+                  }
 
                   return (
                     <Group
@@ -820,14 +835,17 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
                   const fillCol = "#2196F3";
                   const strokeCol = "#0D47A1";
 
+                  const textContentLen = Math.max(1, textContent.length);
                   const longestWordLen = Math.max(...textContent.split(' ').map(w => w.length), 1);
-                  const actualUsableWidth = Math.max(10, kiosk.width - 12);
+                  const actualUsableWidth = Math.max(10, kiosk.width - 10);
+                  const actualUsableHeight = Math.max(10, kiosk.height - 10);
 
-                  // Sesuaikan ukuran font untuk keterbacaan dan word wrapping yang lebih baik
-                  const maxFontSizeWidth = actualUsableWidth / (longestWordLen * 0.6);
-                  const maxFontSizeHeight = kiosk.height / 2;
-                  // Batasi ukuran font secara ketat agar huruf dari kata yang sama tidak terpisah
-                  const fontSize = Math.min(maxFontSizeWidth, Math.max(9, Math.min(16, maxFontSizeHeight)));
+                  const maxFontSizeWord = actualUsableWidth / (longestWordLen * 0.65);
+                  const safetyFactor = textContent.split(' ').length > 1 ? 1.5 : 1.1;
+                  const maxFontSizeArea = Math.sqrt((actualUsableWidth * actualUsableHeight) / (textContentLen * 0.65 * 1.2 * safetyFactor));
+                  const maxFontSizeSingleLine = actualUsableHeight / 1.2;
+
+                  const fontSize = Math.max(9, Math.min(maxFontSizeWord, maxFontSizeArea, maxFontSizeSingleLine));
 
                   const isInteractive = !!onRoomClick;
 

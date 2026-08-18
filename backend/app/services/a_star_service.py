@@ -450,18 +450,27 @@ def generate_navigation_text(path, start_id, target_id, language="id", target_na
         min_d = float('inf')
         for r in RUANGAN_GRID.values():
             if r.get("floor") == flr and r.get("building", "Gedung A") == bldg:
-                n = r.get("name", "").lower()
-                if "lift" in n or "elevator" in n:
-                    dist = abs(px - (r["x"] + r.get("w", 1)//2)) + abs(py - (r["y"] + r.get("h", 1)//2))
-                    if dist < min_d:
-                        min_d = dist
-                        best_rm = r
+                rx, ry = r.get("x", 0), r.get("y", 0)
+                rw, rh = r.get("w", 1), r.get("h", 1)
+                
+                # Cek bounding box dengan toleransi 2 tile (karena expanded_start_coords)
+                if rx - 2 <= px <= rx + rw + 2 and ry - 2 <= py <= ry + rh + 2:
+                    best_rm = r
+                    print(f"DEBUG get_exit_direction: Found {r.get('name')} by bounds. px={px}, py={py}, rx={rx}, ry={ry}, rw={rw}, rh={rh}")
+                    break
+                
+                # Fallback ke jarak terdekat
+                dist = abs(px - (rx + rw//2)) + abs(py - (ry + rh//2))
+                if dist < min_d:
+                    min_d = dist
+                    best_rm = r
         if best_rm and best_rm.get("endpoints"):
             ep = best_rm["endpoints"][0]
             if ep == "top": return "Atas"
             elif ep == "bottom": return "Bawah"
             elif ep == "left": return "Kiri"
             elif ep == "right": return "Kanan"
+        
         return "Bawah"
 
     if len(path) < 2:
@@ -535,6 +544,7 @@ def generate_navigation_text(path, start_id, target_id, language="id", target_na
         return turn_map.get(prev_dir, {}).get(next_dir, None)
 
     exclude_ids = {start_id, target_id}
+    transition_node = None
 
     for i in range(len(path) - 1):
         p1 = path[i]
@@ -553,6 +563,7 @@ def generate_navigation_text(path, start_id, target_id, language="id", target_na
             current_dir = None
             is_after_transition = True
             last_transition_type = 'building'
+            transition_node = p2
             continue  # Building change supersedes any same-step floor change.
         # Pindah lantai / sub-map — mutually exclusive with building change above.
         elif p1["floor"] != p2["floor"]:
@@ -582,6 +593,7 @@ def generate_navigation_text(path, start_id, target_id, language="id", target_na
             current_dir = None
             is_after_transition = True
             last_transition_type = 'floor'
+            transition_node = p2
             continue
             
         dir = get_direction(p1, p2)
@@ -603,8 +615,8 @@ def generate_navigation_text(path, start_id, target_id, language="id", target_na
                     prefix = "Berbaliklah ke belakang." if current_dir == 'Bawah' else f"Menghadaplah ke {dir_id}."
                 else:
                     prefix = "Turn around." if current_dir == 'Bawah' else f"Face {'forward' if current_dir=='Atas' else 'right' if current_dir=='Kanan' else 'left'}."
-            elif is_after_transition:
-                exit_dir = get_exit_direction(p1["x"], p1["y"], p1["floor"], p1.get("building", "Gedung A"))
+            elif is_after_transition and transition_node:
+                exit_dir = get_exit_direction(transition_node["x"], transition_node["y"], transition_node["floor"], transition_node.get("building", "Gedung A"))
                 turn_relative = get_turn(exit_dir, current_dir)
                 
                 if turn_relative is None:
@@ -612,20 +624,31 @@ def generate_navigation_text(path, start_id, target_id, language="id", target_na
                 else:
                     dir_text = turn_relative
 
+                def get_directional_prefix(intro_id, intro_en, d_text, lang):
+                    if d_text in ("depan", "forward"):
+                        return f"{intro_id}," if lang == "id" else f"{intro_en},"
+                    elif d_text == "berbalik arah" and lang == "id":
+                        return f"{intro_id}, berbalik arah."
+                    elif d_text == "turn around" and lang != "id":
+                        return f"{intro_en}, turn around."
+                    else:
+                        if lang == "id": return f"{intro_id}, menghadaplah ke {d_text}."
+                        else: return f"{intro_en}, face {d_text}."
+
                 if p1['floor'].startswith("submap_"):
-                    if language == "id": prefix = f"Setelah masuk, menghadaplah ke {dir_text}."
-                    else: prefix = f"After entering, face {dir_text}."
+                    prefix = get_directional_prefix("Setelah masuk", "After entering", dir_text, language)
                 else:
                     if last_transition_type == 'building':
-                        if language == "id": prefix = f"Setelah sampai di {p1.get('building', 'Gedung A')}, menghadaplah ke {dir_text}."
-                        else: prefix = f"After arriving at {p1.get('building', 'Gedung A')}, face {dir_text}."
+                        intro_id = f"Setelah sampai di {p1.get('building', 'Gedung A')}"
+                        intro_en = f"After arriving at {p1.get('building', 'Gedung A')}"
+                        prefix = get_directional_prefix(intro_id, intro_en, dir_text, language)
                     else:
                         v_type_id = "tangga" if last_vertical_transport == "stairs" else "lift"
                         v_type_en = "stairs" if last_vertical_transport == "stairs" else "lift"
-                        if language == "id": prefix = f"Setelah keluar dari {v_type_id} di {p1['floor']}, menghadaplah ke {dir_text}."
-                        else:
-                            t_floor1 = get_translated_floor(p1['floor'], language)
-                            prefix = f"After exiting the {v_type_en} at {t_floor1}, face {dir_text}."
+                        intro_id = f"Setelah keluar dari {v_type_id} di {p1['floor']}"
+                        t_floor1 = get_translated_floor(p1['floor'], language)
+                        intro_en = f"After exiting the {v_type_en} at {t_floor1}"
+                        prefix = get_directional_prefix(intro_id, intro_en, dir_text, language)
                 is_after_transition = False
             else:
                 prefix = ""
@@ -634,22 +657,28 @@ def generate_navigation_text(path, start_id, target_id, language="id", target_na
                 pos = get_relative_position(current_dir, p1["x"], p1["y"], adj_room_obj)
                 if pos == "dekat" or pos == "near":
                     if prefix:
-                        if language == "id": teks = f"{prefix} Jalan lurus, lalu belok {turn} di dekat {adj_room}."
-                        else: teks = f"{prefix} Walk straight, then turn {turn} near {adj_room}."
+                        j_lurus = "jalan lurus" if prefix.endswith(",") else "Jalan lurus"
+                        w_straight = "walk straight" if prefix.endswith(",") else "Walk straight"
+                        if language == "id": teks = f"{prefix} {j_lurus}, lalu belok {turn} di dekat {adj_room}."
+                        else: teks = f"{prefix} {w_straight}, then turn {turn} near {adj_room}."
                     else:
                         if language == "id": teks = f"Terus lurus, lalu belok {turn} di dekat {adj_room}."
                         else: teks = f"Go straight, then turn {turn} near {adj_room}."
                 else:
                     if prefix:
-                        if language == "id": teks = f"{prefix} Jalan lurus, lalu belok {turn} setelah melewati {adj_room} di sebelah {pos} Anda."
-                        else: teks = f"{prefix} Walk straight, then turn {turn} after passing {adj_room} on your {pos}."
+                        j_lurus = "jalan lurus" if prefix.endswith(",") else "Jalan lurus"
+                        w_straight = "walk straight" if prefix.endswith(",") else "Walk straight"
+                        if language == "id": teks = f"{prefix} {j_lurus}, lalu belok {turn} setelah melewati {adj_room} di sebelah {pos} Anda."
+                        else: teks = f"{prefix} {w_straight}, then turn {turn} after passing {adj_room} on your {pos}."
                     else:
                         if language == "id": teks = f"Terus lurus, lalu belok {turn} setelah melewati {adj_room} di sebelah {pos} Anda."
                         else: teks = f"Go straight, then turn {turn} after passing {adj_room} on your {pos}."
             else:
                 if prefix:
-                    if language == "id": teks = f"{prefix} Jalan lurus, lalu belok {turn}."
-                    else: teks = f"{prefix} Walk straight, then turn {turn}."
+                    j_lurus = "jalan lurus" if prefix.endswith(",") else "Jalan lurus"
+                    w_straight = "walk straight" if prefix.endswith(",") else "Walk straight"
+                    if language == "id": teks = f"{prefix} {j_lurus}, lalu belok {turn}."
+                    else: teks = f"{prefix} {w_straight}, then turn {turn}."
                 else:
                     if language == "id": teks = f"Terus lurus, lalu belok {turn}."
                     else: teks = f"Go straight, then turn {turn}."

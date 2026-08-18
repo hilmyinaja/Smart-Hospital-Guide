@@ -126,6 +126,12 @@ export default function App() {
     document.body.classList.toggle("dark-mode", isDarkMode);
   }, [isDarkMode]);
 
+  useEffect(() => {
+    if (transformComponentRef.current) {
+      transformComponentRef.current.resetTransform(0);
+    }
+  }, [floor, building]);
+
 
   const startListening = () => {
     if (isListening) {
@@ -409,6 +415,7 @@ export default function App() {
 
   const scrollTextRef = useRef(null);
   const lastUpdatedByVoiceRef = useRef(false);
+  const transformComponentRef = useRef(null);
 
   // --- Autocomplete Filtering Logic ---
   const filteredDropdownRooms = useMemo(() => {
@@ -599,6 +606,7 @@ export default function App() {
 
     if (!searchTarget.trim()) return;
 
+    setIsSearchDropdownOpen(false);
     setIsNavFinished(false);
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current);
@@ -1005,7 +1013,7 @@ export default function App() {
 
                   {/* pencarian & dropdown ruangan */}
                   <div className="search-wrapper destination-input" style={{ position: "relative" }} ref={searchWrapperRef}>
-                    <form onSubmit={(e) => { e.preventDefault(); executeSearch(location, search); }} style={{ width: "100%", margin: 0 }}>
+                    <form onSubmit={(e) => { e.preventDefault(); if (searchInputRef.current) searchInputRef.current.blur(); executeSearch(location, search); }} style={{ width: "100%", margin: 0 }}>
                       <input
                         ref={searchInputRef}
                         inputMode={isListening ? "none" : "search"}
@@ -1015,6 +1023,7 @@ export default function App() {
                         placeholder={isListening ? (language === 'en' ? 'Listening...' : 'Mendengarkan...') : getText('search_placeholder')}
                         value={search}
                         onFocus={() => { lastUpdatedByVoiceRef.current = false; setIsSearchDropdownOpen(true); }}
+                        onClick={() => setIsSearchDropdownOpen(true)}
                         onChange={(e) => { setSearch(e.target.value); setIsSearchDropdownOpen(true); }}
                       />
                       {(search && (isListening || lastUpdatedByVoiceRef.current)) && (
@@ -1320,7 +1329,7 @@ export default function App() {
               Kembali ke Lantai Utama
             </button>
           )}
-          <TransformWrapper initialScale={1} minScale={0.05} maxScale={10} centerOnInit={true} limitToBounds={false} wheel={{ step: 0.005, smoothStep: 0.002 }}>
+          <TransformWrapper ref={transformComponentRef} initialScale={1} minScale={0.05} maxScale={10} centerOnInit={true} limitToBounds={false} wheel={{ step: 0.005, smoothStep: 0.002 }}>
             <TransformComponent wrapperStyle={{ width: "100%", height: "100%", cursor: "grab" }} contentStyle={{ width: "100%", height: "100vh" }}>
               <div className="map-content" style={{ width: "100%", height: "100%" }}>
                 <SharedMap

@@ -29,20 +29,24 @@ const ElementShape = React.memo(({ shapeProps, isSelected, onSelect, onChange, s
     });
   };
 
-  // Rumus baru: auto shrink font.
-  let textContent = translateName(shapeProps.name || (shapeProps.type === 'kiosk' ? 'Kiosk' : 'Tanpa Nama'), language, shapeProps.name_en);
+  let displayName = translateName(shapeProps.name || (shapeProps.type === 'kiosk' ? 'Kiosk' : 'Tanpa Nama'), language, shapeProps.name_en);
+  let textContent = displayName;
   if (shapeProps.is_connector && shapeProps.target_building) {
     const translatedTarget = translateName(shapeProps.target_building, language);
     textContent = language === 'id' ? `Pintu ke ${translatedTarget}` : `Door to ${translatedTarget}`;
+    displayName = textContent;
   }
-  const longestWordLen = Math.max(...textContent.split(' ').map(w => w.length), 1);
-  const actualUsableWidth = Math.max(10, shapeProps.width - 12);
+  const textContentLen = Math.max(1, displayName.length);
+  const longestWordLen = Math.max(...displayName.split(' ').map(w => w.length), 1);
+  const actualUsableWidth = Math.max(10, shapeProps.width - 10);
+  const actualUsableHeight = Math.max(10, shapeProps.height - 10);
 
-  // Sesuaikan ukuran font untuk keterbacaan dan word wrapping yang lebih baik.
-  const maxFontSizeWidth = actualUsableWidth / (longestWordLen * 0.6);
-  const maxFontSizeHeight = shapeProps.height / 2;
-  // Batasi ukuran font secara ketat agar huruf dari kata yang sama tidak terpisah.
-  const dynamicFontSize = Math.min(maxFontSizeWidth, Math.max(9, Math.min(16, maxFontSizeHeight)));
+  const maxFontSizeWord = actualUsableWidth / (longestWordLen * 0.65);
+  const safetyFactor = displayName.split(' ').length > 1 ? 1.5 : 1.1;
+  const maxFontSizeArea = Math.sqrt((actualUsableWidth * actualUsableHeight) / (textContentLen * 0.65 * 1.2 * safetyFactor));
+  const maxFontSizeSingleLine = actualUsableHeight / 1.2;
+
+  const dynamicFontSize = Math.max(9, Math.min(maxFontSizeWord, maxFontSizeArea, maxFontSizeSingleLine));
 
   const getVisualColors = useCallback(() => {
     const original = originalElements.find(el => el.id === shapeProps.id);
@@ -50,12 +54,26 @@ const ElementShape = React.memo(({ shapeProps, isSelected, onSelect, onChange, s
     const isChanged = original && (Math.abs(original.x - shapeProps.x) > 0.1 || Math.abs(original.y - shapeProps.y) > 0.1 || Math.abs(original.width - shapeProps.width) > 0.1 || Math.abs(original.height - shapeProps.height) > 0.1);
 
     const isEntrance = shapeProps.type === 'kiosk' && shapeProps.name?.toLowerCase().includes('pintu');
-    const isKiosk = shapeProps.type === 'kiosk' && !isEntrance;
+    const isLift = shapeProps.name?.toLowerCase().includes('lift');
+    const isStairs = shapeProps.name?.toLowerCase().includes('tangga') || shapeProps.name?.toLowerCase().includes('stairs');
+    const isKiosk = shapeProps.type === 'kiosk' && !isEntrance && !isLift && !isStairs;
 
     if (isEntrance) {
       if (isNew) return { fill: isDarkMode ? "#1b5e20" : "#a5d6a7", stroke: isDarkMode ? "#2e7d32" : "#4caf50", text: isDarkMode ? "#ffffff" : "#1b5e20" };
       if (isChanged) return { fill: isDarkMode ? "#827717" : "#e6ee9c", stroke: isDarkMode ? "#9e9d24" : "#c0ca33", text: isDarkMode ? "#ffffff" : "#827717" };
       return { fill: "#4CAF50", stroke: "#2E7D32", text: "#FFFFFF" };
+    }
+    
+    if (isLift) {
+      if (isNew) return { fill: isDarkMode ? "#4a148c" : "#e1bee7", stroke: isDarkMode ? "#6a1b9a" : "#ab47bc", text: isDarkMode ? "#ffffff" : "#4a148c" };
+      if (isChanged) return { fill: isDarkMode ? "#311b92" : "#d1c4e9", stroke: isDarkMode ? "#4527a0" : "#9575cd", text: isDarkMode ? "#ffffff" : "#311b92" };
+      return { fill: "#9C27B0", stroke: "#6A1B9A", text: "#FFFFFF" };
+    }
+    
+    if (isStairs) {
+      if (isNew) return { fill: isDarkMode ? "#e65100" : "#ffe0b2", stroke: isDarkMode ? "#ef6c00" : "#ff9800", text: isDarkMode ? "#ffffff" : "#e65100" };
+      if (isChanged) return { fill: isDarkMode ? "#bf360c" : "#ffccbc", stroke: isDarkMode ? "#d84315" : "#ff5722", text: isDarkMode ? "#ffffff" : "#bf360c" };
+      return { fill: "#FF9800", stroke: "#E65100", text: "#FFFFFF" };
     }
 
     if (isKiosk) {
@@ -939,6 +957,19 @@ export default function EditPage() {
     dragItemIndexRef.current = null;
     dragOverItemIndexRef.current = null;
   };
+  const getViewportCenter = () => {
+    if (!transformRef.current || !mapRef.current) return { x: 200, y: 200 };
+    const { scale, positionX, positionY } = transformRef.current.state;
+    const mapRect = mapRef.current.getBoundingClientRect();
+    const centerX = mapRect.width / 2;
+    const centerY = mapRect.height / 2;
+    const x = (centerX - positionX) / scale;
+    const y = (centerY - positionY) / scale;
+    return {
+      x: Math.round(x / GRID_SIZE) * GRID_SIZE,
+      y: Math.round(y / GRID_SIZE) * GRID_SIZE
+    };
+  };
 
   const processDrop = (clientX, clientY, dragData) => {
     if (transformRef.current && dragData) {
@@ -1697,10 +1728,11 @@ export default function EditPage() {
                       touchDragDataRef.current = null;
                     }}
                     onClick={() => {
+                      const center = getViewportCenter();
                       const newId = generateNextRoomId();
                       const newElements = [...placedElements, {
                         id: newId, type: 'room', floor: activeEditFloor, building: activeEditBuilding,
-                        x: 200, y: 200, width: GRID_SIZE * 4, height: GRID_SIZE * 4,
+                        x: center.x, y: center.y, width: GRID_SIZE * 4, height: GRID_SIZE * 4,
                         name: preset.name, fill: "#e0e0e0", stroke: "#9e9e9e",
                         endpoints: preset.endpoints
                       }];
@@ -1751,10 +1783,11 @@ export default function EditPage() {
                     touchDragDataRef.current = null;
                   }}
                   onClick={() => {
+                    const center = getViewportCenter();
                     const newId = generateNextKioskId();
                     const newElements = [...placedElements, {
                       id: newId, type: 'kiosk', floor: activeEditFloor, building: activeEditBuilding,
-                      x: 200, y: 200, width: GRID_SIZE * 2, height: GRID_SIZE * 2,
+                      x: center.x, y: center.y, width: GRID_SIZE * 2, height: GRID_SIZE * 2,
                       name: "Kios Baru"
                     }];
                     setPlacedElements(newElements);
@@ -1799,10 +1832,11 @@ export default function EditPage() {
                     touchDragDataRef.current = null;
                   }}
                   onClick={() => {
+                    const center = getViewportCenter();
                     const newId = generateNextKioskId();
                     const newElements = [...placedElements, {
                       id: newId, type: 'kiosk', floor: activeEditFloor, building: activeEditBuilding,
-                      x: 200, y: 240, width: GRID_SIZE * 2, height: GRID_SIZE * 2,
+                      x: center.x, y: center.y, width: GRID_SIZE * 2, height: GRID_SIZE * 2,
                       name: language === 'id' ? "Pintu Masuk Utama" : "Main Entrance"
                     }];
                     setPlacedElements(newElements);
@@ -1849,10 +1883,11 @@ export default function EditPage() {
                     touchDragDataRef.current = null;
                   }}
                   onClick={() => {
+                    const center = getViewportCenter();
                     const newId = generateNextRoomId();
                     const newElements = [...placedElements, {
                       id: newId, type: 'room', floor: activeEditFloor, building: activeEditBuilding,
-                      x: 200, y: 280, width: GRID_SIZE * 4, height: GRID_SIZE * 4,
+                      x: center.x, y: center.y, width: GRID_SIZE * 4, height: GRID_SIZE * 4,
                       endpoints: ["bottom"], name: language === 'id' ? "Pintu Penghubung" : "Connector Door",
                       is_connector: true, target_building: ""
                     }];
@@ -1863,6 +1898,108 @@ export default function EditPage() {
                 >
                   <div className="template-icon">🚪</div>
                   <p>{language === 'id' ? 'Pintu Gedung' : 'Building Door'}</p>
+                </div>
+
+                <div
+                  draggable
+                  style={{ touchAction: 'none' }}
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData("text/plain", JSON.stringify({
+                      type: "new-room",
+                      defaultName: "Lift",
+                      defaultGridWidth: 2,
+                      defaultGridHeight: 2,
+                      endpoints: ["bottom"]
+                    }));
+                  }}
+                  onTouchStart={() => {
+                    touchDragDataRef.current = {
+                      type: "new-room",
+                      defaultName: "Lift",
+                      defaultGridWidth: 2,
+                      defaultGridHeight: 2,
+                      endpoints: ["bottom"]
+                    };
+                  }}
+                  onTouchEnd={(e) => {
+                    if (!touchDragDataRef.current) return;
+                    const touch = e.changedTouches[0];
+                    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                    const mapContainer = mapRef.current;
+                    if (mapContainer && mapContainer.contains(target)) {
+                      const mapRect = mapContainer.getBoundingClientRect();
+                      const clientX = touch.clientX - mapRect.left;
+                      const clientY = touch.clientY - mapRect.top;
+                      processDrop(clientX, clientY, touchDragDataRef.current);
+                    }
+                    touchDragDataRef.current = null;
+                  }}
+                  onClick={() => {
+                    const center = getViewportCenter();
+                    const newId = generateNextRoomId();
+                    const newElements = [...placedElements, {
+                      id: newId, type: 'room', floor: activeEditFloor, building: activeEditBuilding,
+                      x: center.x, y: center.y, width: GRID_SIZE * 2, height: GRID_SIZE * 2,
+                      endpoints: ["bottom"], name: "Lift"
+                    }];
+                    setPlacedElements(newElements);
+                    saveHistory(newElements);
+                  }}
+                  className="template-card template-lift"
+                >
+                  <div className="template-icon">🛗</div>
+                  <p>Lift</p>
+                </div>
+
+                <div
+                  draggable
+                  style={{ touchAction: 'none' }}
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData("text/plain", JSON.stringify({
+                      type: "new-room",
+                      defaultName: language === 'id' ? "Tangga" : "Stairs",
+                      defaultGridWidth: 3,
+                      defaultGridHeight: 3,
+                      endpoints: ["bottom"]
+                    }));
+                  }}
+                  onTouchStart={() => {
+                    touchDragDataRef.current = {
+                      type: "new-room",
+                      defaultName: language === 'id' ? "Tangga" : "Stairs",
+                      defaultGridWidth: 3,
+                      defaultGridHeight: 3,
+                      endpoints: ["bottom"]
+                    };
+                  }}
+                  onTouchEnd={(e) => {
+                    if (!touchDragDataRef.current) return;
+                    const touch = e.changedTouches[0];
+                    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                    const mapContainer = mapRef.current;
+                    if (mapContainer && mapContainer.contains(target)) {
+                      const mapRect = mapContainer.getBoundingClientRect();
+                      const clientX = touch.clientX - mapRect.left;
+                      const clientY = touch.clientY - mapRect.top;
+                      processDrop(clientX, clientY, touchDragDataRef.current);
+                    }
+                    touchDragDataRef.current = null;
+                  }}
+                  onClick={() => {
+                    const center = getViewportCenter();
+                    const newId = generateNextRoomId();
+                    const newElements = [...placedElements, {
+                      id: newId, type: 'room', floor: activeEditFloor, building: activeEditBuilding,
+                      x: center.x, y: center.y, width: GRID_SIZE * 3, height: GRID_SIZE * 3,
+                      endpoints: ["bottom"], name: language === 'id' ? "Tangga" : "Stairs"
+                    }];
+                    setPlacedElements(newElements);
+                    saveHistory(newElements);
+                  }}
+                  className="template-card template-stairs"
+                >
+                  <div className="template-icon">🪜</div>
+                  <p>{language === 'id' ? 'Tangga' : 'Stairs'}</p>
                 </div>
               </div>
             </div>
