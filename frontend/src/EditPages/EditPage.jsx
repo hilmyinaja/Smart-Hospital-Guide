@@ -244,6 +244,7 @@ export default function EditPage() {
   const dragOverItemIndexRef = useRef(null);
   const touchDragDataRef = useRef(null);
   const globalFloorOrderRef = useRef({});
+  const globalBuildingOrderRef = useRef([]);
   const [language, setLanguage] = useState(localStorage.getItem('language') || 'id');
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return localStorage.getItem('theme') === 'dark';
@@ -436,11 +437,22 @@ export default function EditPage() {
         setHistoryStep(0);
 
         let savedFloorOrder = {};
-        if (mapConfigSnap.exists() && mapConfigSnap.data().floorOrder) {
-          savedFloorOrder = mapConfigSnap.data().floorOrder;
+        let savedBuildingOrder = [];
+        if (mapConfigSnap.exists()) {
+          if (mapConfigSnap.data().floorOrder) savedFloorOrder = mapConfigSnap.data().floorOrder;
+          if (mapConfigSnap.data().buildingOrder) savedBuildingOrder = mapConfigSnap.data().buildingOrder;
         }
 
-        const finalBuildings = Array.from(uniqueBuildings).sort();
+        globalBuildingOrderRef.current = savedBuildingOrder;
+
+        const finalBuildings = Array.from(uniqueBuildings).sort((a, b) => {
+          const idxA = savedBuildingOrder.indexOf(a);
+          const idxB = savedBuildingOrder.indexOf(b);
+          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+          if (idxA !== -1) return -1;
+          if (idxB !== -1) return 1;
+          return a.localeCompare(b);
+        });
         setBuildings(finalBuildings);
 
         // Perhitungan awal gedung dan lantai
@@ -917,6 +929,25 @@ export default function EditPage() {
     });
   };
 
+  const handleBuildingDragSort = () => {
+    const dragIndex = dragItemIndexRef.current;
+    const hoverIndex = dragOverItemIndexRef.current;
+
+    if (dragIndex === null || hoverIndex === null || dragIndex === hoverIndex) return;
+
+    const newBuildings = [...buildings];
+    const draggedItem = newBuildings[dragIndex];
+
+    newBuildings.splice(dragIndex, 1);
+    newBuildings.splice(hoverIndex, 0, draggedItem);
+
+    setBuildings(newBuildings);
+    globalBuildingOrderRef.current = newBuildings;
+
+    dragItemIndexRef.current = null;
+    dragOverItemIndexRef.current = null;
+  };
+
   const handleDragSort = () => {
     const dragIndex = dragItemIndexRef.current;
     const hoverIndex = dragOverItemIndexRef.current;
@@ -1108,7 +1139,10 @@ export default function EditPage() {
           batch.set(doc(db, col, el.id.toString()), docData, { merge: true });
         });
 
-        batch.set(doc(db, "Settings", "MapConfig"), { floorOrder: globalFloorOrderRef.current });
+        batch.set(doc(db, "Settings", "MapConfig"), { 
+          floorOrder: globalFloorOrderRef.current,
+          buildingOrder: globalBuildingOrderRef.current || buildings
+        }, { merge: true });
 
         // Commit structural changes instantly
         await batch.commit();
@@ -1463,10 +1497,36 @@ export default function EditPage() {
 
               {isBuildingDropdownOpen && (
                 <div className="custom-dropdown-list">
-                  {buildings.map((b) => (
+                  {buildings.map((b, index) => (
                     <div
                       key={b}
                       className={`custom-dropdown-item ${activeEditBuilding === b ? 'active' : ''}`}
+                      draggable
+                      data-index={index}
+                      onDragStart={(e) => {
+                        dragItemIndexRef.current = index;
+                        e.dataTransfer.effectAllowed = 'move';
+                      }}
+                      onDragEnter={() => {
+                        dragOverItemIndexRef.current = index;
+                      }}
+                      onDragEnd={handleBuildingDragSort}
+                      onDragOver={(e) => e.preventDefault()}
+                      onTouchStart={() => {
+                        dragItemIndexRef.current = index;
+                      }}
+                      onTouchMove={(e) => {
+                        const touch = e.touches[0];
+                        const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                        if (target) {
+                          const dropItem = target.closest('.custom-dropdown-item');
+                          if (dropItem && dropItem.dataset.index !== undefined) {
+                            dragOverItemIndexRef.current = parseInt(dropItem.dataset.index, 10);
+                          }
+                        }
+                      }}
+                      onTouchEnd={handleBuildingDragSort}
+                      style={{ touchAction: 'none' }}
                       onClick={() => {
                         handleBuildingChange(b);
                         setSelectedIds([]);
@@ -1474,6 +1534,7 @@ export default function EditPage() {
                       }}
                     >
                       <span className="floor-name">{b}</span>
+                      <span className="drag-handle">≡</span>
                     </div>
                   ))}
                 </div>

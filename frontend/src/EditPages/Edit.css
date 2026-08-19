@@ -522,10 +522,34 @@ body.dark-mode .edit-page-right-panel::-webkit-scrollbar-thumb {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   margin-top: 4px;
-  z-index: 100;
+  z-index: 9999;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  max-height: 200px;
-  overflow-y: auto;
+  max-height: 100px; /* Reduced to ensure it always scrolls */
+  overflow-y: scroll; /* Force scrollbar track to appear */
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.25) rgba(0, 0, 0, 0.05);
+}
+
+.custom-dropdown-list::-webkit-scrollbar {
+  width: 8px;
+}
+.custom-dropdown-list::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+.custom-dropdown-list::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 4px;
+}
+body.dark-mode .custom-dropdown-list {
+  scrollbar-color: rgba(255, 255, 255, 0.25) rgba(255, 255, 255, 0.05);
+}
+body.dark-mode .custom-dropdown-list::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+body.dark-mode .custom-dropdown-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
 }
 .custom-dropdown-item {
   padding: 10px 12px;
