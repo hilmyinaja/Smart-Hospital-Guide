@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import LogoImg from '../assets/Logo.png';
 import { useNavigate } from "react-router";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
@@ -117,6 +117,12 @@ export default function App() {
   });
   const [navigationSteps, setNavigationSteps] = useState([]);
   const [activeStepIndex, setActiveStepIndex] = useState(-1);
+  const [isUserPanning, setIsUserPanning] = useState(false);
+
+  // Reset auto-follow when a new instruction step begins or new route loads
+  useEffect(() => {
+    setIsUserPanning(false);
+  }, [activeStepIndex, pathData]);
   const [language, setLanguage] = useState(localStorage.getItem('language') || 'id');
   const [isNavFinished, setIsNavFinished] = useState(false);
   const [countdownValue, setCountdownValue] = useState(10);
@@ -429,6 +435,53 @@ export default function App() {
   const scrollTextRef = useRef(null);
   const lastUpdatedByVoiceRef = useRef(false);
   const transformComponentRef = useRef(null);
+  const isProgrammaticPanRef = useRef(false);
+
+  // Camera follow: smoothly pan to keep avatar on-screen
+  const handleAvatarPositionChange = useCallback((screenX, screenY) => {
+    const ref = transformComponentRef.current;
+    if (!ref) return;
+    if (isNavFinished || activeStepIndex === -1 || isUserPanning) return;
+
+    // react-zoom-pan-pinch ref shape varies by version; try both paths
+    let scale, positionX, positionY, wrapper;
+    try {
+      const ts = ref.instance?.transformState ?? ref.state;
+      if (!ts) return;
+      scale = ts.scale;
+      positionX = ts.positionX;
+      positionY = ts.positionY;
+      wrapper = ref.instance?.wrapperComponent ?? ref.wrapperComponent;
+    } catch { return; }
+    if (!wrapper || scale == null) return;
+
+    const wWidth = wrapper.offsetWidth;
+    const wHeight = wrapper.offsetHeight;
+
+    // Avatar position in viewport space
+    const vx = screenX * scale + positionX;
+    const vy = screenY * scale + positionY;
+
+    // Safe zone: center 40% of viewport (30% margin each side)
+    const mX = wWidth * 0.3;
+    const mY = wHeight * 0.3;
+
+    let newX = positionX;
+    let newY = positionY;
+    let needsPan = false;
+
+    if (vx < mX) { newX = positionX + (mX - vx); needsPan = true; }
+    else if (vx > wWidth - mX) { newX = positionX - (vx - (wWidth - mX)); needsPan = true; }
+
+    if (vy < mY) { newY = positionY + (mY - vy); needsPan = true; }
+    else if (vy > wHeight - mY) { newY = positionY - (vy - (wHeight - mY)); needsPan = true; }
+
+    if (needsPan) {
+      isProgrammaticPanRef.current = true;
+      ref.setTransform(newX, newY, scale, 0);
+      requestAnimationFrame(() => { isProgrammaticPanRef.current = false; });
+    }
+  }, [isNavFinished, activeStepIndex, isUserPanning]);
 
   // --- Autocomplete Filtering Logic ---
   const filteredDropdownRooms = useMemo(() => {
@@ -1342,7 +1395,7 @@ export default function App() {
               Kembali ke Lantai Utama
             </button>
           )}
-          <TransformWrapper ref={transformComponentRef} initialScale={1} minScale={0.05} maxScale={10} centerOnInit={true} limitToBounds={false} wheel={{ step: 0.005, smoothStep: 0.002 }}>
+          <TransformWrapper ref={transformComponentRef} onPanningStart={() => { if (!isProgrammaticPanRef.current) setIsUserPanning(true); }} initialScale={1} minScale={0.05} maxScale={10} centerOnInit={true} limitToBounds={false} wheel={{ step: 0.005, smoothStep: 0.002 }}>
             <TransformComponent wrapperStyle={{ width: "100%", height: "100%", cursor: "grab" }} contentStyle={{ width: "100%", height: "100vh" }}>
               <div className="map-content" style={{ width: "100%", height: "100%" }}>
                 <SharedMap
@@ -1357,6 +1410,7 @@ export default function App() {
                   language={language}
                   selectedKiosk={location}
                   isDarkMode={isDarkMode}
+                  onAvatarPositionChange={handleAvatarPositionChange}
                   onRoomClick={(room, e) => {
                     if (isMobileMode) return;
                     const hasSubmap = floors.includes(`submap_${room.id}`);

@@ -70,6 +70,7 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
   const idleAvatarRef = useRef(null);
   const wavingArmRef = useRef(null);
   const idlePositionRef = useRef(null);
+  const scaleAndOffsetRef = useRef({ scale: 1, x: 0, y: 0 });
   const lastAvatarReportRef = useRef(0);
   const onAvatarPositionChangeRef = useRef(onAvatarPositionChange);
   useEffect(() => { onAvatarPositionChangeRef.current = onAvatarPositionChange; }, [onAvatarPositionChange]);
@@ -176,7 +177,9 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
     const x = (mapSize.width - mapBounds.width * scale) / 2 - mapBounds.x * scale;
     const y = (mapSize.height - mapBounds.height * scale) / 2 - mapBounds.y * scale;
 
-    return { scale, x, y };
+    const result = { scale, x, y };
+    scaleAndOffsetRef.current = result;
+    return result;
   }, [mapBounds, mapSize]);
 
   const calculatedMapSize = useMemo(() => {
@@ -679,7 +682,8 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
         const now2 = performance.now();
         if (onAvatarPositionChangeRef.current && now2 - lastAvatarReportRef.current > 250) {
           lastAvatarReportRef.current = now2;
-          onAvatarPositionChangeRef.current(x, y);
+          const so = scaleAndOffsetRef.current;
+          onAvatarPositionChangeRef.current(x * so.scale + so.x, y * so.scale + so.y);
         }
 
         if (leftFootRef.current && rightFootRef.current) {
@@ -759,7 +763,7 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
   return (
     <div ref={containerRef} style={{ width: "100%", height: "100%", background: isDarkMode ? "#0f172a" : "#f5f5f5" }}>
       {mapSize.width > 0 && mapSize.height > 0 && (
-        <Stage width={mapSize.width} height={mapSize.height}>
+        <Stage pixelRatio={2} width={mapSize.width} height={mapSize.height}>
           <Layer>
             <Group scaleX={scaleAndOffset.scale} scaleY={scaleAndOffset.scale} x={scaleAndOffset.x} y={scaleAndOffset.y}>
               {showGrid && drawGrid()}

@@ -1313,7 +1313,7 @@ export default function EditPage() {
           <TransformWrapper ref={transformRef} panning={{ disabled: isDraggingElement || isShiftPressed || selectionRect.visible }} initialScale={1} minScale={0.05} maxScale={10} limitToBounds={false} wheel={{ step: 0.005, smoothStep: 0.002 }}>
             <TransformComponent wrapperStyle={{ width: "100%", height: "100%", cursor: isDraggingElement ? "grabbing" : "grab" }}>
               <div className="map-content" style={{ width: calculatedMapSize.width, height: calculatedMapSize.height, background: isDarkMode ? "#0f172a" : "#e0e0e0" }}>
-                <Stage width={calculatedMapSize.width} height={calculatedMapSize.height} onMouseDown={handleStageMouseDown} onMouseMove={handleStageMouseMove} onMouseUp={handleStageMouseUp} onTouchStart={handleStageMouseDown} onTouchMove={handleStageMouseMove} onTouchEnd={handleStageMouseUp}>
+                <Stage pixelRatio={2} width={calculatedMapSize.width} height={calculatedMapSize.height} onMouseDown={handleStageMouseDown} onMouseMove={handleStageMouseMove} onMouseUp={handleStageMouseUp} onTouchStart={handleStageMouseDown} onTouchMove={handleStageMouseMove} onTouchEnd={handleStageMouseUp}>
                   <Layer>
                     <Rect id="bg-grid" x={0} y={0} width={calculatedMapSize.width} height={calculatedMapSize.height} fill="transparent" />
                     {drawGrid()}
