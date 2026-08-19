@@ -1449,9 +1449,7 @@ export default function App() {
                         const roomName = getDisplayNodeName(room, language);
                         setSearch(roomName);
                         if (location) {
-                          executeSearch(location, roomName);
-                        } else {
-                          setSearch(roomName);
+                          executeSearch(location, room.id);
                         }
                       }
                     }
@@ -1531,7 +1529,7 @@ export default function App() {
                     setSearch(roomName);
                     setRoomActionModal(null);
                     if (location) {
-                      executeSearch(location, roomName);
+                      executeSearch(location, room.id);
                     }
                   }}
                   style={{
