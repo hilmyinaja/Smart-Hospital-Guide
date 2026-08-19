@@ -145,22 +145,7 @@ const ElementShape = React.memo(({ shapeProps, isSelected, onSelect, onChange, s
             ...shapeProps,
             x: Math.round(e.target.x() / GRID_SIZE) * GRID_SIZE,
             y: Math.round(e.target.y() / GRID_SIZE) * GRID_SIZE,
-          });
-        }}
-        onTransformEnd={() => {
-          setIsDraggingElement(false);
-          const node = shapeRef.current;
-          const scaleX = node.scaleX();
-          const scaleY = node.scaleY();
-          node.scaleX(1);
-          node.scaleY(1);
-          onChange({
-            ...shapeProps,
-            x: Math.round(node.x() / GRID_SIZE) * GRID_SIZE,
-            y: Math.round(node.y() / GRID_SIZE) * GRID_SIZE,
-            width: Math.max(GRID_SIZE, Math.round((node.width() * scaleX) / GRID_SIZE) * GRID_SIZE),
-            height: Math.max(GRID_SIZE, Math.round((node.height() * scaleY) / GRID_SIZE) * GRID_SIZE),
-          });
+          }, "drag");
         }}
       />
       <Text
@@ -1315,7 +1300,7 @@ export default function EditPage() {
                               setSelectedIds([rect.id]);
                             }
                           }}
-                          onChange={(newAttrs) => {
+                          onChange={(newAttrs, actionType) => {
                             const { placedElements, history, historyStep } = stateRef.current;
 
                             const dx = newAttrs.x - rect.x;
@@ -1324,7 +1309,7 @@ export default function EditPage() {
                             const isSelectedGroup = selectedIds.includes(rect.id);
 
                             const newElements = placedElements.map(e => {
-                              if (isSelectedGroup && selectedIds.includes(e.id)) {
+                              if (actionType === "drag" && isSelectedGroup && selectedIds.includes(e.id)) {
                                 if (e.id === rect.id) return newAttrs;
                                 return {
                                   ...e,
@@ -1416,6 +1401,41 @@ export default function EditPage() {
                             return oldBox;
                           }
                           return newBox;
+                        }}
+                        onTransformEnd={() => {
+                          setIsDraggingElement(false);
+                          const nodes = trRef.current.nodes();
+                          const { placedElements, history, historyStep } = stateRef.current;
+                          let newElements = [...placedElements];
+                          
+                          nodes.forEach(node => {
+                            const scaleX = node.scaleX();
+                            const scaleY = node.scaleY();
+                            node.scaleX(1);
+                            node.scaleY(1);
+                            
+                            const id = node.id();
+                            const index = newElements.findIndex(e => e.id === id);
+                            if (index !== -1) {
+                              newElements[index] = {
+                                ...newElements[index],
+                                x: Math.round(node.x() / GRID_SIZE) * GRID_SIZE,
+                                y: Math.round(node.y() / GRID_SIZE) * GRID_SIZE,
+                                width: Math.max(GRID_SIZE, Math.round((node.width() * scaleX) / GRID_SIZE) * GRID_SIZE),
+                                height: Math.max(GRID_SIZE, Math.round((node.height() * scaleY) / GRID_SIZE) * GRID_SIZE),
+                              };
+                            }
+                          });
+                          
+                          setPlacedElements(newElements);
+                          
+                          let newHistory = history.slice(0, historyStep + 1);
+                          newHistory.push(newElements);
+                          if (newHistory.length > 50) {
+                            newHistory = newHistory.slice(newHistory.length - 50);
+                          }
+                          setHistory(newHistory);
+                          setHistoryStep(newHistory.length - 1);
                         }}
                       />
                     )}
