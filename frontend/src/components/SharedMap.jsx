@@ -58,7 +58,7 @@ function getPointAtDistance(pathPoints, distance) {
   return { x: lastX, y: lastY, angle: 0 };
 }
 
-export default function SharedMap({ path = [], activeStepPath = null, nextStepPath = null, activeStepIndex = 0, navigationSteps = [], currentFloor = "Lantai 1", currentBuilding = "Gedung A", selectedKiosk, onRoomClick, showGrid = true, showBorder = false, language = "id", isDarkMode = false }) {
+export default function SharedMap({ path = [], activeStepPath = null, nextStepPath = null, activeStepIndex = 0, navigationSteps = [], currentFloor = "Lantai 1", currentBuilding = "Gedung A", selectedKiosk, onRoomClick, onAvatarPositionChange, showGrid = true, showBorder = false, language = "id", isDarkMode = false }) {
   const [rooms, setRooms] = useState([]);
   const [kiosks, setKiosks] = useState([]);
   const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
@@ -70,6 +70,9 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
   const idleAvatarRef = useRef(null);
   const wavingArmRef = useRef(null);
   const idlePositionRef = useRef(null);
+  const lastAvatarReportRef = useRef(0);
+  const onAvatarPositionChangeRef = useRef(onAvatarPositionChange);
+  useEffect(() => { onAvatarPositionChangeRef.current = onAvatarPositionChange; }, [onAvatarPositionChange]);
 
   const GRID_SIZE = 25;
 
@@ -672,6 +675,13 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
         personRef.current.y(y);
         personRef.current.rotation(newAngle);
 
+        // Report avatar position for camera follow (throttled ~250ms)
+        const now2 = performance.now();
+        if (onAvatarPositionChangeRef.current && now2 - lastAvatarReportRef.current > 250) {
+          lastAvatarReportRef.current = now2;
+          onAvatarPositionChangeRef.current(x, y);
+        }
+
         if (leftFootRef.current && rightFootRef.current) {
           const footSwing = isMoving ? Math.sin(frame.time * LEG_SWING_FREQ) * 8 : 0;
           leftFootRef.current.x(footSwing);
@@ -790,7 +800,7 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
 
                   const fontSize = Math.max(9, Math.min(maxFontSizeWord, maxFontSizeArea, maxFontSizeSingleLine));
 
-                  const isPintu = room.name?.toLowerCase().includes('pintu');
+                  const isPintu = room.is_connector || room.name?.toLowerCase().includes('pintu');
                   const isLift = room.name?.toLowerCase().includes('lift');
                   const isStairs = room.name?.toLowerCase().includes('tangga') || room.name?.toLowerCase().includes('stairs');
                   
@@ -832,8 +842,20 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
                 .map((kiosk) => {
                   let textContent = getDisplayNodeName(kiosk, language);
                   if (!textContent) textContent = "Kiosk";
-                  const fillCol = "#2196F3";
-                  const strokeCol = "#0D47A1";
+                  const isPintu = kiosk.name?.toLowerCase().includes('pintu');
+                  const isLift = kiosk.name?.toLowerCase().includes('lift');
+                  const isStairs = kiosk.name?.toLowerCase().includes('tangga') || kiosk.name?.toLowerCase().includes('stairs');
+
+                  let fillCol = "#2196F3";
+                  let strokeCol = "#0D47A1";
+
+                  if (isPintu) {
+                    fillCol = "#4CAF50"; strokeCol = "#2E7D32";
+                  } else if (isLift) {
+                    fillCol = "#9C27B0"; strokeCol = "#6A1B9A";
+                  } else if (isStairs) {
+                    fillCol = "#FF9800"; strokeCol = "#E65100";
+                  }
 
                   const textContentLen = Math.max(1, textContent.length);
                   const longestWordLen = Math.max(...textContent.split(' ').map(w => w.length), 1);

@@ -80,6 +80,7 @@ export default function App() {
 
   const [floor, setFloor] = useState("Lantai 1");
   const [floorOrder, setFloorOrder] = useState({});
+  const [buildingOrder, setBuildingOrder] = useState([]);
   const [building,    setBuilding]    = useState("");
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [username, setUsername] = useState("");
@@ -92,9 +93,16 @@ export default function App() {
     const bSet = new Set();
     kiosks.forEach(k => { if (k.building) bSet.add(k.building); });
     rooms.forEach(r => { if (r.building) bSet.add(r.building); });
-    const arr = Array.from(bSet).sort();
+    const arr = Array.from(bSet).sort((a, b) => {
+      const idxA = buildingOrder.indexOf(a);
+      const idxB = buildingOrder.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.localeCompare(b);
+    });
     return arr.length > 0 ? arr : ["Gedung A"];
-  }, [kiosks, rooms]);
+  }, [kiosks, rooms, buildingOrder]);
 
   // Auto-select first building when buildings list changes
   useEffect(() => {
@@ -373,9 +381,14 @@ export default function App() {
 
 
     const unsubscribeConfig = onSnapshot(doc(db, "Settings", "MapConfig"), (docSnap) => {
-      if (docSnap.exists() && docSnap.data().floorOrder) {
-        floorOrderRef.current = docSnap.data().floorOrder;
-        setFloorOrder(docSnap.data().floorOrder);
+      if (docSnap.exists()) {
+        if (docSnap.data().floorOrder) {
+          floorOrderRef.current = docSnap.data().floorOrder;
+          setFloorOrder(docSnap.data().floorOrder);
+        }
+        if (docSnap.data().buildingOrder) {
+          setBuildingOrder(docSnap.data().buildingOrder);
+        }
       }
     });
 
