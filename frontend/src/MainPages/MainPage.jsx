@@ -458,27 +458,37 @@ export default function App() {
     const wWidth = wrapper.offsetWidth;
     const wHeight = wrapper.offsetHeight;
 
-    // Avatar position in viewport space
-    const vx = screenX * scale + positionX;
-    const vy = screenY * scale + positionY;
-
-    // Safe zone: center 40% of viewport (30% margin each side)
-    const mX = wWidth * 0.3;
-    const mY = wHeight * 0.3;
-
+    const TARGET_SCALE = 1.8;
+    let newScale = scale;
     let newX = positionX;
     let newY = positionY;
-    let needsPan = false;
+    let needsChange = false;
 
-    if (vx < mX) { newX = positionX + (mX - vx); needsPan = true; }
-    else if (vx > wWidth - mX) { newX = positionX - (vx - (wWidth - mX)); needsPan = true; }
+    // Auto-zoom if the map is zoomed out too far, and center the avatar
+    if (scale < TARGET_SCALE) {
+      newScale = TARGET_SCALE;
+      newX = (wWidth / 2) - (screenX * newScale);
+      newY = (wHeight / 2) - (screenY * newScale);
+      needsChange = true;
+    } else {
+      // Just panning (keep current scale)
+      const vx = screenX * scale + positionX;
+      const vy = screenY * scale + positionY;
 
-    if (vy < mY) { newY = positionY + (mY - vy); needsPan = true; }
-    else if (vy > wHeight - mY) { newY = positionY - (vy - (wHeight - mY)); needsPan = true; }
+      // Safe zone: center 40% of viewport (30% margin each side)
+      const mX = wWidth * 0.3;
+      const mY = wHeight * 0.3;
 
-    if (needsPan) {
+      if (vx < mX) { newX = positionX + (mX - vx); needsChange = true; }
+      else if (vx > wWidth - mX) { newX = positionX - (vx - (wWidth - mX)); needsChange = true; }
+
+      if (vy < mY) { newY = positionY + (mY - vy); needsChange = true; }
+      else if (vy > wHeight - mY) { newY = positionY - (vy - (wHeight - mY)); needsChange = true; }
+    }
+
+    if (needsChange) {
       isProgrammaticPanRef.current = true;
-      ref.setTransform(newX, newY, scale, 0);
+      ref.setTransform(newX, newY, newScale, 0);
       requestAnimationFrame(() => { isProgrammaticPanRef.current = false; });
     }
   }, [isNavFinished, activeStepIndex, isUserPanning]);
@@ -1013,7 +1023,7 @@ export default function App() {
                         onChange={(e) => {
                           const newB = e.target.value;
                           setBuilding(newB);
-                          setLocation(""); // Clear the selected kiosk when building changes
+                          // User requested not to clear the location when building changes
                           const bFloors = new Set();
                           kiosks.forEach(k => { if (k.building === newB && k.floor && !k.floor.startsWith("submap_")) bFloors.add(k.floor); });
                           rooms.forEach(r => { if (r.building === newB && r.floor && !r.floor.startsWith("submap_")) bFloors.add(r.floor); });
@@ -1067,6 +1077,17 @@ export default function App() {
                         }}
                       >
                         <option value="" disabled>{getText('select_kiosk')}</option>
+                        {(() => {
+                          const currentKiosk = kiosks.find(k => k.id === location);
+                          if (currentKiosk && currentKiosk.building !== building) {
+                            return (
+                              <option value={currentKiosk.id} hidden>
+                                {translateName(currentKiosk.name || currentKiosk.id, language, currentKiosk.name_en)}
+                              </option>
+                            );
+                          }
+                          return null;
+                        })()}
                         {kiosks.filter(k => !k.name?.toLowerCase().includes('pintu') && k.building === building).map((kiosk) => (
                           <option key={kiosk.id} value={kiosk.id}>
                             {translateName(kiosk.name || kiosk.id, language, kiosk.name_en)}
