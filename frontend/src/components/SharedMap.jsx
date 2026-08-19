@@ -58,7 +58,7 @@ function getPointAtDistance(pathPoints, distance) {
   return { x: lastX, y: lastY, angle: 0 };
 }
 
-export default function SharedMap({ path = [], activeStepPath = null, nextStepPath = null, activeStepIndex = 0, navigationSteps = [], currentFloor = "Lantai 1", currentBuilding = "Gedung A", selectedKiosk, onRoomClick, onAvatarPositionChange, showGrid = true, showBorder = false, language = "id", isDarkMode = false }) {
+export default function SharedMap({ resolutionScale = 1, path = [], activeStepPath = null, nextStepPath = null, activeStepIndex = 0, navigationSteps = [], currentFloor = "Lantai 1", currentBuilding = "Gedung A", selectedKiosk, onRoomClick, onAvatarPositionChange, showGrid = true, showBorder = false, language = "id", isDarkMode = false }) {
   const [rooms, setRooms] = useState([]);
   const [kiosks, setKiosks] = useState([]);
   const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
@@ -763,7 +763,7 @@ export default function SharedMap({ path = [], activeStepPath = null, nextStepPa
   return (
     <div ref={containerRef} style={{ width: "100%", height: "100%", background: isDarkMode ? "#0f172a" : "#f5f5f5" }}>
       {mapSize.width > 0 && mapSize.height > 0 && (
-        <Stage pixelRatio={2} width={mapSize.width} height={mapSize.height}>
+        <Stage pixelRatio={Math.max(window.devicePixelRatio || 1, resolutionScale * (window.devicePixelRatio || 1))} width={mapSize.width} height={mapSize.height}>
           <Layer>
             <Group scaleX={scaleAndOffset.scale} scaleY={scaleAndOffset.scale} x={scaleAndOffset.x} y={scaleAndOffset.y}>
               {showGrid && drawGrid()}

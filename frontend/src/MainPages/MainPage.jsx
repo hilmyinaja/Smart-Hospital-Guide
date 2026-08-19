@@ -63,6 +63,7 @@ const LoginIcon = () => (
 export default function App() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
+  const [resolutionScale, setResolutionScale] = useState(1);
   const [outputText, setOutputText] = useState("");
 
 
@@ -1416,10 +1417,11 @@ export default function App() {
               Kembali ke Lantai Utama
             </button>
           )}
-          <TransformWrapper ref={transformComponentRef} onPanningStart={() => { if (!isProgrammaticPanRef.current) setIsUserPanning(true); }} initialScale={1} minScale={0.05} maxScale={10} centerOnInit={true} limitToBounds={false} wheel={{ step: 0.005, smoothStep: 0.002 }}>
+          <TransformWrapper ref={transformComponentRef} onZoomStop={(ref) => setResolutionScale(ref.state.scale)} onPanningStart={() => { if (!isProgrammaticPanRef.current) setIsUserPanning(true); }} initialScale={1} minScale={0.05} maxScale={10} centerOnInit={true} limitToBounds={false} wheel={{ step: 0.005, smoothStep: 0.002 }}>
             <TransformComponent wrapperStyle={{ width: "100%", height: "100%", cursor: "grab" }} contentStyle={{ width: "100%", height: "100vh" }}>
               <div className="map-content" style={{ width: "100%", height: "100%" }}>
                 <SharedMap
+                  resolutionScale={resolutionScale}
                   path={filteredPathData}
                   activePath={activePath}
                   activeStepPath={activeStepPath}
